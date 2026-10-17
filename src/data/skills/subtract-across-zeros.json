@@ -5,6 +5,12 @@
   "gradeBand": "3-5",
   "prerequisites": ["subtract-borrow-three-digit"],
   "generator": "stacked-subtraction",
-  "description": "Borrow across a zero when a middle digit has nothing to give.",
-  "params": { "digits": 3, "borrow": "across-zeros" }
+  "description": "Borrow across a zero in the tens place.",
+  "levels": [
+    { "digits": 3, "borrow": "across-zeros", "topMax": 300 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 500 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 700 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 900 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 999 }
+  ]
 }

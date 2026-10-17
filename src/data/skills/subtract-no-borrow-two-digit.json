@@ -1,10 +1,16 @@
 {
   "id": "subtract-no-borrow-two-digit",
   "strand": "addition-subtraction",
-  "name": "Subtract without borrowing, two digits",
+  "name": "Subtract two digits, no borrowing",
   "gradeBand": "K-2",
   "prerequisites": ["add-two-digit-no-regroup"],
   "generator": "stacked-subtraction",
-  "description": "Subtract two-digit numbers when every top digit is big enough.",
-  "params": { "digits": 2, "borrow": "none" }
+  "description": "Subtract when every top digit is at least as large as the bottom digit.",
+  "levels": [
+    { "digits": 2, "borrow": "none", "topMax": 30 },
+    { "digits": 2, "borrow": "none", "topMax": 50 },
+    { "digits": 2, "borrow": "none", "topMax": 99 },
+    { "digits": 3, "borrow": "none", "topMax": 400 },
+    { "digits": 3, "borrow": "none", "topMax": 999 }
+  ]
 }

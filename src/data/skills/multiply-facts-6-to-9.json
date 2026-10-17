@@ -6,5 +6,11 @@
   "prerequisites": ["multiply-facts-2-to-5"],
   "generator": "multiplication",
   "description": "Multiply one-digit numbers from 6 through 9.",
-  "params": { "mode": "facts", "leftMin": 6, "leftMax": 9, "rightMin": 2, "rightMax": 9 }
+  "levels": [
+    { "mode": "facts", "leftMin": 6, "leftMax": 6, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 6, "leftMax": 7, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 6, "leftMax": 9, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 6, "leftMax": 9, "rightMin": 4, "rightMax": 7 },
+    { "mode": "facts", "leftMin": 8, "leftMax": 9, "rightMin": 6, "rightMax": 9 }
+  ]
 }

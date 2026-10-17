@@ -1,5 +1,5 @@
 import { skillsInStrand, strands } from "../data/load-skills";
-import type { LearnerMap } from "../engine/placement";
+import { CEILING_MESSAGE, type LearnerMap as LearnerMapData } from "../engine/placement";
 
 const STATE_LABEL = {
   unknown: "Unknown",
@@ -8,11 +8,12 @@ const STATE_LABEL = {
 } as const;
 
 type Props = {
-  map: LearnerMap;
+  map: LearnerMapData;
+  toppedOut?: string[];
   onPractice: (skillId: string) => void;
 };
 
-export function LearnerMap({ map, onPractice }: Props) {
+export function LearnerMap({ map, toppedOut = [], onPractice }: Props) {
   return (
     <section className="screen">
       <header className="screen-head">
@@ -28,8 +29,11 @@ export function LearnerMap({ map, onPractice }: Props) {
         {strands.map((strand) => (
           <section key={strand.id} className="strand">
             <h2>{strand.name}</h2>
+            {toppedOut.includes(strand.id) ? <p className="ceiling">{CEILING_MESSAGE}</p> : null}
             {skillsInStrand(strand.id).map((skill) => {
-              const state = map[skill.id]?.state ?? "unknown";
+              const progress = map[skill.id];
+              const state = progress?.state ?? "unknown";
+              const level = progress?.level ?? 0;
               return (
                 <button
                   key={skill.id}
@@ -39,7 +43,7 @@ export function LearnerMap({ map, onPractice }: Props) {
                 >
                   <span className="skill-name">{skill.name}</span>
                   <span className="skill-meta">
-                    {skill.gradeBand} · {STATE_LABEL[state]}
+                    {skill.gradeBand} · {STATE_LABEL[state]} · {level} of 5
                   </span>
                 </button>
               );

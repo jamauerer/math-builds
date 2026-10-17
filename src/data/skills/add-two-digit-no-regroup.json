@@ -1,10 +1,16 @@
 {
   "id": "add-two-digit-no-regroup",
   "strand": "addition-subtraction",
-  "name": "Add two digits without regrouping",
+  "name": "Add two digits, no regrouping",
   "gradeBand": "K-2",
   "prerequisites": [],
   "generator": "addition",
-  "description": "Add two-digit numbers when no column needs a trade.",
-  "params": { "digits": 2, "regroup": "none" }
+  "description": "Add two numbers when no column sums to ten or more.",
+  "levels": [
+    { "digits": 2, "regroup": "none", "maxAddend": 20 },
+    { "digits": 2, "regroup": "none", "maxAddend": 40 },
+    { "digits": 2, "regroup": "none", "maxAddend": 60 },
+    { "digits": 2, "regroup": "none", "maxAddend": 99 },
+    { "digits": 3, "regroup": "none", "maxAddend": 999 }
+  ]
 }

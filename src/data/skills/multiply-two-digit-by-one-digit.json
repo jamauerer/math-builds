@@ -6,5 +6,11 @@
   "prerequisites": ["multiply-facts-6-to-9", "multiply-by-ten-or-hundred"],
   "generator": "multiplication",
   "description": "Multiply a two-digit number by a one-digit number.",
-  "params": { "mode": "multi", "leftDigits": 2, "rightDigits": 1 }
+  "levels": [
+    { "mode": "multi", "leftMin": 10, "leftMax": 19, "rightMin": 2, "rightMax": 3 },
+    { "mode": "multi", "leftMin": 10, "leftMax": 39, "rightMin": 2, "rightMax": 5 },
+    { "mode": "multi", "leftMin": 10, "leftMax": 69, "rightMin": 2, "rightMax": 7 },
+    { "mode": "multi", "leftMin": 20, "leftMax": 89, "rightMin": 3, "rightMax": 9 },
+    { "mode": "multi", "leftMin": 25, "leftMax": 99, "rightMin": 4, "rightMax": 9 }
+  ]
 }

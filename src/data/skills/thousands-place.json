@@ -5,6 +5,12 @@
   "gradeBand": "3-5",
   "prerequisites": ["hundreds"],
   "generator": "place-value",
-  "description": "Tell the value of the thousands digit.",
-  "params": { "min": 1000, "max": 9999, "places": ["thousands"] }
+  "description": "In a four-digit number, tell the value of the thousands digit.",
+  "levels": [
+    { "min": 1000, "max": 1999, "places": ["thousands"] },
+    { "min": 1000, "max": 3999, "places": ["thousands"] },
+    { "min": 1000, "max": 5999, "places": ["thousands"] },
+    { "min": 1000, "max": 7999, "places": ["thousands"] },
+    { "min": 1000, "max": 9999, "places": ["thousands"] }
+  ]
 }

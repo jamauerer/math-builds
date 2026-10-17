@@ -6,5 +6,11 @@
   "prerequisites": [],
   "generator": "place-value",
   "description": "In a two-digit number, tell the value of the tens or ones digit.",
-  "params": { "min": 10, "max": 99, "places": ["tens", "ones"] }
+  "levels": [
+    { "min": 10, "max": 19, "places": ["tens", "ones"] },
+    { "min": 10, "max": 39, "places": ["tens", "ones"] },
+    { "min": 10, "max": 59, "places": ["tens", "ones"] },
+    { "min": 10, "max": 79, "places": ["tens", "ones"] },
+    { "min": 10, "max": 99, "places": ["tens", "ones"] }
+  ]
 }

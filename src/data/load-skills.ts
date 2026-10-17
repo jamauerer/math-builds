@@ -66,6 +66,9 @@ export function parseSkill(raw: unknown, source: string): Skill {
   if (description.includes("\u2014")) {
     throw new Error(`${source} description uses an em dash`);
   }
+  if (!Array.isArray(raw.levels) || raw.levels.length !== 5) {
+    throw new Error(`${source} levels must be five param objects`);
+  }
   return {
     id: String(raw.id),
     strand: String(raw.strand),
@@ -74,7 +77,7 @@ export function parseSkill(raw: unknown, source: string): Skill {
     prerequisites: raw.prerequisites,
     generator: String(raw.generator),
     description,
-    params: parseParams(raw.params ?? {}, source),
+    levels: raw.levels.map((entry, index) => parseParams(entry, `${source} level ${index + 1}`)),
   };
 }
 

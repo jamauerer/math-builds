@@ -6,5 +6,11 @@
   "prerequisites": ["multiply-two-digit-by-one-digit"],
   "generator": "multiplication",
   "description": "Multiply a two-digit number by another two-digit number.",
-  "params": { "mode": "multi", "leftDigits": 2, "rightDigits": 2 }
+  "levels": [
+    { "mode": "multi", "leftMin": 10, "leftMax": 19, "rightMin": 10, "rightMax": 19 },
+    { "mode": "multi", "leftMin": 10, "leftMax": 39, "rightMin": 10, "rightMax": 29 },
+    { "mode": "multi", "leftMin": 12, "leftMax": 59, "rightMin": 12, "rightMax": 49 },
+    { "mode": "multi", "leftMin": 15, "leftMax": 79, "rightMin": 15, "rightMax": 79 },
+    { "mode": "multi", "leftMin": 25, "leftMax": 99, "rightMin": 12, "rightMax": 99 }
+  ]
 }

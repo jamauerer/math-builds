@@ -2,34 +2,26 @@ import { answersMatch } from "./answers";
 import { generateProblem } from "./generate";
 import type { Rng } from "./rng";
 import { createRng } from "./rng";
-import type { Problem, Skill, Strand } from "./types";
+import { MAX_LEVEL, type Problem, type Skill, type Strand } from "./types";
 
 export type SkillStateName = "unknown" | "shaky" | "solid";
 
 export type SkillProgress = {
+  /** Highest level passed, from 0 through 5. */
+  level: number;
   state: SkillStateName;
-  recent: boolean[];
 };
 
-/** One entry per skill. Strands are independent, so states can disagree. */
+/** One entry per skill. Strands stay independent. */
 export type LearnerMap = Record<string, SkillProgress>;
 
-export const HISTORY_LIMIT = 4;
-export const DEFAULT_MAX_QUESTIONS_PER_STRAND = 12;
+export const CEILING_MESSAGE = "You have finished all current skills in this strand";
 
-export function judgeState(recent: readonly boolean[]): SkillStateName {
-  if (recent.length === 0) {
-    return "unknown";
-  }
-  const correct = recent.filter(Boolean).length;
-  const wrong = recent.length - correct;
-  if (correct >= 2 && wrong === 0 && recent[recent.length - 1] === true) {
+export function labelForLevel(level: number): SkillStateName {
+  if (level >= MAX_LEVEL) {
     return "solid";
   }
-  if (correct >= 1 && wrong >= 1) {
-    return "shaky";
-  }
-  if (correct === 1) {
+  if (level >= 1) {
     return "shaky";
   }
   return "unknown";
@@ -38,27 +30,128 @@ export function judgeState(recent: readonly boolean[]): SkillStateName {
 export function createLearnerMap(skills: readonly Skill[]): LearnerMap {
   const map: LearnerMap = {};
   for (const skill of skills) {
-    map[skill.id] = { state: "unknown", recent: [] };
+    map[skill.id] = { level: 0, state: "unknown" };
   }
   return map;
 }
 
-/** Shared by placement and ordinary practice. */
-export function recordAnswer(map: LearnerMap, skillId: string, correct: boolean): LearnerMap {
+/** Highest level passed only moves up. Practice and placement share this. */
+export function recordLevelPass(map: LearnerMap, skillId: string, level: number): LearnerMap {
   const previous = map[skillId];
   if (!previous) {
     throw new Error(`Unknown skill ${skillId}`);
   }
-  const recent = [...previous.recent, correct].slice(-HISTORY_LIMIT);
+  const nextLevel = Math.max(previous.level, Math.min(MAX_LEVEL, Math.max(0, Math.floor(level))));
   return {
     ...map,
-    [skillId]: { recent, state: judgeState(recent) },
+    [skillId]: { level: nextLevel, state: labelForLevel(nextLevel) },
   };
+}
+
+/** Next practice item is one step above the highest level passed, and never above 5. */
+export function practiceLevel(progress: SkillProgress | undefined): number {
+  return Math.min(MAX_LEVEL, (progress?.level ?? 0) + 1);
+}
+
+export function strandIsMastered(strand: Strand, map: LearnerMap): boolean {
+  return strand.skills.every((id) => (map[id]?.level ?? 0) >= MAX_LEVEL);
+}
+
+/** Records a strand the first time every skill in it is level 5, and logs that strand. */
+export function noteCeilings(
+  strands: readonly Strand[],
+  map: LearnerMap,
+  already: readonly string[],
+): string[] {
+  const next = [...already];
+  for (const strand of strands) {
+    if (next.includes(strand.id) || !strandIsMastered(strand, map)) {
+      continue;
+    }
+    next.push(strand.id);
+    console.log(`Strand topped out: ${strand.id}`);
+  }
+  return next;
+}
+
+type Probe = {
+  skillId: string;
+  level: number;
+  misses: number[];
+  steppedBack: boolean;
+};
+
+function freshProbe(skillId: string): Probe {
+  return { skillId, level: 1, misses: [0, 0, 0, 0, 0, 0], steppedBack: false };
+}
+
+function applyResult(
+  probe: Probe,
+  correct: boolean,
+): { probe: Probe | null; passedLevel: number | null } {
+  if (correct) {
+    const passedLevel = probe.level;
+    if (probe.level >= MAX_LEVEL) {
+      return { probe: null, passedLevel };
+    }
+    return {
+      probe: { ...probe, level: probe.level + 1 },
+      passedLevel,
+    };
+  }
+  const misses = probe.misses.slice();
+  misses[probe.level] = (misses[probe.level] ?? 0) + 1;
+  if (misses[probe.level] >= 2) {
+    return { probe: null, passedLevel: null };
+  }
+  if (probe.level > 1 && !probe.steppedBack) {
+    return {
+      probe: { ...probe, misses, level: probe.level - 1, steppedBack: true },
+      passedLevel: null,
+    };
+  }
+  if (probe.steppedBack) {
+    return { probe: null, passedLevel: null };
+  }
+  return { probe: { ...probe, misses }, passedLevel: null };
+}
+
+function skillById(skills: readonly Skill[]): Map<string, Skill> {
+  return new Map(skills.map((skill) => [skill.id, skill]));
+}
+
+function prerequisitesMet(skill: Skill, map: LearnerMap): boolean {
+  return skill.prerequisites.every((id) => (map[id]?.level ?? 0) >= MAX_LEVEL);
+}
+
+function nextSkill(
+  skills: readonly Skill[],
+  strands: readonly Strand[],
+  map: LearnerMap,
+  finished: ReadonlySet<string>,
+): Skill | null {
+  const byId = skillById(skills);
+  for (const strand of strands) {
+    for (const id of strand.skills) {
+      if (finished.has(id)) {
+        continue;
+      }
+      const skill = byId.get(id);
+      if (!skill) {
+        throw new Error(`Strand ${strand.id} lists missing skill ${id}`);
+      }
+      if (prerequisitesMet(skill, map)) {
+        return skill;
+      }
+    }
+  }
+  return null;
 }
 
 export type PlacementQuestion = {
   strandId: string;
   skillId: string;
+  level: number;
   correct: boolean;
   prompt: string;
 };
@@ -66,104 +159,49 @@ export type PlacementQuestion = {
 export type PlacementResult = {
   map: LearnerMap;
   questions: PlacementQuestion[];
-  questionsPerStrand: Record<string, number>;
-  stopReason: Record<string, "boundary" | "cap">;
+  toppedOut: string[];
 };
-
-function failed(progress: SkillProgress): boolean {
-  return progress.recent.length > 0 && progress.recent.every((item) => !item);
-}
-
-function selectNext(
-  strandSkills: readonly Skill[],
-  map: LearnerMap,
-  currentId: string | null,
-  lastCorrect: boolean | null,
-): string | null {
-  const open = (skill: Skill) =>
-    map[skill.id].state !== "solid" &&
-    !failed(map[skill.id]) &&
-    skill.prerequisites.every((id) => map[id].state === "solid") &&
-    skill.prerequisites.every((id) => !failed(map[id]));
-
-  if (currentId !== null && lastCorrect === true && map[currentId].state !== "solid") {
-    return currentId;
-  }
-
-  if (currentId !== null && lastCorrect === false) {
-    const current = strandSkills.find((skill) => skill.id === currentId);
-    const back = current
-      ? [...current.prerequisites].reverse().find((id) => {
-          const progress = map[id];
-          return progress.state !== "solid" && !failed(progress);
-        })
-      : undefined;
-    if (back) {
-      return back;
-    }
-  }
-
-  const next = strandSkills.find((skill) => skill.id !== currentId && open(skill));
-  return next?.id ?? null;
-}
 
 export function runPlacement(options: {
   skills: readonly Skill[];
   strands: readonly Strand[];
-  respond: (skill: Skill, problem: Problem) => boolean;
+  respond: (skill: Skill, problem: Problem, level: number) => boolean;
   seed?: number;
-  difficulty?: number;
-  maxQuestionsPerStrand?: number;
   rng?: Rng;
 }): PlacementResult {
-  const maxQuestions = options.maxQuestionsPerStrand ?? DEFAULT_MAX_QUESTIONS_PER_STRAND;
-  const difficulty = options.difficulty ?? 3;
   const rng = options.rng ?? createRng(options.seed ?? 1);
-  const byId = new Map(options.skills.map((skill) => [skill.id, skill]));
   let map = createLearnerMap(options.skills);
+  let toppedOut: string[] = [];
   const questions: PlacementQuestion[] = [];
-  const questionsPerStrand: Record<string, number> = {};
-  const stopReason: Record<string, "boundary" | "cap"> = {};
+  const finished = new Set<string>();
 
-  for (const strand of options.strands) {
-    const strandSkills = strand.skills.map((id) => {
-      const skill = byId.get(id);
-      if (!skill) {
-        throw new Error(`Strand ${strand.id} lists missing skill ${id}`);
-      }
-      return skill;
-    });
-    let currentId: string | null = null;
-    let lastCorrect: boolean | null = null;
-    let asked = 0;
-    while (asked < maxQuestions) {
-      const nextId = selectNext(strandSkills, map, currentId, lastCorrect);
-      if (!nextId) {
-        break;
-      }
-      const skill = byId.get(nextId);
-      if (!skill) {
-        throw new Error(`Missing skill ${nextId}`);
-      }
-      const problem = generateProblem(skill, rng, difficulty);
-      const correct = options.respond(skill, problem);
-      map = recordAnswer(map, skill.id, correct);
-      currentId = skill.id;
-      lastCorrect = correct;
-      asked += 1;
+  for (let guard = 0; guard < options.skills.length + 2; guard += 1) {
+    const skill = nextSkill(options.skills, options.strands, map, finished);
+    if (!skill) {
+      break;
+    }
+    let probe: Probe | null = freshProbe(skill.id);
+    for (let asked = 0; probe && asked < 20; asked += 1) {
+      const problem = generateProblem(skill, rng, probe.level);
+      const correct = options.respond(skill, problem, probe.level);
       questions.push({
-        strandId: strand.id,
+        strandId: skill.strand,
         skillId: skill.id,
+        level: probe.level,
         correct,
         prompt: problem.prompt,
       });
+      const result = applyResult(probe, correct);
+      if (result.passedLevel != null) {
+        map = recordLevelPass(map, skill.id, result.passedLevel);
+      }
+      probe = result.probe;
     }
-    const pending = selectNext(strandSkills, map, currentId, lastCorrect);
-    questionsPerStrand[strand.id] = asked;
-    stopReason[strand.id] = pending && asked >= maxQuestions ? "cap" : "boundary";
+    finished.add(skill.id);
+    toppedOut = noteCeilings(options.strands, map, toppedOut);
   }
 
-  return { map, questions, questionsPerStrand, stopReason };
+  return { map, questions, toppedOut };
 }
 
 export type QuizPhase = "answering" | "feedback" | "done";
@@ -172,76 +210,73 @@ export type QuizSession = {
   skills: readonly Skill[];
   strands: readonly Strand[];
   map: LearnerMap;
+  toppedOut: string[];
   phase: QuizPhase;
-  strandIndex: number;
-  currentSkillId: string | null;
-  lastCorrect: boolean | null;
-  askedThisStrand: number;
+  probe: Probe | null;
+  finished: string[];
   problem: Problem | null;
   skillId: string | null;
+  level: number;
+  questionNumber: number;
   correct: boolean | null;
-  difficulty: number;
-  maxQuestionsPerStrand: number;
+  skipped: boolean;
 };
 
-function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
-  const byId = new Map(session.skills.map((skill) => [skill.id, skill]));
-  let strandIndex = session.strandIndex;
-  let currentSkillId = session.currentSkillId;
-  let lastCorrect = session.lastCorrect;
-  let askedThisStrand = session.askedThisStrand;
-
-  while (strandIndex < session.strands.length) {
-    if (askedThisStrand >= session.maxQuestionsPerStrand) {
-      strandIndex += 1;
-      currentSkillId = null;
-      lastCorrect = null;
-      askedThisStrand = 0;
-      continue;
-    }
-    const strand = session.strands[strandIndex];
-    const strandSkills = strand.skills.map((id) => {
-      const skill = byId.get(id);
-      if (!skill) {
-        throw new Error(`Strand ${strand.id} lists missing skill ${id}`);
-      }
-      return skill;
-    });
-    const nextId = selectNext(strandSkills, session.map, currentSkillId, lastCorrect);
-    if (!nextId) {
-      strandIndex += 1;
-      currentSkillId = null;
-      lastCorrect = null;
-      askedThisStrand = 0;
-      continue;
-    }
-    const skill = byId.get(nextId);
-    if (!skill) {
-      throw new Error(`Missing skill ${nextId}`);
-    }
-    return {
-      ...session,
-      strandIndex,
-      currentSkillId,
-      lastCorrect,
-      askedThisStrand,
-      phase: "answering",
-      skillId: nextId,
-      problem: generateProblem(skill, rng, session.difficulty),
-      correct: null,
-    };
+function withResult(session: QuizSession, correct: boolean): QuizSession {
+  if (!session.probe || !session.skillId) {
+    return session;
   }
-
+  const result = applyResult(session.probe, correct);
+  let map = session.map;
+  if (result.passedLevel != null) {
+    map = recordLevelPass(map, session.skillId, result.passedLevel);
+  }
+  const finished = result.probe ? session.finished : [...session.finished, session.skillId];
+  const toppedOut = result.probe ? session.toppedOut : noteCeilings(session.strands, map, session.toppedOut);
   return {
     ...session,
-    strandIndex,
-    currentSkillId,
-    lastCorrect,
-    askedThisStrand,
-    phase: "done",
-    skillId: null,
-    problem: null,
+    map,
+    toppedOut,
+    finished,
+    probe: result.probe,
+  };
+}
+
+function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
+  let probe = session.probe;
+  let toppedOut = session.toppedOut;
+  if (!probe) {
+    const skill = nextSkill(session.skills, session.strands, session.map, new Set(session.finished));
+    if (!skill) {
+      toppedOut = noteCeilings(session.strands, session.map, toppedOut);
+      return {
+        ...session,
+        toppedOut,
+        phase: "done",
+        probe: null,
+        problem: null,
+        skillId: null,
+        correct: null,
+        skipped: false,
+      };
+    }
+    probe = freshProbe(skill.id);
+  }
+  const skill = skillById(session.skills).get(probe.skillId);
+  if (!skill) {
+    throw new Error(`Missing skill ${probe.skillId}`);
+  }
+  return {
+    ...session,
+    toppedOut,
+    probe,
+    phase: "answering",
+    skillId: skill.id,
+    level: probe.level,
+    problem: generateProblem(skill, rng, probe.level),
+    questionNumber: session.questionNumber + 1,
     correct: null,
+    skipped: false,
   };
 }
 
@@ -249,24 +284,23 @@ export function createQuizSession(options: {
   skills: readonly Skill[];
   strands: readonly Strand[];
   map?: LearnerMap;
+  toppedOut?: string[];
   rng: Rng;
-  difficulty?: number;
-  maxQuestionsPerStrand?: number;
 }): QuizSession {
   const base: QuizSession = {
     skills: options.skills,
     strands: options.strands,
     map: options.map ?? createLearnerMap(options.skills),
+    toppedOut: options.toppedOut ?? [],
     phase: "answering",
-    strandIndex: 0,
-    currentSkillId: null,
-    lastCorrect: null,
-    askedThisStrand: 0,
+    probe: null,
+    finished: [],
     problem: null,
     skillId: null,
+    level: 1,
+    questionNumber: 0,
     correct: null,
-    difficulty: options.difficulty ?? 3,
-    maxQuestionsPerStrand: options.maxQuestionsPerStrand ?? DEFAULT_MAX_QUESTIONS_PER_STRAND,
+    skipped: false,
   };
   return presentQuestion(base, options.rng);
 }
@@ -277,14 +311,19 @@ export function gradeAnswer(session: QuizSession, given: string): QuizSession {
   }
   const correct = answersMatch(given, session.problem.answer);
   return {
-    ...session,
+    ...withResult(session, correct),
     phase: "feedback",
     correct,
-    map: recordAnswer(session.map, session.skillId, correct),
-    currentSkillId: session.skillId,
-    lastCorrect: correct,
-    askedThisStrand: session.askedThisStrand + 1,
+    skipped: false,
   };
+}
+
+/** A skip is a miss and moves straight to the next problem. */
+export function skipQuestion(session: QuizSession, rng: Rng): QuizSession {
+  if (session.phase !== "answering" || !session.problem) {
+    return session;
+  }
+  return presentQuestion(withResult(session, false), rng);
 }
 
 export function continueQuiz(session: QuizSession, rng: Rng): QuizSession {

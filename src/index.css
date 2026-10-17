@@ -139,6 +139,28 @@ button {
   font-size: 1.4rem;
 }
 
+.progress,
+.ceiling {
+  margin: 0;
+}
+
+.ceiling {
+  background: #ecfdf3;
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.skip {
+  background: #f5f5f4;
+}
+
+.answer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .feedback {
   display: flex;
   flex-direction: column;

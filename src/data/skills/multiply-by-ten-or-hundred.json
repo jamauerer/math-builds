@@ -6,5 +6,11 @@
   "prerequisites": ["multiply-facts-2-to-5"],
   "generator": "multiplication",
   "description": "Multiply a one-digit number by ten or one hundred.",
-  "params": { "mode": "times-ten", "leftMin": 2, "leftMax": 9 }
+  "levels": [
+    { "mode": "times-ten", "leftMin": 2, "leftMax": 4, "rightMin": 10, "rightMax": 10 },
+    { "mode": "times-ten", "leftMin": 2, "leftMax": 9, "rightMin": 10, "rightMax": 10 },
+    { "mode": "times-ten", "leftMin": 2, "leftMax": 5, "rightMin": 100, "rightMax": 100 },
+    { "mode": "times-ten", "leftMin": 2, "leftMax": 9, "rightMin": 100, "rightMax": 100 },
+    { "mode": "times-ten", "leftMin": 6, "leftMax": 9, "rightMin": 100, "rightMax": 100 }
+  ]
 }

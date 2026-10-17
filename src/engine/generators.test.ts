@@ -3,7 +3,7 @@ import { skills, skillsInStrand, strands } from "../data/load-skills";
 import { generateProblem } from "../engine/generate";
 import { generators, generateStackedSubtraction } from "../engine/generators";
 import { createRng } from "../engine/rng";
-import type { PlaceName, Problem, Skill } from "../engine/types";
+import type { PlaceName, Problem, SkillParams } from "../engine/types";
 
 const PLACE_FACTOR: Record<PlaceName, number> = {
   ones: 1,
@@ -87,70 +87,71 @@ function digitLength(value: number): number {
   return String(value).length;
 }
 
-function assertSkillConstraints(skill: Skill, problem: Problem) {
+function assertSkillConstraints(generator: string, params: SkillParams, problem: Problem) {
   const visual = problem.visual;
   expect(visual).toBeTruthy();
   if (!visual) {
     return;
   }
-  if (skill.generator === "stacked-subtraction") {
+  if (generator === "stacked-subtraction") {
     expect(visual.kind).toBe("stacked");
     if (visual.kind !== "stacked") {
       return;
     }
     expect(visual.layout).toBe("vertical");
     expect(visual.operator).toBe("-");
-    const digits = skill.params.digits;
-    const borrow = skill.params.borrow;
+    const digits = params.digits;
+    const borrow = params.borrow;
     expect(digitLength(visual.top)).toBe(digits);
     expect(digitLength(visual.bottom)).toBe(digits);
     expect(visual.top).toBeGreaterThan(visual.bottom);
+    if (params.topMax != null) {
+      expect(visual.top).toBeLessThanOrEqual(Number(params.topMax));
+    }
     assertBorrow(String(borrow), visual.top, visual.bottom, Number(digits));
   }
-  if (skill.generator === "addition" && visual.kind === "expression") {
+  if (generator === "addition" && visual.kind === "expression") {
     expect(visual.operator).toBe("+");
-    expect(digitLength(visual.left)).toBe(skill.params.digits);
-    expect(digitLength(visual.right)).toBe(skill.params.digits);
-    const width = Number(skill.params.digits);
+    expect(digitLength(visual.left)).toBe(params.digits);
+    expect(digitLength(visual.right)).toBe(params.digits);
+    if (params.maxAddend != null) {
+      expect(visual.left).toBeLessThanOrEqual(Number(params.maxAddend));
+      expect(visual.right).toBeLessThanOrEqual(Number(params.maxAddend));
+    }
+    const width = Number(params.digits);
     const left = String(visual.left).padStart(width, "0");
     const right = String(visual.right).padStart(width, "0");
     for (let index = 0; index < width; index += 1) {
       expect(Number(left[index]) + Number(right[index])).toBeLessThan(10);
     }
   }
-  if (skill.generator === "place-value" && visual.kind === "place-value") {
-    expect(visual.number).toBeGreaterThanOrEqual(Number(skill.params.min));
-    expect(visual.number).toBeLessThanOrEqual(Number(skill.params.max));
-    expect(skill.params.places).toContain(visual.place);
+  if (generator === "place-value" && visual.kind === "place-value") {
+    expect(visual.number).toBeGreaterThanOrEqual(Number(params.min));
+    expect(visual.number).toBeLessThanOrEqual(Number(params.max));
+    expect(params.places).toContain(visual.place);
   }
-  if (skill.generator === "compare-numbers" && visual.kind === "compare") {
-    const digits = Number(skill.params.digits);
+  if (generator === "compare-numbers" && visual.kind === "compare") {
+    const digits = Number(params.digits);
     expect(digitLength(visual.left)).toBe(digits);
     expect(digitLength(visual.right)).toBe(digits);
+    if (params.max != null) {
+      expect(visual.left).toBeLessThanOrEqual(Number(params.max));
+      expect(visual.right).toBeLessThanOrEqual(Number(params.max));
+    }
     expect(visual.left).not.toBe(visual.right);
     expect(problem.choices).toEqual(expect.arrayContaining([String(visual.left), String(visual.right)]));
   }
-  if (skill.generator === "round-number" && visual.kind === "round") {
-    expect(visual.place).toBe(skill.params.place);
-    expect(visual.number).toBeGreaterThanOrEqual(Number(skill.params.min));
-    expect(visual.number).toBeLessThanOrEqual(Number(skill.params.max));
+  if (generator === "round-number" && visual.kind === "round") {
+    expect(visual.place).toBe(params.place);
+    expect(visual.number).toBeGreaterThanOrEqual(Number(params.min));
+    expect(visual.number).toBeLessThanOrEqual(Number(params.max));
   }
-  if (skill.generator === "multiplication" && visual.kind === "expression") {
+  if (generator === "multiplication" && visual.kind === "expression") {
     expect(visual.operator).toBe("x");
-    const mode = skill.params.mode;
-    if (mode === "facts") {
-      expect(visual.left).toBeGreaterThanOrEqual(Number(skill.params.leftMin));
-      expect(visual.left).toBeLessThanOrEqual(Number(skill.params.leftMax));
-      expect(visual.right).toBeGreaterThanOrEqual(Number(skill.params.rightMin));
-      expect(visual.right).toBeLessThanOrEqual(Number(skill.params.rightMax));
-    } else if (mode === "times-ten") {
-      expect(visual.left).toBeGreaterThanOrEqual(Number(skill.params.leftMin));
-      expect(visual.left).toBeLessThanOrEqual(Number(skill.params.leftMax));
-      expect([10, 100]).toContain(visual.right);
-    } else if (mode === "multi") {
-      expect(digitLength(visual.left)).toBe(skill.params.leftDigits);
-      expect(digitLength(visual.right)).toBe(skill.params.rightDigits);
-    }
+    expect(visual.left).toBeGreaterThanOrEqual(Number(params.leftMin));
+    expect(visual.left).toBeLessThanOrEqual(Number(params.leftMax));
+    expect(visual.right).toBeGreaterThanOrEqual(Number(params.rightMin));
+    expect(visual.right).toBeLessThanOrEqual(Number(params.rightMax));
   }
 }
 
@@ -169,6 +170,7 @@ describe("skill catalog", () => {
       expect(skill.description.endsWith(".")).toBe(true);
       expect(skill.description.includes("\u2014")).toBe(false);
       expect(["K-2", "3-5", "6-8"]).toContain(skill.gradeBand);
+      expect(skill.levels).toHaveLength(5);
       expect(generators[skill.generator]).toBeTypeOf("function");
       for (const prerequisite of skill.prerequisites) {
         expect(ids.has(prerequisite)).toBe(true);
@@ -216,13 +218,15 @@ describe("generators", () => {
   });
 
   for (const skill of skills) {
-    it(`checks 200 seeded ${skill.id} problems`, () => {
-      for (let index = 0; index < 200; index += 1) {
-        const problem = generateProblem(skill, createRng(index + 1), 3);
-        expect(problem.answer).toBe(independentAnswer(problem));
-        expect(problem.prompt.includes("\u2014")).toBe(false);
-        assertSkillConstraints(skill, problem);
-      }
-    });
+    for (let level = 1; level <= 5; level += 1) {
+      it(`checks 200 seeded ${skill.id} level ${level} problems`, () => {
+        for (let index = 0; index < 200; index += 1) {
+          const problem = generateProblem(skill, createRng(level * 1000 + index + 1), level);
+          expect(problem.answer).toBe(independentAnswer(problem));
+          expect(problem.prompt.includes("\u2014")).toBe(false);
+          assertSkillConstraints(skill.generator, skill.levels[level - 1], problem);
+        }
+      });
+    }
   }
 });

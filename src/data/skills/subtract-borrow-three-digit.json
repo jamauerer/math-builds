@@ -5,6 +5,12 @@
   "gradeBand": "3-5",
   "prerequisites": ["subtract-borrow-two-digit"],
   "generator": "stacked-subtraction",
-  "description": "Borrow in two columns to subtract three-digit numbers.",
-  "params": { "digits": 3, "borrow": "twice" }
+  "description": "Borrow in a three-digit subtraction.",
+  "levels": [
+    { "digits": 2, "borrow": "once", "topMax": 50 },
+    { "digits": 3, "borrow": "once", "topMax": 300 },
+    { "digits": 3, "borrow": "twice", "topMax": 500 },
+    { "digits": 3, "borrow": "twice", "topMax": 999 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 999 }
+  ]
 }

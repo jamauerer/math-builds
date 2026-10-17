@@ -6,5 +6,11 @@
   "prerequisites": [],
   "generator": "multiplication",
   "description": "Multiply one-digit numbers from 2 through 5.",
-  "params": { "mode": "facts", "leftMin": 2, "leftMax": 5, "rightMin": 2, "rightMax": 5 }
+  "levels": [
+    { "mode": "facts", "leftMin": 2, "leftMax": 2, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 2, "leftMax": 3, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 2, "leftMax": 4, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 3, "leftMax": 5, "rightMin": 2, "rightMax": 5 },
+    { "mode": "facts", "leftMin": 4, "leftMax": 5, "rightMin": 4, "rightMax": 5 }
+  ]
 }

@@ -2,9 +2,15 @@
   "id": "hundreds",
   "strand": "place-value",
   "name": "Hundreds",
-  "gradeBand": "K-2",
+  "gradeBand": "3-5",
   "prerequisites": ["tens-and-ones"],
   "generator": "place-value",
-  "description": "In a three-digit number, tell the value of a digit.",
-  "params": { "min": 100, "max": 999, "places": ["hundreds", "tens", "ones"] }
+  "description": "In a three-digit number, tell the value of the hundreds, tens, or ones digit.",
+  "levels": [
+    { "min": 100, "max": 199, "places": ["hundreds", "tens", "ones"] },
+    { "min": 100, "max": 399, "places": ["hundreds", "tens", "ones"] },
+    { "min": 100, "max": 599, "places": ["hundreds", "tens", "ones"] },
+    { "min": 100, "max": 799, "places": ["hundreds", "tens", "ones"] },
+    { "min": 100, "max": 999, "places": ["hundreds", "tens", "ones"] }
+  ]
 }

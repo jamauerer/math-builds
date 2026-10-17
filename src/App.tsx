@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { skills } from "./data/load-skills";
-import { createLearnerMap, recordAnswer, type LearnerMap } from "./engine/placement";
-import { browserProgressStore } from "./storage/progress";
+import { skills, strands } from "./data/load-skills";
+import { createLearnerMap, noteCeilings, practiceLevel, recordLevelPass, type LearnerMap } from "./engine/placement";
+import { browserProgressStore, type SavedProgress } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
 import { BridgeTest } from "./ui/BridgeTest";
@@ -14,36 +14,56 @@ type Screen =
 
 export function App() {
   const store = useMemo(() => browserProgressStore(skills), []);
-  const [map, setMap] = useState<LearnerMap>(() => store.load() ?? createLearnerMap(skills));
+  const [progress, setProgress] = useState<SavedProgress>(
+    () => store.load() ?? { map: createLearnerMap(skills), toppedOut: [] },
+  );
   const [screen, setScreen] = useState<Screen>({ name: "map" });
+  const [placementRunning, setPlacementRunning] = useState(false);
 
-  function save(next: LearnerMap) {
-    setMap(next);
+  function save(next: SavedProgress) {
+    setProgress(next);
     store.save(next);
+  }
+
+  function openPractice(skillId: string) {
+    setPlacementRunning(false);
+    setScreen({ name: "practice", skillId });
   }
 
   return (
     <div className="app">
-      <nav className="nav">
-        <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "map" })}>
-          Map
-        </button>
-        <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "placement" })}>
-          Placement
-        </button>
-        <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
-          Bridge test
-        </button>
-      </nav>
+      {placementRunning ? null : (
+        <nav className="nav">
+          <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "map" })}>
+            Map
+          </button>
+          <button
+            type="button"
+            className="nav-button"
+            onPointerUp={() => setScreen({ name: "placement" })}
+          >
+            Placement
+          </button>
+          <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
+            Bridge test
+          </button>
+        </nav>
+      )}
       {screen.name === "map" ? (
-        <LearnerMapScreen map={map} onPractice={(skillId) => setScreen({ name: "practice", skillId })} />
+        <LearnerMapScreen
+          map={progress.map}
+          toppedOut={progress.toppedOut}
+          onPractice={openPractice}
+        />
       ) : null}
       {screen.name === "placement" ? (
         <PlacementQuiz
           key="placement"
-          initialMap={map}
-          onMap={save}
-          onClose={() => setScreen({ name: "map" })}
+          initialMap={progress.map}
+          initialToppedOut={progress.toppedOut}
+          onProgress={(map: LearnerMap, toppedOut: string[]) => save({ map, toppedOut })}
+          onRunning={setPlacementRunning}
+          onPractice={openPractice}
         />
       ) : null}
       {screen.name === "bridge" ? <BridgeTest /> : null}
@@ -51,7 +71,15 @@ export function App() {
         <PracticeQuiz
           key={screen.skillId}
           skillId={screen.skillId}
-          onAnswer={(skillId, correct) => save(recordAnswer(map, skillId, correct))}
+          level={practiceLevel(progress.map[screen.skillId])}
+          onAnswer={(skillId, level, correct) => {
+            if (!correct) {
+              return;
+            }
+            const map = recordLevelPass(progress.map, skillId, level);
+            const toppedOut = noteCeilings(strands, map, progress.toppedOut);
+            save({ map, toppedOut });
+          }}
           onClose={() => setScreen({ name: "map" })}
         />
       ) : null}

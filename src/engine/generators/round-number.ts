@@ -1,7 +1,10 @@
 import { formatNumber, requireNumber, requireString, type Generator } from "../types";
-import { difficultyCeiling, intBetween } from "../rng";
+import { intBetween } from "../rng";
 
-export const generateRoundNumber: Generator = (rng, difficulty, params) => {
+export const generateRoundNumber: Generator = (rng, level, params) => {
+  if (level < 1 || level > 5) {
+    throw new Error(`Level ${level} is outside 1 to 5`);
+  }
   const place = requireString(params, "place");
   if (place !== "ten" && place !== "hundred") {
     throw new Error(`Unsupported round place ${place}`);
@@ -9,10 +12,9 @@ export const generateRoundNumber: Generator = (rng, difficulty, params) => {
   const unit = place === "ten" ? 10 : 100;
   const min = requireNumber(params, "min");
   const max = requireNumber(params, "max");
-  const hi = difficultyCeiling(difficulty, min, max);
-  let number = intBetween(rng, min, hi);
+  let number = intBetween(rng, min, max);
   if (number % unit === 0) {
-    if (number + 1 <= hi) {
+    if (number + 1 <= max) {
       number += 1;
     } else if (number - 1 >= min) {
       number -= 1;

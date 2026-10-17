@@ -6,5 +6,11 @@
   "prerequisites": ["subtract-no-borrow-two-digit"],
   "generator": "stacked-subtraction",
   "description": "Trade a ten when the ones digit is too small.",
-  "params": { "digits": 2, "borrow": "once" }
+  "levels": [
+    { "digits": 2, "borrow": "none", "topMax": 40 },
+    { "digits": 2, "borrow": "once", "topMax": 50 },
+    { "digits": 2, "borrow": "once", "topMax": 99 },
+    { "digits": 3, "borrow": "twice", "topMax": 500 },
+    { "digits": 3, "borrow": "across-zeros", "topMax": 999 }
+  ]
 }

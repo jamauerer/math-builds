@@ -1,51 +1,56 @@
-import { judgeState, HISTORY_LIMIT, type LearnerMap, type SkillStateName } from "../engine/placement";
+import { labelForLevel, type LearnerMap } from "../engine/placement";
 import type { Skill } from "../engine/types";
 
-const STORAGE_KEY = "math-builds.progress.v1";
+const STORAGE_KEY = "math-builds.progress.v2";
 
 export type KeyValueStore = {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
 };
 
-export type ProgressStore = {
-  load: () => LearnerMap | null;
-  save: (map: LearnerMap) => void;
+export type SavedProgress = {
+  map: LearnerMap;
+  toppedOut: string[];
 };
 
-export function sanitizeMap(skills: readonly Skill[], raw: unknown): LearnerMap {
+export type ProgressStore = {
+  load: () => SavedProgress | null;
+  save: (progress: SavedProgress) => void;
+};
+
+function blank(skills: readonly Skill[]): LearnerMap {
   const map: LearnerMap = {};
   for (const skill of skills) {
-    map[skill.id] = { state: "unknown", recent: [] };
-  }
-  if (!raw || typeof raw !== "object") {
-    return map;
-  }
-  const record = raw as Record<string, unknown>;
-  for (const skill of skills) {
-    const entry = record[skill.id];
-    if (!entry || typeof entry !== "object") {
-      continue;
-    }
-    const recentValue = (entry as { recent?: unknown }).recent;
-    if (!Array.isArray(recentValue)) {
-      continue;
-    }
-    const recent = recentValue
-      .filter((item): item is boolean => typeof item === "boolean")
-      .slice(-HISTORY_LIMIT);
-    if (recent.length !== recentValue.length) {
-      continue;
-    }
-    map[skill.id] = { recent, state: judgeState(recent) };
+    map[skill.id] = { level: 0, state: "unknown" };
   }
   return map;
 }
 
-export function createProgressStore(
-  skills: readonly Skill[],
-  storage: KeyValueStore,
-): ProgressStore {
+export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
+  const map = blank(skills);
+  if (!raw || typeof raw !== "object") {
+    return { map, toppedOut: [] };
+  }
+  const record = raw as { map?: unknown; toppedOut?: unknown };
+  const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
+  for (const skill of skills) {
+    const entry = source[skill.id];
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const level = (entry as { level?: unknown }).level;
+    if (typeof level !== "number" || !Number.isInteger(level) || level < 0 || level > 5) {
+      continue;
+    }
+    map[skill.id] = { level, state: labelForLevel(level) };
+  }
+  const toppedOut = Array.isArray(record.toppedOut)
+    ? record.toppedOut.filter((item): item is string => typeof item === "string")
+    : [];
+  return { map, toppedOut };
+}
+
+export function createProgressStore(skills: readonly Skill[], storage: KeyValueStore): ProgressStore {
   return {
     load() {
       const raw = storage.getItem(STORAGE_KEY);
@@ -53,16 +58,13 @@ export function createProgressStore(
         return null;
       }
       try {
-        return sanitizeMap(skills, JSON.parse(raw) as unknown);
+        return sanitizeProgress(skills, JSON.parse(raw) as unknown);
       } catch {
         return null;
       }
     },
-    save(map) {
-      const stored: Record<string, { state: SkillStateName; recent: boolean[] }> = {};
-      for (const skill of skills) {
-        stored[skill.id] = map[skill.id] ?? { state: "unknown", recent: [] };
-      }
+    save(progress) {
+      const stored = sanitizeProgress(skills, progress);
       storage.setItem(STORAGE_KEY, JSON.stringify(stored));
     },
   };

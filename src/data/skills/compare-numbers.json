@@ -5,6 +5,12 @@
   "gradeBand": "3-5",
   "prerequisites": ["hundreds"],
   "generator": "compare-numbers",
-  "description": "Choose the greater of two three-digit numbers.",
-  "params": { "digits": 3 }
+  "description": "Choose the greater of two numbers.",
+  "levels": [
+    { "digits": 2, "max": 30 },
+    { "digits": 2, "max": 99 },
+    { "digits": 3, "max": 499 },
+    { "digits": 3, "max": 999 },
+    { "digits": 4, "max": 9999 }
+  ]
 }

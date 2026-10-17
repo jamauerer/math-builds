@@ -1,11 +1,14 @@
-import { requireNumber, requireString, type Generator } from "../types";
-import { difficultyCeiling, intBetween } from "../rng";
+import { optionalNumber, requireNumber, requireString, type Generator } from "../types";
+import { intBetween } from "../rng";
 
 function fromDigits(digits: number[]): number {
   return Number(digits.join(""));
 }
 
-export const generateAddition: Generator = (rng, difficulty, params) => {
+export const generateAddition: Generator = (rng, level, params) => {
+  if (level < 1 || level > 5) {
+    throw new Error(`Level ${level} is outside 1 to 5`);
+  }
   const digits = requireNumber(params, "digits");
   const regroup = requireString(params, "regroup");
   if (regroup !== "none") {
@@ -14,20 +17,40 @@ export const generateAddition: Generator = (rng, difficulty, params) => {
   if (digits < 2 || digits > 3) {
     throw new Error(`Unsupported addition width ${digits}`);
   }
-  const leftDigits: number[] = [];
-  const rightDigits: number[] = [];
-  for (let column = 0; column < digits; column += 1) {
-    const leftMax = column === 0 ? difficultyCeiling(difficulty, 1, 8) : 9;
-    const leftMin = column === 0 ? 1 : 0;
-    const left = intBetween(rng, leftMin, leftMax);
-    const rightMin = column === 0 ? 1 : 0;
-    const rightMax = Math.max(rightMin, 9 - left);
-    const right = intBetween(rng, rightMin, Math.min(9 - left, rightMax));
-    leftDigits.push(left);
-    rightDigits.push(right);
+  const maxAddend = optionalNumber(params, "maxAddend") ?? 10 ** digits - 1;
+  const floor = 10 ** (digits - 1);
+  const cap = Math.min(10 ** digits - 1, maxAddend);
+  let left = 0;
+  let right = 0;
+  let built = false;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const candidate = intBetween(rng, floor, cap);
+    const leftDigits = String(candidate).padStart(digits, "0").split("").map(Number);
+    const rightDigits: number[] = [];
+    let ok = true;
+    for (let column = 0; column < digits; column += 1) {
+      const minDigit = column === 0 ? 1 : 0;
+      const maxDigit = 9 - leftDigits[column];
+      if (maxDigit < minDigit) {
+        ok = false;
+        break;
+      }
+      rightDigits.push(intBetween(rng, minDigit, maxDigit));
+    }
+    if (!ok) {
+      continue;
+    }
+    const other = fromDigits(rightDigits);
+    if (other >= floor && other <= cap) {
+      left = candidate;
+      right = other;
+      built = true;
+      break;
+    }
   }
-  const left = fromDigits(leftDigits);
-  const right = fromDigits(rightDigits);
+  if (!built) {
+    throw new Error("Could not build an addition within the level cap");
+  }
   return {
     prompt: `What is ${left} + ${right}?`,
     answer: String(left + right),

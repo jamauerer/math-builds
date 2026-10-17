@@ -6,6 +6,8 @@ export type SkillParamValue = string | number | boolean | string[] | number[];
 
 export type SkillParams = Record<string, SkillParamValue>;
 
+export const MAX_LEVEL = 5;
+
 export type Skill = {
   id: string;
   strand: string;
@@ -14,7 +16,8 @@ export type Skill = {
   prerequisites: string[];
   generator: string;
   description: string;
-  params: SkillParams;
+  /** Five entries, level 1 through level 5. The generator reads these params. */
+  levels: SkillParams[];
 };
 
 export type Strand = {
@@ -101,6 +104,24 @@ export function requireString(params: SkillParams, key: string): string {
     throw new Error(`Expected string param ${key}`);
   }
   return value;
+}
+
+export function optionalNumber(params: SkillParams, key: string): number | undefined {
+  const value = params[key];
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Expected numeric param ${key}`);
+  }
+  return value;
+}
+
+export function levelParams(skill: Skill, level: number): SkillParams {
+  if (level < 1 || level > MAX_LEVEL || skill.levels.length !== MAX_LEVEL) {
+    throw new Error(`Skill ${skill.id} has no level ${level}`);
+  }
+  return skill.levels[level - 1];
 }
 
 export function requireStringList(params: SkillParams, key: string): string[] {
