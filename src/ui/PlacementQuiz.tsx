@@ -16,9 +16,10 @@ import {
   type QuizSession,
 } from "../engine/placement";
 import { createRng } from "../engine/rng";
+import { emptyScribble, type Scribble } from "../engine/scribble";
 import { AnswerPanel } from "./AnswerPanel";
 import { LearnerMap as LearnerMapScreen } from "./LearnerMap";
-import { ProblemView } from "./ProblemView";
+import { ProblemBoard, type ProblemBoardHandle } from "./ProblemBoard";
 
 type PlacementProps = {
   initialMap: LearnerMap;
@@ -44,6 +45,9 @@ export function PlacementQuiz({
     initialSnapshot ? restoreQuiz(initialSnapshot, skills, strands) : null,
   );
   const minutes = placementMinutes(strands.length, skills.length);
+  const boardRef = useRef<ProblemBoardHandle>(null);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
   useEffect(() => {
     if (initialSnapshot) {
@@ -52,6 +56,7 @@ export function PlacementQuiz({
   }, [initialSnapshot, onRunning]);
 
   function publish(next: QuizSession) {
+    sessionRef.current = next;
     setSession(next);
     onProgress(next);
     if (next.phase === "done") {
@@ -116,17 +121,26 @@ export function PlacementQuiz({
         {skill ? <p>{skill.name}</p> : null}
       </header>
       <div className="work">
-        <ProblemView problem={session.problem} />
+        <ProblemBoard
+          ref={boardRef}
+          problem={session.problem}
+          scribble={session.scribble}
+          onScribble={(next) => {
+            const updated = { ...(sessionRef.current as QuizSession), scribble: next };
+            sessionRef.current = updated;
+            setSession(updated);
+          }}
+        />
         {session.phase === "answering" ? (
           <AnswerPanel
             key={`${session.skillId}-${session.level}-${session.questionNumber}`}
             problem={session.problem}
             locked={false}
             onSubmit={(answer) => {
-              publish(gradeAnswer(session, answer));
+              publish(gradeAnswer(session, answer, boardRef.current?.image() ?? ""));
             }}
             onSkip={() => {
-              publish(skipQuestion(session));
+              publish(skipQuestion(session, boardRef.current?.image() ?? ""));
             }}
           />
         ) : (
@@ -137,7 +151,11 @@ export function PlacementQuiz({
             </button>
           </div>
         )}
-        <button type="button" className="choice skip" onPointerUp={() => onStop(session)}>
+        <button
+          type="button"
+          className="choice skip"
+          onPointerUp={() => onStop(sessionRef.current ?? session)}
+        >
           Stop for now
         </button>
       </div>
@@ -157,6 +175,7 @@ export function PracticeQuiz({ skillId, level, onAnswer, onClose }: PracticeProp
   const asked = Math.min(5, Math.max(1, level));
   const rng = useRef(createRng(Math.floor(Math.random() * 1_000_000_000) + 1));
   const [problem] = useState(() => (skill ? generateProblem(skill, rng.current, asked) : null));
+  const [scribble, setScribble] = useState<Scribble>(emptyScribble);
   const [correct, setCorrect] = useState<boolean | null>(null);
 
   if (!skill || !problem) {
@@ -179,7 +198,7 @@ export function PracticeQuiz({ skillId, level, onAnswer, onClose }: PracticeProp
         </p>
       </header>
       <div className="work">
-        <ProblemView problem={problem} />
+        <ProblemBoard problem={problem} scribble={scribble} onScribble={setScribble} />
         {correct === null ? (
           <AnswerPanel
             problem={problem}

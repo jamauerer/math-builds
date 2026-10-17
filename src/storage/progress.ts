@@ -7,6 +7,7 @@ import {
   type Probe,
   type QuizPhase,
 } from "../engine/placement";
+import { emptyScribble, type Scribble, type ScribbleStroke } from "../engine/scribble";
 import type { Problem, Skill } from "../engine/types";
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -145,7 +146,34 @@ function sanitizePlacement(skills: readonly Skill[], raw: unknown): PlacementSna
     skipped: entry.skipped === true,
     rngState: entry.rngState,
     history: sanitizeHistory(entry.history),
+    scribble: sanitizeScribble(entry.scribble),
   };
+}
+
+function sanitizeScribble(raw: unknown): Scribble {
+  if (!raw || typeof raw !== "object" || !Array.isArray((raw as { strokes?: unknown }).strokes)) {
+    return emptyScribble();
+  }
+  const strokes: ScribbleStroke[] = [];
+  for (const item of (raw as { strokes: unknown[] }).strokes) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const stroke = item as Partial<ScribbleStroke>;
+    if (typeof stroke.color !== "string" || !Array.isArray(stroke.points)) {
+      continue;
+    }
+    const points = stroke.points.filter(
+      (point) => point && typeof point.x === "number" && typeof point.y === "number",
+    );
+    strokes.push({
+      color: stroke.color,
+      size: typeof stroke.size === "number" ? stroke.size : 3,
+      eraser: stroke.eraser === true,
+      points,
+    });
+  }
+  return { strokes };
 }
 
 function sanitizeProbe(raw: unknown): Probe | null {

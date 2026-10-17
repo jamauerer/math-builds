@@ -1,6 +1,7 @@
 import { answersMatch } from "./answers";
 import { generateProblem } from "./generate";
 import type { Rng } from "./rng";
+import { emptyScribble, type Scribble } from "./scribble";
 import { MAX_LEVEL, type Problem, type Skill, type Strand } from "./types";
 
 export type SkillStateName = "not-started" | "learning" | "solid" | "mastered" | "unchecked";
@@ -328,6 +329,7 @@ export type QuizSession = {
   skipped: boolean;
   rngState: number;
   history: AttemptRecord[];
+  scribble: Scribble;
 };
 
 export type PlacementSnapshot = {
@@ -343,6 +345,7 @@ export type PlacementSnapshot = {
   skipped: boolean;
   rngState: number;
   history: AttemptRecord[];
+  scribble: Scribble;
 };
 
 function withResult(session: QuizSession, correct: boolean): QuizSession {
@@ -378,11 +381,12 @@ function presentQuestion(session: QuizSession): QuizSession {
         probe: null,
         problem: null,
         skillId: null,
-    correct: null,
-    skipped: false,
-    history: session.history,
-  };
-}
+        correct: null,
+        skipped: false,
+        history: session.history,
+        scribble: emptyScribble(),
+      };
+    }
     probe = freshProbe(skill.id);
   }
   const skill = skillById(session.skills).get(probe.skillId);
@@ -404,6 +408,7 @@ function presentQuestion(session: QuizSession): QuizSession {
     skipped: false,
     rngState: cursor.state,
     history: session.history,
+    scribble: emptyScribble(),
   };
 }
 
@@ -432,6 +437,7 @@ export function createQuizSession(options: {
     skipped: false,
     rngState: options.rngState ?? (seed >>> 0 || 1),
     history: options.history ?? [],
+    scribble: emptyScribble(),
   };
   return presentQuestion(base);
 }
@@ -450,6 +456,7 @@ export function snapshotQuiz(session: QuizSession): PlacementSnapshot {
     skipped: session.skipped,
     rngState: session.rngState,
     history: session.history,
+    scribble: session.scribble,
   };
 }
 
