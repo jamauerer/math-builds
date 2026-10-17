@@ -4,10 +4,12 @@ import { createLearnerMap, recordAnswer, type LearnerMap } from "./engine/placem
 import { browserProgressStore } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
+import { BridgeTest } from "./ui/BridgeTest";
 
 type Screen =
   | { name: "map" }
   | { name: "placement" }
+  | { name: "bridge" }
   | { name: "practice"; skillId: string };
 
 export function App() {
@@ -29,6 +31,9 @@ export function App() {
         <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "placement" })}>
           Placement
         </button>
+        <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
+          Bridge test
+        </button>
       </nav>
       {screen.name === "map" ? (
         <LearnerMapScreen map={map} onPractice={(skillId) => setScreen({ name: "practice", skillId })} />
@@ -41,6 +46,7 @@ export function App() {
           onClose={() => setScreen({ name: "map" })}
         />
       ) : null}
+      {screen.name === "bridge" ? <BridgeTest /> : null}
       {screen.name === "practice" ? (
         <PracticeQuiz
           key={screen.skillId}

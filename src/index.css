@@ -203,6 +203,27 @@ button {
   width: auto;
 }
 
+.bridge-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.bridge-canvas {
+  display: block;
+  width: 100%;
+  height: 420px;
+  background: #dbeafe;
+  border-radius: 12px;
+  touch-action: none;
+}
+
+.bridge-result {
+  font-size: 1.6rem;
+  margin: 12px 0 0;
+}
+
 @media (max-width: 900px) {
   .work,
   .strand-grid {
