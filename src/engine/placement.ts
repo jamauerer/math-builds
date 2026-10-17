@@ -1,3 +1,4 @@
+import { answersMatch } from "./answers";
 import { generateProblem } from "./generate";
 import type { Rng } from "./rng";
 import { createRng } from "./rng";
@@ -163,4 +164,132 @@ export function runPlacement(options: {
   }
 
   return { map, questions, questionsPerStrand, stopReason };
+}
+
+export type QuizPhase = "answering" | "feedback" | "done";
+
+export type QuizSession = {
+  skills: readonly Skill[];
+  strands: readonly Strand[];
+  map: LearnerMap;
+  phase: QuizPhase;
+  strandIndex: number;
+  currentSkillId: string | null;
+  lastCorrect: boolean | null;
+  askedThisStrand: number;
+  problem: Problem | null;
+  skillId: string | null;
+  correct: boolean | null;
+  difficulty: number;
+  maxQuestionsPerStrand: number;
+};
+
+function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
+  const byId = new Map(session.skills.map((skill) => [skill.id, skill]));
+  let strandIndex = session.strandIndex;
+  let currentSkillId = session.currentSkillId;
+  let lastCorrect = session.lastCorrect;
+  let askedThisStrand = session.askedThisStrand;
+
+  while (strandIndex < session.strands.length) {
+    if (askedThisStrand >= session.maxQuestionsPerStrand) {
+      strandIndex += 1;
+      currentSkillId = null;
+      lastCorrect = null;
+      askedThisStrand = 0;
+      continue;
+    }
+    const strand = session.strands[strandIndex];
+    const strandSkills = strand.skills.map((id) => {
+      const skill = byId.get(id);
+      if (!skill) {
+        throw new Error(`Strand ${strand.id} lists missing skill ${id}`);
+      }
+      return skill;
+    });
+    const nextId = selectNext(strandSkills, session.map, currentSkillId, lastCorrect);
+    if (!nextId) {
+      strandIndex += 1;
+      currentSkillId = null;
+      lastCorrect = null;
+      askedThisStrand = 0;
+      continue;
+    }
+    const skill = byId.get(nextId);
+    if (!skill) {
+      throw new Error(`Missing skill ${nextId}`);
+    }
+    return {
+      ...session,
+      strandIndex,
+      currentSkillId,
+      lastCorrect,
+      askedThisStrand,
+      phase: "answering",
+      skillId: nextId,
+      problem: generateProblem(skill, rng, session.difficulty),
+      correct: null,
+    };
+  }
+
+  return {
+    ...session,
+    strandIndex,
+    currentSkillId,
+    lastCorrect,
+    askedThisStrand,
+    phase: "done",
+    skillId: null,
+    problem: null,
+    correct: null,
+  };
+}
+
+export function createQuizSession(options: {
+  skills: readonly Skill[];
+  strands: readonly Strand[];
+  map?: LearnerMap;
+  rng: Rng;
+  difficulty?: number;
+  maxQuestionsPerStrand?: number;
+}): QuizSession {
+  const base: QuizSession = {
+    skills: options.skills,
+    strands: options.strands,
+    map: options.map ?? createLearnerMap(options.skills),
+    phase: "answering",
+    strandIndex: 0,
+    currentSkillId: null,
+    lastCorrect: null,
+    askedThisStrand: 0,
+    problem: null,
+    skillId: null,
+    correct: null,
+    difficulty: options.difficulty ?? 3,
+    maxQuestionsPerStrand: options.maxQuestionsPerStrand ?? DEFAULT_MAX_QUESTIONS_PER_STRAND,
+  };
+  return presentQuestion(base, options.rng);
+}
+
+export function gradeAnswer(session: QuizSession, given: string): QuizSession {
+  if (session.phase !== "answering" || !session.problem || !session.skillId) {
+    return session;
+  }
+  const correct = answersMatch(given, session.problem.answer);
+  return {
+    ...session,
+    phase: "feedback",
+    correct,
+    map: recordAnswer(session.map, session.skillId, correct),
+    currentSkillId: session.skillId,
+    lastCorrect: correct,
+    askedThisStrand: session.askedThisStrand + 1,
+  };
+}
+
+export function continueQuiz(session: QuizSession, rng: Rng): QuizSession {
+  if (session.phase === "answering") {
+    return session;
+  }
+  return presentQuestion(session, rng);
 }

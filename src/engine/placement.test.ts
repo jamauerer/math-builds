@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { skills, strands } from "../data/load-skills";
+import { createRng } from "./rng";
 import {
+  continueQuiz,
   createLearnerMap,
+  createQuizSession,
   DEFAULT_MAX_QUESTIONS_PER_STRAND,
+  gradeAnswer,
   recordAnswer,
   runPlacement,
   type LearnerMap,
@@ -56,6 +60,30 @@ describe("practice updates", () => {
     expect(map["tens-and-ones"].state).toBe("solid");
     map = recordAnswer(map, "tens-and-ones", false);
     expect(map["tens-and-ones"].state).toBe("shaky");
+  });
+});
+
+describe("quiz session", () => {
+  it("confirms a skill before moving forward, and leaves a strand after a miss", () => {
+    const rng = createRng(5);
+    let session = createQuizSession({ skills, strands, rng });
+    expect(session.skillId).toBe("tens-and-ones");
+    session = gradeAnswer(session, session.problem?.answer ?? "");
+    expect(session.correct).toBe(true);
+    expect(session.map["tens-and-ones"].state).toBe("shaky");
+    session = continueQuiz(session, rng);
+    expect(session.skillId).toBe("tens-and-ones");
+    session = gradeAnswer(session, session.problem?.answer ?? "");
+    session = continueQuiz(session, rng);
+    expect(session.map["tens-and-ones"].state).toBe("solid");
+    expect(session.skillId).toBe("hundreds");
+
+    const started = createQuizSession({ skills, strands, rng: createRng(9) });
+    const wrong = started.problem?.answer === "4" ? "5" : "4";
+    const missed = gradeAnswer(started, wrong);
+    const next = continueQuiz(missed, createRng(9));
+    expect(missed.map["tens-and-ones"].state).toBe("unknown");
+    expect(next.skillId).toBe("add-two-digit-no-regroup");
   });
 });
 

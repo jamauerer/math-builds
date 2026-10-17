@@ -1,7 +1,12 @@
 :root {
   font-family: "Segoe UI", sans-serif;
   color: #1c1917;
-  background: #faf7f2;
+  background: #f6f3ee;
+  font-size: 18px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -12,8 +17,195 @@ button {
   min-height: 48px;
   min-width: 48px;
   font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.shell {
-  padding: 24px;
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e7e5e4;
+}
+
+.nav-button,
+.primary,
+.choice,
+.pad-key,
+.skill {
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.nav-button,
+.primary {
+  padding: 0 18px;
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+}
+
+.screen {
+  padding: 16px 20px 28px;
+}
+
+.screen-head h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+}
+
+.screen-head p {
+  margin: 0 0 16px;
+  color: #44403c;
+}
+
+.work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 24px;
+  align-items: start;
+}
+
+.prompt,
+.compare-pair {
+  font-size: 1.8rem;
+  margin: 0 0 12px;
+}
+
+.stack {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  column-gap: 16px;
+  justify-items: end;
+  font-size: 3rem;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.stack-top,
+.stack-bottom {
+  grid-column: 2;
+}
+
+.stack-op {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.stack-line {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-top: 4px solid #1c1917;
+  margin-top: 6px;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choice {
+  font-size: 1.6rem;
+  padding: 12px;
+}
+
+.pad-display {
+  min-height: 56px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  font-size: 2rem;
+  text-align: right;
+}
+
+.pad-keys {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pad-key {
+  font-size: 1.4rem;
+}
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 1.5rem;
+}
+
+.strand-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.strand h2 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.strand {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.skill-name {
+  font-weight: 650;
+}
+
+.skill-meta {
+  font-size: 0.9rem;
+}
+
+.skill.unknown {
+  background: #e7e5e4;
+}
+
+.skill.shaky {
+  background: #fcd34d;
+}
+
+.skill.solid {
+  background: #86efac;
+}
+
+.legend {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.legend .skill {
+  width: auto;
+}
+
+@media (max-width: 900px) {
+  .work,
+  .strand-grid {
+    grid-template-columns: 1fr;
+  }
 }
