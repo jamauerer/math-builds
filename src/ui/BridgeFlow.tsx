@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type MutableRefObject, type PointerEvent as ReactPointerEvent } from "react";
 import { skills } from "../data/load-skills";
 import {
   bridgeParts,
@@ -314,7 +314,7 @@ function MeasureStep({ level, theme, onDone }: { level: CandyLevel; theme: Theme
             const box = slotRect(col, 0, level.gapBlocks);
             const on = marked[col];
             return (
-              <g key={col} onPointerUp={() => {
+              <g key={col} role="button" aria-label={`Gap block ${col + 1}`} onPointerUp={() => {
                 if (level.measure !== "count") {
                   return;
                 }
@@ -508,6 +508,22 @@ function BuildStep({
     return () => cancelAnimationFrame(raf);
   }, [driving, driveKey]);
 
+  function dropDragged(event: DragEvent, slot: GridSlot) {
+    event.preventDefault();
+    const partId = event.dataTransfer.getData("text/plain");
+    const part = partById(partId);
+    if (!part || driving || message) {
+      return;
+    }
+    const dropped = dropPiece(placed, tray, part.id, part.role, slot);
+    if (dropped.accepted) {
+      onPlaced(dropped.placed);
+      setNote("");
+      return;
+    }
+    setNote(stockLeft(tray, placed, part.id) <= 0 ? "None of those are left." : "That piece does not fit there.");
+  }
+
   function placeSelected(slot: GridSlot) {
     if (driving || message) {
       return;
@@ -596,6 +612,8 @@ function BuildStep({
                     rx="8"
                     className={tone}
                     onPointerUp={() => placeSelected({ col, row })}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => dropDragged(event, { col, row })}
                   />
                 );
               }),
@@ -614,6 +632,19 @@ function BuildStep({
                   width={box.w}
                   height={box.h}
                   viewBox="0 0 80 80"
+                  role="button"
+                  aria-label={`${item.partId} at ${item.col}`}
+                  ref={(node) => {
+                    node?.setAttribute("draggable", "true");
+                  }}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData("text/plain", `move:${item.col}:${item.row}`);
+                    event.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragEnd={() => {
+                    dragRef.current = null;
+                    setDrag(null);
+                  }}
                   onPointerDown={(event) => startDrag(event, item.partId, item, dragRef, setDrag)}
                   onPointerMove={(event) => moveDrag(event, dragRef, setDrag)}
                   onPointerUp={finishDrag}
@@ -633,7 +664,23 @@ function BuildStep({
         </div>
       ) : (
         <div className="build-footer">
-          <div className="tray" data-tray="true">
+          <div
+            className="tray"
+            data-tray="true"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              const data = event.dataTransfer.getData("text/plain");
+              if (!data.startsWith("move:")) {
+                return;
+              }
+              const [, col, row] = data.split(":");
+              const rowNum = Number(row);
+              if (rowNum !== 0 && rowNum !== 1) {
+                return;
+              }
+              onPlaced(removePiece(placed, { col: Number(col), row: rowNum }));
+            }}
+          >
             {trayParts.map((part) => {
               const left = stockLeft(tray, placed, part.id);
               return (
@@ -641,7 +688,12 @@ function BuildStep({
                   key={part.id}
                   className={selected === part.id ? "tray-piece on" : "tray-piece"}
                   role="button"
+                  draggable={left > 0 && !driving}
                   aria-label={`${part.name}, ${left} left`}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData("text/plain", part.id);
+                    event.dataTransfer.effectAllowed = "copy";
+                  }}
                   onPointerDown={(event) => {
                     if (driving || left <= 0) {
                       setNote("None of those are left.");
