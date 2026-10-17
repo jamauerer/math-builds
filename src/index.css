@@ -1,0 +1,19 @@
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #1c1917;
+  background: #faf7f2;
+}
+
+body {
+  margin: 0;
+}
+
+button {
+  min-height: 48px;
+  min-width: 48px;
+  font: inherit;
+}
+
+.shell {
+  padding: 24px;
+}

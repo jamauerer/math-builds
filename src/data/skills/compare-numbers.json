@@ -1,0 +1,10 @@
+{
+  "id": "compare-numbers",
+  "strand": "place-value",
+  "name": "Compare numbers",
+  "gradeBand": "3-5",
+  "prerequisites": ["hundreds"],
+  "generator": "compare-numbers",
+  "description": "Choose the greater of two three-digit numbers.",
+  "params": { "digits": 3 }
+}

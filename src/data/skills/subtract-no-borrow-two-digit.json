@@ -1,0 +1,10 @@
+{
+  "id": "subtract-no-borrow-two-digit",
+  "strand": "addition-subtraction",
+  "name": "Subtract without borrowing, two digits",
+  "gradeBand": "K-2",
+  "prerequisites": ["add-two-digit-no-regroup"],
+  "generator": "stacked-subtraction",
+  "description": "Subtract two-digit numbers when every top digit is big enough.",
+  "params": { "digits": 2, "borrow": "none" }
+}

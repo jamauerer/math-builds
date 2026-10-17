@@ -1,0 +1,10 @@
+{
+  "id": "multiply-facts-6-to-9",
+  "strand": "multiplication",
+  "name": "Multiplication facts 6 to 9",
+  "gradeBand": "3-5",
+  "prerequisites": ["multiply-facts-2-to-5"],
+  "generator": "multiplication",
+  "description": "Multiply one-digit numbers from 6 through 9.",
+  "params": { "mode": "facts", "leftMin": 6, "leftMax": 9, "rightMin": 2, "rightMax": 9 }
+}

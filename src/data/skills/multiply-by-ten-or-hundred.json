@@ -1,0 +1,10 @@
+{
+  "id": "multiply-by-ten-or-hundred",
+  "strand": "multiplication",
+  "name": "Multiply by ten or one hundred",
+  "gradeBand": "3-5",
+  "prerequisites": ["multiply-facts-2-to-5"],
+  "generator": "multiplication",
+  "description": "Multiply a one-digit number by ten or one hundred.",
+  "params": { "mode": "times-ten", "leftMin": 2, "leftMax": 9 }
+}

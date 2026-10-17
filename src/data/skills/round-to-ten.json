@@ -1,0 +1,10 @@
+{
+  "id": "round-to-ten",
+  "strand": "place-value",
+  "name": "Round to the nearest ten",
+  "gradeBand": "3-5",
+  "prerequisites": ["compare-numbers"],
+  "generator": "round-number",
+  "description": "Round a number to the nearest ten.",
+  "params": { "place": "ten", "min": 10, "max": 999 }
+}

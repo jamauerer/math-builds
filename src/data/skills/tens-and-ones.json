@@ -1,0 +1,10 @@
+{
+  "id": "tens-and-ones",
+  "strand": "place-value",
+  "name": "Tens and ones",
+  "gradeBand": "K-2",
+  "prerequisites": [],
+  "generator": "place-value",
+  "description": "In a two-digit number, tell the value of the tens or ones digit.",
+  "params": { "min": 10, "max": 99, "places": ["tens", "ones"] }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "hundreds",
+  "strand": "place-value",
+  "name": "Hundreds",
+  "gradeBand": "K-2",
+  "prerequisites": ["tens-and-ones"],
+  "generator": "place-value",
+  "description": "In a three-digit number, tell the value of a digit.",
+  "params": { "min": 100, "max": 999, "places": ["hundreds", "tens", "ones"] }
+}

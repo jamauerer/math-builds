@@ -1,0 +1,10 @@
+{
+  "id": "multiply-two-digit-by-two-digit",
+  "strand": "multiplication",
+  "name": "Multiply two digits by two digits",
+  "gradeBand": "6-8",
+  "prerequisites": ["multiply-two-digit-by-one-digit"],
+  "generator": "multiplication",
+  "description": "Multiply a two-digit number by another two-digit number.",
+  "params": { "mode": "multi", "leftDigits": 2, "rightDigits": 2 }
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "id": "place-value",
+    "name": "Place value",
+    "skills": [
+      "tens-and-ones",
+      "hundreds",
+      "compare-numbers",
+      "thousands-place",
+      "round-to-ten"
+    ]
+  },
+  {
+    "id": "addition-subtraction",
+    "name": "Addition and subtraction",
+    "skills": [
+      "add-two-digit-no-regroup",
+      "subtract-no-borrow-two-digit",
+      "subtract-borrow-two-digit",
+      "subtract-borrow-three-digit",
+      "subtract-across-zeros"
+    ]
+  },
+  {
+    "id": "multiplication",
+    "name": "Multiplication",
+    "skills": [
+      "multiply-facts-2-to-5",
+      "multiply-facts-6-to-9",
+      "multiply-by-ten-or-hundred",
+      "multiply-two-digit-by-one-digit",
+      "multiply-two-digit-by-two-digit"
+    ]
+  }
+]

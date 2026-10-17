@@ -1,0 +1,10 @@
+{
+  "id": "multiply-facts-2-to-5",
+  "strand": "multiplication",
+  "name": "Multiplication facts 2 to 5",
+  "gradeBand": "3-5",
+  "prerequisites": [],
+  "generator": "multiplication",
+  "description": "Multiply one-digit numbers from 2 through 5.",
+  "params": { "mode": "facts", "leftMin": 2, "leftMax": 5, "rightMin": 2, "rightMax": 5 }
+}

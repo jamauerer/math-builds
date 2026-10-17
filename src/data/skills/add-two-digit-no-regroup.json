@@ -1,0 +1,10 @@
+{
+  "id": "add-two-digit-no-regroup",
+  "strand": "addition-subtraction",
+  "name": "Add two digits without regrouping",
+  "gradeBand": "K-2",
+  "prerequisites": [],
+  "generator": "addition",
+  "description": "Add two-digit numbers when no column needs a trade.",
+  "params": { "digits": 2, "regroup": "none" }
+}

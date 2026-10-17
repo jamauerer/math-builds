@@ -1,0 +1,10 @@
+{
+  "id": "thousands-place",
+  "strand": "place-value",
+  "name": "Thousands place",
+  "gradeBand": "3-5",
+  "prerequisites": ["hundreds"],
+  "generator": "place-value",
+  "description": "Tell the value of the thousands digit.",
+  "params": { "min": 1000, "max": 9999, "places": ["thousands"] }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "subtract-across-zeros",
+  "strand": "addition-subtraction",
+  "name": "Subtract across zeros",
+  "gradeBand": "3-5",
+  "prerequisites": ["subtract-borrow-three-digit"],
+  "generator": "stacked-subtraction",
+  "description": "Borrow across a zero when a middle digit has nothing to give.",
+  "params": { "digits": 3, "borrow": "across-zeros" }
+}

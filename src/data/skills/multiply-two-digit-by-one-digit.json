@@ -1,0 +1,10 @@
+{
+  "id": "multiply-two-digit-by-one-digit",
+  "strand": "multiplication",
+  "name": "Multiply two digits by one digit",
+  "gradeBand": "3-5",
+  "prerequisites": ["multiply-facts-6-to-9", "multiply-by-ten-or-hundred"],
+  "generator": "multiplication",
+  "description": "Multiply a two-digit number by a one-digit number.",
+  "params": { "mode": "multi", "leftDigits": 2, "rightDigits": 1 }
+}

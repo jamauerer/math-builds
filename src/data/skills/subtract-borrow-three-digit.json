@@ -1,0 +1,10 @@
+{
+  "id": "subtract-borrow-three-digit",
+  "strand": "addition-subtraction",
+  "name": "Subtract with borrowing, three digits",
+  "gradeBand": "3-5",
+  "prerequisites": ["subtract-borrow-two-digit"],
+  "generator": "stacked-subtraction",
+  "description": "Borrow in two columns to subtract three-digit numbers.",
+  "params": { "digits": 3, "borrow": "twice" }
+}

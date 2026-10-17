@@ -1,0 +1,10 @@
+{
+  "id": "subtract-borrow-two-digit",
+  "strand": "addition-subtraction",
+  "name": "Subtract with borrowing, two digits",
+  "gradeBand": "3-5",
+  "prerequisites": ["subtract-no-borrow-two-digit"],
+  "generator": "stacked-subtraction",
+  "description": "Trade a ten when the ones digit is too small.",
+  "params": { "digits": 2, "borrow": "once" }
+}
