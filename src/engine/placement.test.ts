@@ -77,13 +77,16 @@ function play(respond: (skill: Skill) => boolean, seed: number, pauseAfter: numb
 
 describe("level labels", () => {
   it("keeps not checked yet separate from a checked level of 0", () => {
-    expect(labelForLevel(0)).toBe("unknown");
-    expect(labelForLevel(3)).toBe("shaky");
-    expect(labelForLevel(5)).toBe("solid");
+    expect(labelForLevel(0)).toBe("not-started");
+    expect(labelForLevel(1)).toBe("learning");
+    expect(labelForLevel(2)).toBe("learning");
+    expect(labelForLevel(3)).toBe("solid");
+    expect(labelForLevel(4)).toBe("solid");
+    expect(labelForLevel(5)).toBe("mastered");
     const fresh = createLearnerMap(skills);
     expect(fresh["tens-and-ones"]).toEqual({ level: 0, state: "unchecked" });
     let map = recordLevelPass(fresh, "tens-and-ones", 3);
-    expect(map["tens-and-ones"]).toEqual({ level: 3, state: "shaky" });
+    expect(map["tens-and-ones"]).toEqual({ level: 3, state: "solid" });
     map = recordLevelPass(map, "tens-and-ones", 1);
     expect(map["tens-and-ones"].level).toBe(3);
     expect(practiceLevel(map["tens-and-ones"])).toBe(4);
@@ -96,7 +99,7 @@ describe("level labels", () => {
 describe("implied levels", () => {
   it("copies a level 4 or 5 pass onto unchecked prerequisites", () => {
     const map = inferImpliedLevels(createLearnerMap(skills), skills, "round-to-ten", 5);
-    expect(map["round-to-ten"]).toEqual({ level: 5, state: "solid" });
+    expect(map["round-to-ten"]).toEqual({ level: 5, state: "mastered" });
     expect(map["compare-numbers"].level).toBe(5);
     expect(map["hundreds"].level).toBe(5);
     expect(map["tens-and-ones"].level).toBe(5);
@@ -105,9 +108,9 @@ describe("implied levels", () => {
 
   it("marks dependents at level 0 when level 1 is failed", () => {
     const map = inferImpliedLevels(createLearnerMap(skills), skills, "multiply-facts-2-to-5", 0);
-    expect(map["multiply-facts-2-to-5"]).toEqual({ level: 0, state: "unknown" });
+    expect(map["multiply-facts-2-to-5"]).toEqual({ level: 0, state: "not-started" });
     for (const id of MULTIPLY_IDS.slice(1)) {
-      expect(map[id]).toEqual({ level: 0, state: "unknown" });
+      expect(map[id]).toEqual({ level: 0, state: "not-started" });
     }
     expect(map["tens-and-ones"].state).toBe("unchecked");
   });
@@ -119,7 +122,10 @@ describe("quiz session", () => {
     expect(session.skillId).toBe("tens-and-ones");
     expect(session.level).toBe(3);
     expect(questionsRemaining(skills, session.map, session.probe)).toBe(skills.length * 3);
-    session = continueQuiz(gradeAnswer(session, session.problem?.answer ?? ""));
+    const formatted = (session.problem?.answer ?? "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    session = continueQuiz(gradeAnswer(session, ` ${formatted} `));
+    expect(session.history[0]?.verdict).toBe("right");
+    expect(session.history[0]?.prompt).toBeTruthy();
     expect(session.skillId).toBe("tens-and-ones");
     expect(session.level).toBe(4);
 
@@ -130,8 +136,8 @@ describe("quiz session", () => {
     skipped = skipQuestion(skipped);
     expect(skipped.level).toBe(1);
     skipped = skipQuestion(skipped);
-    expect(skipped.map["tens-and-ones"]).toEqual({ level: 0, state: "unknown" });
-    expect(skipped.map["hundreds"]).toEqual({ level: 0, state: "unknown" });
+    expect(skipped.map["tens-and-ones"]).toEqual({ level: 0, state: "not-started" });
+    expect(skipped.map["hundreds"]).toEqual({ level: 0, state: "not-started" });
     expect(skipped.skillId).toBe("add-two-digit-no-regroup");
   });
 });
@@ -159,7 +165,7 @@ describe("simulated placement", () => {
     expect(weak.questions.length).toBeLessThan(20);
     for (const skill of skills) {
       expect(weak.map[skill.id].level).toBe(0);
-      expect(weak.map[skill.id].state).toBe("unknown");
+      expect(weak.map[skill.id].state).toBe("not-started");
     }
     expect(weak.toppedOut).toEqual([]);
     const asked = new Set(weak.questions.map((item) => item.skillId));
@@ -172,7 +178,7 @@ describe("simulated placement", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const result = place(() => true, 45);
     for (const skill of skills) {
-      expect(result.map[skill.id]).toEqual({ level: 5, state: "solid" });
+      expect(result.map[skill.id]).toEqual({ level: 5, state: "mastered" });
     }
     expect(result.questions.length).toBeLessThanOrEqual(45);
     expect(result.questions[0].level).toBe(3);

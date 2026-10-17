@@ -92,7 +92,12 @@ export function PlacementQuiz({
 
   if (session.phase === "done" || !session.problem) {
     return (
-      <LearnerMapScreen map={session.map} toppedOut={session.toppedOut} onPractice={onPractice} />
+      <LearnerMapScreen
+        map={session.map}
+        toppedOut={session.toppedOut}
+        history={session.history}
+        onPractice={onPractice}
+      />
     );
   }
 

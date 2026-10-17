@@ -208,16 +208,47 @@ button {
   border-style: dashed;
 }
 
-.skill.unknown {
+.skill.not-started {
   background: #e7e5e4;
 }
 
-.skill.shaky {
+.skill.learning {
   background: #fcd34d;
 }
 
 .skill.solid {
   background: #86efac;
+}
+
+.skill.mastered {
+  background: #4ade80;
+}
+
+.skill.mastered .skill-name::after {
+  content: " ★";
+}
+
+.what-happened {
+  margin-top: 20px;
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.what-happened summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.check-warning {
+  color: #991b1b;
+  background: #fee2e2;
+  border-radius: 8px;
+  padding: 8px;
 }
 
 .legend {

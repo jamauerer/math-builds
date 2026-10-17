@@ -20,9 +20,9 @@ describe("progress storage", () => {
     const session = createQuizSession({ skills, strands, seed: 3, map });
     const store = createProgressStore(skills, memoryStore());
     expect(store.load()).toBeNull();
-    store.save({ map, toppedOut: ["multiplication"], placement: snapshotQuiz(session) });
+    store.save({ map, toppedOut: ["multiplication"], placement: snapshotQuiz(session), history: session.history });
     const loaded = store.load();
-    expect(loaded?.map["multiply-facts-2-to-5"]).toEqual({ level: 5, state: "solid" });
+    expect(loaded?.map["multiply-facts-2-to-5"]).toEqual({ level: 5, state: "mastered" });
     expect(loaded?.map["hundreds"]).toEqual({ level: 0, state: "unchecked" });
     expect(loaded?.toppedOut).toEqual(["multiplication"]);
     expect(loaded?.placement?.skillId).toBe(session.skillId);

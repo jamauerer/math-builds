@@ -3,7 +3,20 @@ import { generateProblem } from "./generate";
 import type { Rng } from "./rng";
 import { MAX_LEVEL, type Problem, type Skill, type Strand } from "./types";
 
-export type SkillStateName = "unknown" | "shaky" | "solid" | "unchecked";
+export type SkillStateName = "not-started" | "learning" | "solid" | "mastered" | "unchecked";
+
+export type AttemptVerdict = "right" | "wrong" | "skip";
+
+export type AttemptRecord = {
+  skillId: string;
+  skillName: string;
+  level: number;
+  prompt: string;
+  given: string;
+  answer: string;
+  verdict: AttemptVerdict;
+  scribble: string;
+};
 
 export type SkillProgress = {
   /** Highest level passed, from 0 through 5. */
@@ -18,12 +31,15 @@ export const CEILING_MESSAGE = "You have finished all current skills in this str
 
 export function labelForLevel(level: number): SkillStateName {
   if (level >= MAX_LEVEL) {
+    return "mastered";
+  }
+  if (level >= 3) {
     return "solid";
   }
   if (level >= 1) {
-    return "shaky";
+    return "learning";
   }
-  return "unknown";
+  return "not-started";
 }
 
 export function createLearnerMap(skills: readonly Skill[]): LearnerMap {
@@ -311,6 +327,7 @@ export type QuizSession = {
   correct: boolean | null;
   skipped: boolean;
   rngState: number;
+  history: AttemptRecord[];
 };
 
 export type PlacementSnapshot = {
@@ -325,6 +342,7 @@ export type PlacementSnapshot = {
   correct: boolean | null;
   skipped: boolean;
   rngState: number;
+  history: AttemptRecord[];
 };
 
 function withResult(session: QuizSession, correct: boolean): QuizSession {
@@ -360,10 +378,11 @@ function presentQuestion(session: QuizSession): QuizSession {
         probe: null,
         problem: null,
         skillId: null,
-        correct: null,
-        skipped: false,
-      };
-    }
+    correct: null,
+    skipped: false,
+    history: session.history,
+  };
+}
     probe = freshProbe(skill.id);
   }
   const skill = skillById(session.skills).get(probe.skillId);
@@ -384,6 +403,7 @@ function presentQuestion(session: QuizSession): QuizSession {
     correct: null,
     skipped: false,
     rngState: cursor.state,
+    history: session.history,
   };
 }
 
@@ -394,6 +414,7 @@ export function createQuizSession(options: {
   toppedOut?: string[];
   seed?: number;
   rngState?: number;
+  history?: AttemptRecord[];
 }): QuizSession {
   const seed = options.seed ?? 1;
   const base: QuizSession = {
@@ -410,6 +431,7 @@ export function createQuizSession(options: {
     correct: null,
     skipped: false,
     rngState: options.rngState ?? (seed >>> 0 || 1),
+    history: options.history ?? [],
   };
   return presentQuestion(base);
 }
@@ -427,7 +449,31 @@ export function snapshotQuiz(session: QuizSession): PlacementSnapshot {
     correct: session.correct,
     skipped: session.skipped,
     rngState: session.rngState,
+    history: session.history,
   };
+}
+
+function rememberAttempt(
+  session: QuizSession,
+  verdict: AttemptVerdict,
+  given: string,
+  scribble = "",
+): QuizSession {
+  if (!session.problem || !session.skillId) {
+    return session;
+  }
+  const skill = session.skills.find((item) => item.id === session.skillId);
+  const entry: AttemptRecord = {
+    skillId: session.skillId,
+    skillName: skill?.name ?? session.skillId,
+    level: session.level,
+    prompt: session.problem.prompt,
+    given,
+    answer: session.problem.answer,
+    verdict,
+    scribble,
+  };
+  return { ...session, history: [...session.history, entry] };
 }
 
 export function restoreQuiz(
@@ -442,25 +488,27 @@ export function restoreQuiz(
   };
 }
 
-export function gradeAnswer(session: QuizSession, given: string): QuizSession {
+export function gradeAnswer(session: QuizSession, given: string, scribble = ""): QuizSession {
   if (session.phase !== "answering" || !session.problem || !session.skillId) {
     return session;
   }
   const correct = answersMatch(given, session.problem.answer);
-  return {
+  const graded: QuizSession = {
     ...withResult(session, correct),
     phase: "feedback",
     correct,
     skipped: false,
   };
+  return rememberAttempt(graded, correct ? "right" : "wrong", given, scribble);
 }
 
 /** A skip is a miss and moves straight to the next problem. */
-export function skipQuestion(session: QuizSession): QuizSession {
+export function skipQuestion(session: QuizSession, scribble = ""): QuizSession {
   if (session.phase !== "answering" || !session.problem) {
     return session;
   }
-  return presentQuestion(withResult(session, false));
+  const missed = rememberAttempt(withResult(session, false), "skip", "", scribble);
+  return presentQuestion(missed);
 }
 
 export function continueQuiz(session: QuizSession): QuizSession {

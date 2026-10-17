@@ -1,10 +1,11 @@
 import {
   labelForLevel,
+  type AttemptRecord,
+  type AttemptVerdict,
   type LearnerMap,
   type PlacementSnapshot,
   type Probe,
   type QuizPhase,
-  type SkillStateName,
 } from "../engine/placement";
 import type { Problem, Skill } from "../engine/types";
 
@@ -19,6 +20,7 @@ export type SavedProgress = {
   map: LearnerMap;
   toppedOut: string[];
   placement: PlacementSnapshot | null;
+  history: AttemptRecord[];
 };
 
 export type ProgressStore = {
@@ -34,16 +36,12 @@ function blank(skills: readonly Skill[]): LearnerMap {
   return map;
 }
 
-function isState(value: unknown): value is SkillStateName {
-  return value === "unknown" || value === "shaky" || value === "solid" || value === "unchecked";
-}
-
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null };
+    return { map, toppedOut: [], placement: null, history: [] };
   }
-  const record = raw as { map?: unknown; toppedOut?: unknown; placement?: unknown };
+  const record = raw as { map?: unknown; toppedOut?: unknown; placement?: unknown; history?: unknown };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
     const entry = source[skill.id];
@@ -59,14 +57,53 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     if (typeof level !== "number" || !Number.isInteger(level) || level < 0 || level > 5) {
       continue;
     }
-    if (isState(state) || state == null) {
-      map[skill.id] = { level, state: labelForLevel(level) };
-    }
+    map[skill.id] = { level, state: labelForLevel(level) };
   }
   const toppedOut = Array.isArray(record.toppedOut)
     ? record.toppedOut.filter((item): item is string => typeof item === "string")
     : [];
-  return { map, toppedOut, placement: sanitizePlacement(skills, record.placement) };
+  return {
+    map,
+    toppedOut,
+    placement: sanitizePlacement(skills, record.placement),
+    history: sanitizeHistory(record.history),
+  };
+}
+
+function sanitizeHistory(raw: unknown): AttemptRecord[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const history: AttemptRecord[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const entry = item as Partial<AttemptRecord>;
+    const verdict: AttemptVerdict | null =
+      entry.verdict === "right" || entry.verdict === "wrong" || entry.verdict === "skip" ? entry.verdict : null;
+    if (
+      !verdict ||
+      typeof entry.skillId !== "string" ||
+      typeof entry.skillName !== "string" ||
+      typeof entry.prompt !== "string" ||
+      typeof entry.answer !== "string" ||
+      typeof entry.level !== "number"
+    ) {
+      continue;
+    }
+    history.push({
+      skillId: entry.skillId,
+      skillName: entry.skillName,
+      level: entry.level,
+      prompt: entry.prompt,
+      given: typeof entry.given === "string" ? entry.given : "",
+      answer: entry.answer,
+      verdict,
+      scribble: typeof entry.scribble === "string" ? entry.scribble : "",
+    });
+  }
+  return history;
 }
 
 function sanitizePlacement(skills: readonly Skill[], raw: unknown): PlacementSnapshot | null {
@@ -107,6 +144,7 @@ function sanitizePlacement(skills: readonly Skill[], raw: unknown): PlacementSna
     correct: typeof entry.correct === "boolean" ? entry.correct : null,
     skipped: entry.skipped === true,
     rngState: entry.rngState,
+    history: sanitizeHistory(entry.history),
   };
 }
 
