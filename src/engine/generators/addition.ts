@@ -52,8 +52,8 @@ export const generateAddition: Generator = (rng, level, params) => {
     throw new Error("Could not build an addition within the level cap");
   }
   return {
-    prompt: `What is ${left} + ${right}?`,
+    prompt: "Add.",
     answer: String(left + right),
-    visual: { kind: "expression", left, operator: "+", right },
+    visual: { kind: "stacked", layout: "vertical", operator: "+", top: left, bottom: right },
   };
 };

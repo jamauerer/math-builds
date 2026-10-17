@@ -20,8 +20,8 @@ export const generateMultiplication: Generator = (rng, level, params) => {
   }
 
   return {
-    prompt: `What is ${left} times ${right}?`,
+    prompt: "Multiply.",
     answer: String(left * right),
-    visual: { kind: "expression", left, operator: "x", right },
+    visual: { kind: "stacked", layout: "vertical", operator: "x", top: left, bottom: right },
   };
 };

@@ -27,9 +27,13 @@ function independentAnswer(problem: Problem): string {
     return String(visual.left - visual.right);
   }
   if (visual.kind === "stacked") {
-    return visual.operator === "-"
-      ? String(visual.top - visual.bottom)
-      : String(visual.top + visual.bottom);
+    if (visual.operator === "-") {
+      return String(visual.top - visual.bottom);
+    }
+    if (visual.operator === "x") {
+      return String(visual.top * visual.bottom);
+    }
+    return String(visual.top + visual.bottom);
   }
   if (visual.kind === "place-value") {
     const digit = Math.floor(visual.number / PLACE_FACTOR[visual.place]) % 10;
@@ -110,17 +114,17 @@ function assertSkillConstraints(generator: string, params: SkillParams, problem:
     }
     assertBorrow(String(borrow), visual.top, visual.bottom, Number(digits));
   }
-  if (generator === "addition" && visual.kind === "expression") {
+  if (generator === "addition" && visual.kind === "stacked") {
     expect(visual.operator).toBe("+");
-    expect(digitLength(visual.left)).toBe(params.digits);
-    expect(digitLength(visual.right)).toBe(params.digits);
+    expect(digitLength(visual.top)).toBe(params.digits);
+    expect(digitLength(visual.bottom)).toBe(params.digits);
     if (params.maxAddend != null) {
-      expect(visual.left).toBeLessThanOrEqual(Number(params.maxAddend));
-      expect(visual.right).toBeLessThanOrEqual(Number(params.maxAddend));
+      expect(visual.top).toBeLessThanOrEqual(Number(params.maxAddend));
+      expect(visual.bottom).toBeLessThanOrEqual(Number(params.maxAddend));
     }
     const width = Number(params.digits);
-    const left = String(visual.left).padStart(width, "0");
-    const right = String(visual.right).padStart(width, "0");
+    const left = String(visual.top).padStart(width, "0");
+    const right = String(visual.bottom).padStart(width, "0");
     for (let index = 0; index < width; index += 1) {
       expect(Number(left[index]) + Number(right[index])).toBeLessThan(10);
     }
@@ -146,12 +150,12 @@ function assertSkillConstraints(generator: string, params: SkillParams, problem:
     expect(visual.number).toBeGreaterThanOrEqual(Number(params.min));
     expect(visual.number).toBeLessThanOrEqual(Number(params.max));
   }
-  if (generator === "multiplication" && visual.kind === "expression") {
+  if (generator === "multiplication" && visual.kind === "stacked") {
     expect(visual.operator).toBe("x");
-    expect(visual.left).toBeGreaterThanOrEqual(Number(params.leftMin));
-    expect(visual.left).toBeLessThanOrEqual(Number(params.leftMax));
-    expect(visual.right).toBeGreaterThanOrEqual(Number(params.rightMin));
-    expect(visual.right).toBeLessThanOrEqual(Number(params.rightMax));
+    expect(visual.top).toBeGreaterThanOrEqual(Number(params.leftMin));
+    expect(visual.top).toBeLessThanOrEqual(Number(params.leftMax));
+    expect(visual.bottom).toBeGreaterThanOrEqual(Number(params.rightMin));
+    expect(visual.bottom).toBeLessThanOrEqual(Number(params.rightMax));
   }
 }
 

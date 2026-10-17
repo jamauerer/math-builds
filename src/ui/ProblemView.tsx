@@ -8,7 +8,7 @@ export function ProblemView({ problem }: { problem: Problem }) {
       {visual?.kind === "stacked" ? (
         <div className="stack" aria-label="Vertical problem">
           <div className="stack-top">{visual.top}</div>
-          <div className="stack-op">{visual.operator}</div>
+          <div className="stack-op">{visual.operator === "x" ? "×" : visual.operator}</div>
           <div className="stack-bottom">{visual.bottom}</div>
           <div className="stack-line" />
         </div>

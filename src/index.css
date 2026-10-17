@@ -113,6 +113,8 @@ button {
   background: #fff;
   border: 1px solid #e7e5e4;
   border-radius: 12px;
+  touch-action: none;
+  user-select: none;
 }
 
 .problem-face {
@@ -120,15 +122,17 @@ button {
   z-index: 0;
   min-height: 240px;
   padding: 12px;
+  pointer-events: none;
 }
 
 .scribble-layer {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: 100%;
   touch-action: none;
+  pointer-events: auto;
   cursor: crosshair;
 }
 

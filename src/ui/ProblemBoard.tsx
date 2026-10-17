@@ -82,13 +82,14 @@ export const ProblemBoard = forwardRef<ProblemBoardHandle, Props>(function Probl
     const width = Math.max(1, box.width);
     const height = Math.max(1, box.height);
     const dpr = window.devicePixelRatio || 1;
+    const pixels = canvasPixelSize(width, height, dpr);
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
-    const pixels = canvasPixelSize(width, height, dpr);
-    if (canvas.width !== pixels.width || canvas.height !== pixels.height) {
-      canvas.width = pixels.width;
-      canvas.height = pixels.height;
+    if (canvas.width === pixels.width && canvas.height === pixels.height) {
+      return;
     }
+    canvas.width = pixels.width;
+    canvas.height = pixels.height;
     redraw(live.current);
   }
 
@@ -191,15 +192,21 @@ export const ProblemBoard = forwardRef<ProblemBoardHandle, Props>(function Probl
             const eraser = toolRef.current === "eraser";
             live.current = beginStroke(live.current, {
               color: colorRef.current,
-              size: eraser ? 22 : 3.5,
+              size: eraser ? 24 : 5,
               eraser,
               point,
             });
+            const ctx = canvas?.getContext("2d");
+            const started = live.current.strokes[live.current.strokes.length - 1];
+            if (ctx && started) {
+              paintSegment(ctx, point, point, started, window.devicePixelRatio || 1);
+            }
           }}
           onPointerMove={(event) => {
             if (!drawing.current || event.pointerId !== activePointer.current || ignorePointer(event)) {
               return;
             }
+            event.preventDefault();
             const point = pointFrom(event);
             const strokes = live.current.strokes;
             const stroke = strokes[strokes.length - 1];
@@ -247,11 +254,17 @@ function paintSegment(
   ctx.globalCompositeOperation = stroke.eraser ? "destination-out" : "source-over";
   ctx.strokeStyle = stroke.color;
   ctx.beginPath();
-  ctx.moveTo(from.x * dpr, from.y * dpr);
-  const midX = ((from.x + to.x) / 2) * dpr;
-  const midY = ((from.y + to.y) / 2) * dpr;
-  ctx.quadraticCurveTo(from.x * dpr, from.y * dpr, midX, midY);
-  ctx.stroke();
+  if (from.x === to.x && from.y === to.y) {
+    ctx.arc(to.x * dpr, to.y * dpr, Math.max(1, (stroke.size * dpr) / 2), 0, Math.PI * 2);
+    ctx.fillStyle = stroke.color;
+    ctx.fill();
+  } else {
+    ctx.moveTo(from.x * dpr, from.y * dpr);
+    const controlX = ((from.x + to.x) / 2) * dpr;
+    const controlY = ((from.y + to.y) / 2) * dpr;
+    ctx.quadraticCurveTo(controlX, controlY, to.x * dpr, to.y * dpr);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

@@ -29,7 +29,7 @@ export type Strand = {
 export type StackedVisual = {
   kind: "stacked";
   layout: "vertical";
-  operator: "+" | "-";
+  operator: "+" | "-" | "x";
   top: number;
   bottom: number;
 };
