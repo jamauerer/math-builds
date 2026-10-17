@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
+import { referenceDesigns, scenarioForMode } from "../engine/bridge/catalog";
 import {
-  createBridgeSimulation,
-  type BridgePreset,
+  createDesignSimulation,
   type BridgeSimulation,
   type BridgeSnapshot,
   type BridgeStatus,
   type DrawBody,
 } from "../engine/bridge/simulate";
+
+type BridgePreset = "holds" | "collapses";
 
 const PRESET_LABEL: Record<BridgePreset, string> = {
   holds: "Holds",
@@ -31,7 +33,8 @@ export function BridgeTest() {
     if (!canvas) {
       return;
     }
-    const sim = createBridgeSimulation(preset);
+    const designs = referenceDesigns(scenarioForMode("pick"));
+    const sim = createDesignSimulation(preset === "holds" ? designs.correct : designs.weak);
     simRef.current = sim;
     setStatus("ready");
     paint(canvas, sim.snapshot());

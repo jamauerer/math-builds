@@ -295,7 +295,20 @@ export function referenceDesigns(scenario: Scenario): ReferenceDesigns {
     return {
       correct: deckFromParts(scenario, ["plank-3", "plank-3"]),
       weak: deckFromParts(scenario, ["plank-2", "plank-2", "plank-2"]),
-      margin: deckFromParts(scenario, ["plank-3", "plank-2", "plank-1"]),
+      margin: {
+        gap: scenario.gap,
+        truckKg: scenario.truck,
+        supports: [],
+        beams: [0, 1].map((index) => ({
+          id: `margin-${index}`,
+          name: "3-block plank",
+          x0: index * 3,
+          y0: 0,
+          x1: index * 3 + 3,
+          y1: 0,
+          strengthKg: (scenario.truck + scenario.margin) / 2,
+        })),
+      },
     };
   }
   if (scenario.mode === "calculate") {
