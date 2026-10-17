@@ -247,7 +247,7 @@ function WorldCard({
             const level = candyLevels.find((item) => item.world === worldId && item.number === number);
             const playable = level?.playable === true;
             const done = level ? completed.includes(level.id) : false;
-            const isCurrent = current?.id === level?.id;
+            const isCurrent = level != null && current?.id === level.id;
             const state = done ? "done" : isCurrent ? "current" : playable ? "open" : "locked";
             return (
               <button

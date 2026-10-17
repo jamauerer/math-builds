@@ -476,6 +476,9 @@ button {
   color: #f6f1ff;
   background: #1a1033;
   min-height: calc(100vh - 72px);
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .worlds h1,
@@ -640,14 +643,14 @@ button {
 .age-badge.steel { background: #ffd23f; }
 
 .level-tiles {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(44px, 1fr));
   gap: 8px;
 }
 
 .level-tile {
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  height: 52px;
   border-radius: 12px;
   font-weight: 800;
   font-size: 22px;
@@ -802,7 +805,8 @@ button {
 
 .column {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .gap-block,
@@ -889,6 +893,8 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .slot {
@@ -932,7 +938,8 @@ button {
 
 .drive-canvas {
   width: 100%;
-  height: 420px;
+  height: auto;
+  max-height: 420px;
   border-radius: 18px;
   background: #3a2470;
 }
