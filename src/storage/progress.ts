@@ -22,6 +22,8 @@ export type SavedProgress = {
   toppedOut: string[];
   placement: PlacementSnapshot | null;
   history: AttemptRecord[];
+  age: number | null;
+  bridgeCompleted: string[];
 };
 
 export type ProgressStore = {
@@ -40,9 +42,16 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [] };
+    return { map, toppedOut: [], placement: null, history: [], age: null, bridgeCompleted: [] };
   }
-  const record = raw as { map?: unknown; toppedOut?: unknown; placement?: unknown; history?: unknown };
+  const record = raw as {
+    map?: unknown;
+    toppedOut?: unknown;
+    placement?: unknown;
+    history?: unknown;
+    age?: unknown;
+    bridgeCompleted?: unknown;
+  };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
     const entry = source[skill.id];
@@ -63,11 +72,17 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
   const toppedOut = Array.isArray(record.toppedOut)
     ? record.toppedOut.filter((item): item is string => typeof item === "string")
     : [];
+  const age = record.age;
+  const bridgeCompleted = Array.isArray(record.bridgeCompleted)
+    ? record.bridgeCompleted.filter((item): item is string => typeof item === "string")
+    : [];
   return {
     map,
     toppedOut,
     placement: sanitizePlacement(skills, record.placement),
     history: sanitizeHistory(record.history),
+    age: typeof age === "number" && Number.isInteger(age) && age >= 5 && age <= 18 ? age : null,
+    bridgeCompleted,
   };
 }
 

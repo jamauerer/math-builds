@@ -22,7 +22,15 @@ type Screen =
 export function App() {
   const store = useMemo(() => browserProgressStore(skills), []);
   const [progress, setProgress] = useState<SavedProgress>(
-    () => store.load() ?? { map: createLearnerMap(skills), toppedOut: [], placement: null, history: [] },
+    () =>
+      store.load() ?? {
+        map: createLearnerMap(skills),
+        toppedOut: [],
+        placement: null,
+        history: [],
+        age: null,
+        bridgeCompleted: [],
+      },
   );
   const [screen, setScreen] = useState<Screen>({ name: "map" });
   const [placementRunning, setPlacementRunning] = useState(false);
@@ -38,6 +46,8 @@ export function App() {
       toppedOut: session.toppedOut,
       placement: keepPlacement && session.phase !== "done" ? snapshotQuiz(session) : null,
       history: session.history,
+      age: progress.age,
+      bridgeCompleted: progress.bridgeCompleted,
     });
   }
 
@@ -106,7 +116,14 @@ export function App() {
             }
             const map = recordLevelPass(progress.map, skillId, level);
             const toppedOut = noteCeilings(strands, map, progress.toppedOut);
-            save({ map, toppedOut, placement: progress.placement, history: progress.history });
+            save({
+              map,
+              toppedOut,
+              placement: progress.placement,
+              history: progress.history,
+              age: progress.age,
+              bridgeCompleted: progress.bridgeCompleted,
+            });
           }}
           onClose={() => setScreen({ name: "map" })}
         />
