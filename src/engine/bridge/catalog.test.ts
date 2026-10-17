@@ -6,6 +6,7 @@ import {
   bridgeParts,
   buildModes,
   candyLevels,
+  designFitsTray,
   gradeQuestion,
   levelById,
   levelUnlocked,
@@ -15,6 +16,7 @@ import {
   partUnlocked,
   referenceBridges,
   suggestWorld,
+  traySupply,
   unlockSkillName,
   worldById,
   worldUnlocked,
@@ -131,5 +133,22 @@ describe("candy levels", () => {
     expect(designs.correct.pieces.filter((piece) => piece.role === "deck")).toHaveLength(4);
     expect(designs.correct.pieces.filter((piece) => piece.role === "pillar")).toHaveLength(2);
     expect(designs.weak.pieces.filter((piece) => piece.role === "deck").length).toBeLessThan(4);
+  });
+
+  it("gives each playable level a tray that matches its supply and can build the bridge", () => {
+    const first = levelById("candy-1");
+    const second = levelById("candy-2");
+    if (!first || !second) {
+      throw new Error("playable levels are missing");
+    }
+    expect(first.supply.spares).toEqual([{ partId: "chocolate", count: 1 }]);
+    expect(first.supply.distractors).toEqual([]);
+    expect(traySupply(first)).toEqual({ chocolate: 5, cane: 1 });
+    expect(second.supply.spares).toEqual([{ partId: "chocolate", count: 1 }]);
+    expect(second.supply.distractors).toEqual([{ partId: "wafer", count: 1 }]);
+    expect(traySupply(second)).toEqual({ chocolate: 5, cane: 2, wafer: 1 });
+    for (const level of candyLevels.filter((item) => item.playable)) {
+      expect(designFitsTray(level, referenceBridges(level).correct.pieces)).toBe(true);
+    }
   });
 });

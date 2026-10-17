@@ -47,6 +47,13 @@ export type WorldInfo = {
   requires: Requirement[];
 };
 
+export type SupplyItem = { partId: string; count: number };
+
+export type LevelSupply = {
+  spares: SupplyItem[];
+  distractors: SupplyItem[];
+};
+
 export type CandyLevel = {
   id: string;
   world: WorldId;
@@ -61,6 +68,7 @@ export type CandyLevel = {
   rulerRight: number;
   questions: LevelQuestion[];
   requires: Requirement[];
+  supply: LevelSupply;
 };
 
 const WORLD_IDS: WorldId[] = ["candy", "wood", "steel"];
@@ -126,6 +134,28 @@ function parseQuestion(raw: unknown, source: string): LevelQuestion {
   };
 }
 
+function parseSupplyList(raw: unknown): SupplyItem[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.flatMap((item) => {
+    if (!isRecord(item) || typeof item.partId !== "string" || typeof item.count !== "number" || item.count <= 0) {
+      return [];
+    }
+    return [{ partId: item.partId, count: item.count }];
+  });
+}
+
+function parseSupply(raw: unknown): LevelSupply {
+  if (!isRecord(raw)) {
+    return { spares: [], distractors: [] };
+  }
+  return {
+    spares: parseSupplyList(raw.spares),
+    distractors: parseSupplyList(raw.distractors),
+  };
+}
+
 function parseLevel(raw: unknown, index: number): CandyLevel {
   const source = `level ${index + 1}`;
   if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.title !== "string") {
@@ -150,6 +180,7 @@ function parseLevel(raw: unknown, index: number): CandyLevel {
       ? raw.questions.map((item, questionIndex) => parseQuestion(item, `${source} question ${questionIndex + 1}`))
       : [],
     requires: parseRequirementList(raw.requires, source),
+    supply: parseSupply(raw.supply),
   };
 }
 
@@ -337,6 +368,37 @@ export type EarnResult = {
   partId: string;
   count: number;
 };
+
+function addSupply(counts: Record<string, number>, items: readonly SupplyItem[]) {
+  for (const item of items) {
+    counts[item.partId] = (counts[item.partId] ?? 0) + item.count;
+  }
+}
+
+export function traySupply(level: CandyLevel): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const question of level.questions) {
+    if (question.count > 0) {
+      counts[question.partId] = (counts[question.partId] ?? 0) + question.count;
+    }
+  }
+  addSupply(counts, level.supply.spares);
+  addSupply(counts, level.supply.distractors);
+  return counts;
+}
+
+export function designFitsTray(level: CandyLevel, pieces: readonly { name: string }[]): boolean {
+  const tray = traySupply(level);
+  const used: Record<string, number> = {};
+  for (const piece of pieces) {
+    const part = bridgeParts.find((item) => item.name === piece.name);
+    if (!part) {
+      return false;
+    }
+    used[part.id] = (used[part.id] ?? 0) + 1;
+  }
+  return Object.entries(used).every(([partId, count]) => (tray[partId] ?? 0) >= count);
+}
 
 export function gradeQuestion(question: LevelQuestion, given: string): EarnResult {
   const correct = answersMatch(given, question.answer);

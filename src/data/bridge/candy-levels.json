@@ -100,27 +100,24 @@
       "carWeight": 4,
       "rulerLeft": 0,
       "rulerRight": 4,
+      "supply": {
+        "spares": [{ "partId": "chocolate", "count": 1 }],
+        "distractors": []
+      },
       "questions": [
         {
-          "prompt": "The gap is 4 blocks wide. How many chocolate bars fill it?",
+          "prompt": "The gap is 4 blocks wide. Each chocolate bar covers 1 block. How many bars do you need?",
           "answer": "4",
-          "hint": "One bar fills one block. Count the blocks.",
+          "hint": "One bar covers one block. Count the blocks.",
           "partId": "chocolate",
           "count": 4
         },
         {
-          "prompt": "The car weighs 4. One candy cane holds 4. How many candy canes hold the car?",
+          "prompt": "The car weighs 4. Each candy cane pillar can hold 4. How many pillars do you need?",
           "answer": "1",
-          "hint": "4 is the same as one cane.",
+          "hint": "One pillar holds the same as the car.",
           "partId": "cane",
           "count": 1
-        },
-        {
-          "prompt": "A wafer holds 1. The car weighs 4. How many wafers match the car?",
-          "answer": "4",
-          "hint": "Add 1 four times.",
-          "partId": "wafer",
-          "count": 4
         }
       ]
     },
@@ -137,28 +134,24 @@
       "carWeight": 800,
       "rulerLeft": 3,
       "rulerRight": 15,
+      "supply": {
+        "spares": [{ "partId": "chocolate", "count": 1 }],
+        "distractors": [{ "partId": "wafer", "count": 1 }]
+      },
       "questions": [
         {
-          "prompt": "The gap is 12 meters. One block is 3 meters. How many blocks?",
+          "prompt": "The gap is 12 meters wide. Each chocolate bar covers 3 meters. How many bars do you need?",
           "answer": "4",
-          "hint": "Split 12 into groups of 3.",
+          "hint": "Split 12 meters into bars of 3 meters.",
           "partId": "chocolate",
           "count": 4
         },
         {
-          "prompt": "The car weighs 800 kilograms. A pillar holds 500 kilograms. How many pillars?",
+          "prompt": "The car weighs 800 kilograms. Each candy cane pillar can hold 500 kilograms. How many pillars do you need?",
           "answer": "2",
-          "hint": "500 plus 500 is 1000, which covers 800.",
+          "hint": "500 kilograms plus 500 kilograms covers 800 kilograms.",
           "partId": "cane",
           "count": 2
-        },
-        {
-          "prompt": "4 blocks are 3 meters each. How many meters is that?",
-          "answer": "12",
-          "hint": "4 times 3.",
-          "partId": "gummy",
-          "count": 2,
-          "visual": { "kind": "stacked", "layout": "vertical", "operator": "x", "top": 4, "bottom": 3 }
         }
       ]
     },
