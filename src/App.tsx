@@ -82,7 +82,7 @@ export function App() {
 
   return (
     <div className="app">
-      {placementRunning ? null : (
+      {placementRunning || screen.name === "bridge" ? null : (
         <nav className="nav">
           <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "map" })}>
             Map

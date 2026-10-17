@@ -123,6 +123,17 @@ button {
   min-height: 240px;
   padding: 12px;
   pointer-events: none;
+  color: #1c1917;
+  background: #fff;
+}
+
+.problem-face .prompt,
+.problem-face .stack,
+.problem-face .compare-pair,
+.pad-display,
+.choice,
+.pad-key {
+  color: #1c1917;
 }
 
 .scribble-layer {
@@ -470,15 +481,23 @@ button {
   }
 }
 
+.app:has(.worlds),
+.app:has(.level-flow) {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 .worlds,
 .level-flow {
   font-family: Figtree, "Segoe UI", sans-serif;
   color: #f6f1ff;
   background: #1a1033;
-  min-height: calc(100vh - 72px);
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow: hidden;
+  position: relative;
 }
 
 .worlds h1,
@@ -497,10 +516,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 12px 28px;
-  min-height: 84px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 56px;
 }
 
 .brand,
@@ -564,15 +583,29 @@ button {
   font-weight: 800;
 }
 
+.worlds {
+  display: flex;
+  flex-direction: column;
+}
+
+.worlds.age-gate {
+  display: block;
+  overflow: auto;
+}
+
+.world-grid {
+  flex: 1;
+}
+
 .worlds-intro {
-  padding: 8px 36px 0;
+  padding: 4px 16px 0;
 }
 
 .worlds-intro h1,
 .age-gate h1 {
   margin: 0;
   font-weight: 800;
-  font-size: 46px;
+  font-size: clamp(26px, 3vw, 36px);
   letter-spacing: -1px;
 }
 
@@ -580,14 +613,16 @@ button {
 .age-gate p,
 .world-copy p {
   color: #d8ccf5;
-  font-size: 20px;
+  font-size: 14px;
+  margin: 0;
 }
 
 .world-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
-  padding: 24px 36px 36px;
+  gap: 12px;
+  padding: 8px 16px 12px;
+  min-height: 0;
 }
 
 .world-card {
@@ -597,6 +632,7 @@ button {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .world-card.candy,
@@ -607,15 +643,17 @@ button {
 .world-art {
   display: block;
   width: 100%;
-  height: 180px;
+  height: clamp(72px, 16vh, 130px);
+  flex: 0 0 auto;
 }
 
 .world-copy {
-  padding: 18px 22px 22px;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
+  min-height: 0;
 }
 
 .world-title {
@@ -627,7 +665,7 @@ button {
 
 .world-title h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 800;
 }
 
@@ -651,10 +689,10 @@ button {
 
 .level-tile {
   width: 100%;
-  height: 52px;
+  height: 44px;
   border-radius: 12px;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 18px;
   padding: 0;
 }
 
@@ -680,13 +718,13 @@ button {
 .continue,
 .check,
 .drive {
-  min-height: 56px;
+  min-height: 44px;
   border: 0;
   border-radius: 14px;
   background: #ff7a1a;
   color: #1a1033;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 18px;
 }
 
 .continue.locked {
@@ -701,7 +739,9 @@ button {
 
 .age-gate,
 .age-settings {
-  padding: 28px 36px 36px;
+  padding: 12px 16px;
+  max-height: 46dvh;
+  overflow: auto;
 }
 
 .age-choices {
@@ -737,17 +777,33 @@ button {
   background: #1a1033;
 }
 
-.measure-layout,
-.earn-layout,
-.build-layout {
+.measure-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 16px;
-  padding: 8px 28px 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+  gap: 12px;
+  padding: 8px 16px 12px;
+  min-height: 0;
+  height: calc(100dvh - 56px);
+}
+
+.earn-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(260px, 340px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 8px 16px 12px;
+  min-height: 0;
+  height: calc(100dvh - 56px);
 }
 
 .build-layout {
+  display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 8px 16px 12px;
+  min-height: 0;
+  height: calc(100dvh - 56px);
 }
 
 .measure-scene h2,
@@ -757,16 +813,17 @@ button {
   font-size: 32px;
 }
 
-.scene-frame,
-.builder {
-  position: relative;
-  min-height: 360px;
-  border-radius: 18px;
-  display: flex;
-  align-items: flex-end;
+.scene-fit {
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
-  padding: 24px;
-  gap: 0;
+}
+
+.scene-fit svg,
+.drive-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .water {
@@ -939,8 +996,7 @@ button {
 
 .drive-canvas {
   width: 100%;
-  height: auto;
-  max-height: 420px;
+  height: 100%;
   border-radius: 18px;
   background: #3a2470;
 }
@@ -967,10 +1023,17 @@ button {
 }
 
 .skill-gate {
-  margin: 0 36px 16px;
+  position: absolute;
+  z-index: 7;
+  left: 16px;
+  right: 16px;
+  top: 64px;
+  bottom: 12px;
+  margin: 0;
   padding: 16px;
   border-radius: 18px;
   background: #2c1d55;
+  overflow: auto;
 }
 
 .gate-actions,
@@ -987,14 +1050,171 @@ button {
   line-height: 1.2;
 }
 
-@media (max-width: 1100px) {
-  .world-grid,
-  .measure-layout,
-  .earn-layout {
-    grid-template-columns: 1fr;
-  }
+.slot-open {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: #f6f1ff;
+  stroke-width: 3;
+  stroke-dasharray: 7 5;
+}
 
-  .worlds-intro h1 {
-    font-size: 34px;
-  }
+.slot-ok {
+  fill: rgba(182, 227, 74, 0.28);
+  stroke: #b6e34a;
+  stroke-width: 4;
+}
+
+.slot-bad {
+  fill: rgba(255, 90, 54, 0.28);
+  stroke: #ff5a36;
+  stroke-width: 4;
+}
+
+.earn-layout .ask { grid-column: 1; grid-row: 1; }
+.earn-pad { grid-column: 1; grid-row: 2; }
+.earn-hint { grid-column: 1; grid-row: 3; margin: 0; }
+.earn-keys { grid-column: 2; grid-row: 1 / span 3; }
+.measure-panel .ask { min-width: 0; }
+.measure-panel { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
+
+.ask {
+  margin: 0;
+  min-width: 320px;
+  color: #f6f1ff;
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.level-flow .problem-face .prompt,
+.skill-gate .problem-face .prompt {
+  display: none;
+}
+
+.level-flow .problem-face,
+.skill-gate .problem-face {
+  min-height: 0;
+  height: 100%;
+  color: #1c1917;
+  background: #fff7ea;
+}
+
+.level-flow .problem-stage,
+.skill-gate .problem-stage {
+  min-height: 0;
+  flex: 1;
+}
+
+.level-flow .problem-row,
+.skill-gate .problem-row {
+  min-height: 0;
+  height: 100%;
+}
+
+.earn-pad {
+  min-height: 0;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.earn-keys {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.level-flow .pad-key,
+.skill-gate .pad-key {
+  min-height: 44px;
+}
+
+.tray {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 84px;
+}
+
+.tray-piece {
+  width: 84px;
+  height: 76px;
+  border-radius: 14px;
+  border: 3px solid #6e56b8;
+  background: #2c1d55;
+  color: #f6f1ff;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  touch-action: none;
+}
+
+.tray-piece.on {
+  border-color: #ff7a1a;
+  background: #ff7a1a;
+  color: #1a1033;
+}
+
+.tray-piece strong {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 40;
+  width: 84px;
+  height: 84px;
+  margin-left: -42px;
+  margin-top: -64px;
+  pointer-events: none;
+}
+
+.settings-menu {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  z-index: 8;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - 76px);
+  overflow: auto;
+  background: #2c1d55;
+  border: 3px solid #6e56b8;
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-menu p,
+.gear {
+  margin: 0;
+}
+
+.gear {
+  width: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  border: 3px solid #6e56b8;
+  background: #2c1d55;
+  color: #f6f1ff;
+  font-weight: 800;
+}
+
+.build-footer,
+.drive-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.build-footer .hint,
+.result-line {
+  margin: 0;
+  flex: 1;
+}
+
+.step {
+  white-space: nowrap;
+  font-size: 15px;
+  padding: 0 10px;
 }
