@@ -42,6 +42,19 @@ function independentAnswer(problem: Problem): string {
   if (visual.kind === "compare") {
     return String(Math.max(visual.left, visual.right));
   }
+  if (visual.kind === "fraction") {
+    return String((visual.whole / visual.denominator) * visual.numerator);
+  }
+  if (visual.kind === "ratio") {
+    return String(visual.times * visual.a);
+  }
+  if (visual.kind === "statistics") {
+    const total = visual.values.reduce((sum, value) => sum + value, 0);
+    return String(total / visual.values.length);
+  }
+  if (visual.kind === "trig") {
+    return String(Math.round(Math.hypot(visual.opposite, visual.adjacent)));
+  }
   const unit = visual.place === "ten" ? 10 : 100;
   return String(Math.round(visual.number / unit) * unit);
 }
@@ -160,10 +173,10 @@ function assertSkillConstraints(generator: string, params: SkillParams, problem:
 }
 
 describe("skill catalog", () => {
-  it("loads about fifteen skills across three strands", () => {
-    expect(strands).toHaveLength(3);
-    expect(skills.length).toBeGreaterThanOrEqual(15);
-    expect(skills.length).toBeLessThanOrEqual(18);
+  it("loads the grown K-12 strands", () => {
+    expect(strands.length).toBeGreaterThanOrEqual(10);
+    expect(skills.length).toBeGreaterThanOrEqual(23);
+    expect(skills.length).toBeLessThanOrEqual(40);
   });
 
   it("gives every skill a known generator, a grade band, and real prerequisites", () => {
@@ -182,9 +195,10 @@ describe("skill catalog", () => {
         expect(earlier?.strand).toBe(skill.strand);
       }
     }
+    const original = new Set(["place-value", "addition-subtraction", "multiplication"]);
     for (const strand of strands) {
       const ordered = skillsInStrand(strand.id);
-      expect(ordered.length).toBeGreaterThanOrEqual(5);
+      expect(ordered.length).toBeGreaterThanOrEqual(original.has(strand.id) ? 5 : 1);
       expect(new Set(ordered.map((skill) => skill.strand))).toEqual(new Set([strand.id]));
     }
   });

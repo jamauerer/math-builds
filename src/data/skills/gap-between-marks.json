@@ -1,0 +1,16 @@
+{
+  "id": "gap-between-marks",
+  "strand": "measurement-and-units",
+  "name": "Gap between two marks",
+  "gradeBand": "3-5",
+  "prerequisites": [],
+  "generator": "measure-gap",
+  "description": "Subtract the left mark from the right mark to get a length.",
+  "levels": [
+    { "max": 20 },
+    { "max": 40 },
+    { "max": 80 },
+    { "max": 200 },
+    { "max": 500 }
+  ]
+}

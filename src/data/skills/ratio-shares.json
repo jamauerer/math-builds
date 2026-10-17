@@ -1,0 +1,16 @@
+{
+  "id": "ratio-shares",
+  "strand": "ratios-and-proportion",
+  "name": "Ratio shares",
+  "gradeBand": "6-8",
+  "prerequisites": [],
+  "generator": "ratio-share",
+  "description": "Scale a ratio so both shares grow by the same number of groups.",
+  "levels": [
+    { "a": 2, "b": 1, "times": 6 },
+    { "a": 3, "b": 1, "times": 8 },
+    { "a": 3, "b": 2, "times": 6 },
+    { "a": 5, "b": 2, "times": 8 },
+    { "a": 4, "b": 3, "times": 6 }
+  ]
+}

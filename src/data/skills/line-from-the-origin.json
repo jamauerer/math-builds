@@ -1,0 +1,16 @@
+{
+  "id": "line-from-the-origin",
+  "strand": "functions-and-graphs",
+  "name": "Line from the origin",
+  "gradeBand": "6-8",
+  "prerequisites": [],
+  "generator": "line-rise",
+  "description": "Read a straight line through the origin from its rise per step.",
+  "levels": [
+    { "rise": 1, "xMax": 8 },
+    { "rise": 2, "xMax": 8 },
+    { "rise": 3, "xMax": 10 },
+    { "rise": 5, "xMax": 12 },
+    { "rise": 10, "xMax": 12 }
+  ]
+}

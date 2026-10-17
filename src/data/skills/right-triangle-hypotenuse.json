@@ -1,0 +1,16 @@
+{
+  "id": "right-triangle-hypotenuse",
+  "strand": "trigonometry",
+  "name": "Hypotenuse of a right triangle",
+  "gradeBand": "6-8",
+  "prerequisites": [],
+  "generator": "hypotenuse",
+  "description": "Use the Pythagorean theorem on a right triangle with a whole-number hypotenuse.",
+  "levels": [
+    { "scale": 1 },
+    { "scale": 2 },
+    { "scale": 3 },
+    { "scale": 4 },
+    { "scale": 5 }
+  ]
+}

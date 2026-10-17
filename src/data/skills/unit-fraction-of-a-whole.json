@@ -1,0 +1,16 @@
+{
+  "id": "unit-fraction-of-a-whole",
+  "strand": "fractions-and-decimals",
+  "name": "Fraction of a whole",
+  "gradeBand": "3-5",
+  "prerequisites": [],
+  "generator": "fraction-of",
+  "description": "Find a fraction of a whole number that divides evenly.",
+  "levels": [
+    { "numerator": 1, "denominator": 2, "groups": 8 },
+    { "numerator": 1, "denominator": 4, "groups": 8 },
+    { "numerator": 1, "denominator": 3, "groups": 9 },
+    { "numerator": 3, "denominator": 4, "groups": 8 },
+    { "numerator": 2, "denominator": 5, "groups": 10 }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "missing-addend",
+  "strand": "algebra",
+  "name": "Missing addend",
+  "gradeBand": "3-5",
+  "prerequisites": [],
+  "generator": "missing-addend",
+  "description": "Find the unknown addend in a sum.",
+  "levels": [
+    { "max": 12 },
+    { "max": 20 },
+    { "max": 40 },
+    { "max": 80 },
+    { "max": 120 }
+  ]
+}

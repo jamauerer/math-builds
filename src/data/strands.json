@@ -31,5 +31,45 @@
       "multiply-two-digit-by-one-digit",
       "multiply-two-digit-by-two-digit"
     ]
+  },
+  {
+    "id": "fractions-and-decimals",
+    "name": "Fractions and decimals",
+    "skills": ["unit-fraction-of-a-whole"]
+  },
+  {
+    "id": "measurement-and-units",
+    "name": "Measurement and units",
+    "skills": ["gap-between-marks"]
+  },
+  {
+    "id": "geometry",
+    "name": "Geometry",
+    "skills": ["rectangle-area"]
+  },
+  {
+    "id": "ratios-and-proportion",
+    "name": "Ratios and proportion",
+    "skills": ["ratio-shares"]
+  },
+  {
+    "id": "algebra",
+    "name": "Algebra",
+    "skills": ["missing-addend"]
+  },
+  {
+    "id": "functions-and-graphs",
+    "name": "Functions and graphs",
+    "skills": ["line-from-the-origin"]
+  },
+  {
+    "id": "statistics",
+    "name": "Statistics",
+    "skills": ["mean-of-three"]
+  },
+  {
+    "id": "trigonometry",
+    "name": "Trigonometry",
+    "skills": ["right-triangle-hypotenuse"]
   }
 ]

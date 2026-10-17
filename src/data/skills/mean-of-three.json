@@ -1,0 +1,16 @@
+{
+  "id": "mean-of-three",
+  "strand": "statistics",
+  "name": "Mean of three numbers",
+  "gradeBand": "6-8",
+  "prerequisites": [],
+  "generator": "mean-of-three",
+  "description": "Add three numbers and divide by 3 to get the mean.",
+  "levels": [
+    { "max": 6 },
+    { "max": 9 },
+    { "max": 12 },
+    { "max": 20 },
+    { "max": 30 }
+  ]
+}

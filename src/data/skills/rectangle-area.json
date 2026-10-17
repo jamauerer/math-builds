@@ -1,0 +1,16 @@
+{
+  "id": "rectangle-area",
+  "strand": "geometry",
+  "name": "Rectangle area",
+  "gradeBand": "3-5",
+  "prerequisites": [],
+  "generator": "rectangle-area",
+  "description": "Multiply the two side lengths to get the area of a rectangle.",
+  "levels": [
+    { "max": 5 },
+    { "max": 8 },
+    { "max": 12 },
+    { "max": 20 },
+    { "max": 30 }
+  ]
+}

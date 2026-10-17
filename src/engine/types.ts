@@ -59,12 +59,41 @@ export type RoundVisual = {
   place: "ten" | "hundred";
 };
 
+export type FractionVisual = {
+  kind: "fraction";
+  whole: number;
+  numerator: number;
+  denominator: number;
+};
+
+export type RatioVisual = {
+  kind: "ratio";
+  a: number;
+  b: number;
+  times: number;
+};
+
+export type StatisticsVisual = {
+  kind: "statistics";
+  values: number[];
+};
+
+export type TrigVisual = {
+  kind: "trig";
+  opposite: number;
+  adjacent: number;
+};
+
 export type ProblemVisual =
   | StackedVisual
   | ExpressionVisual
   | PlaceValueVisual
   | CompareVisual
-  | RoundVisual;
+  | RoundVisual
+  | FractionVisual
+  | RatioVisual
+  | StatisticsVisual
+  | TrigVisual;
 
 export type Problem = {
   prompt: string;
