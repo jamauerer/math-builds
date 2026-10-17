@@ -290,6 +290,50 @@ function truss(scenario: Scenario, part: BridgePart, strengthKg: number, diagona
   };
 }
 
+export function designFromPieceIds(scenario: Scenario, ids: string[]): BridgeDesign {
+  return deckFromParts(scenario, ids);
+}
+
+export function designFromCounts(scenario: Scenario, beamCount: number, supportCount: number): BridgeDesign {
+  const beam = scenario.parts.find((part) => part.role === "beam" && part.length > 0);
+  const support = scenario.parts.find((part) => part.role === "support");
+  if (!beam || !support || beamCount < 1) {
+    return {
+      gap: scenario.gap,
+      truckKg: scenario.truck,
+      beams: [],
+      supports: support && supportCount > 0 ? supportsAt(scenario, support, supportCount) : [],
+    };
+  }
+  return {
+    gap: scenario.gap,
+    truckKg: scenario.truck,
+    beams: spannedBeams(scenario, beam, beamCount, beam.strength),
+    supports: supportCount > 0 ? supportsAt(scenario, support, supportCount) : [],
+  };
+}
+
+export function designFromSegments(
+  scenario: Scenario,
+  part: BridgePart,
+  segments: { col0: number; row0: number; col1: number; row1: number }[],
+): BridgeDesign {
+  return {
+    gap: scenario.gap,
+    truckKg: scenario.truck,
+    supports: [],
+    beams: segments.map((segment, index) =>
+      member(
+        part,
+        index,
+        point(scenario, segment.col0, segment.row0),
+        point(scenario, segment.col1, segment.row1),
+        part.strength,
+      ),
+    ),
+  };
+}
+
 export function referenceDesigns(scenario: Scenario): ReferenceDesigns {
   if (scenario.mode === "pick") {
     return {

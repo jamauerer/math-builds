@@ -11,7 +11,7 @@ import {
 import { browserProgressStore, type SavedProgress } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
-import { BridgeTest } from "./ui/BridgeTest";
+import { AgePrompt, BridgeBuild } from "./ui/BridgeBuild";
 
 type Screen =
   | { name: "map" }
@@ -34,6 +34,7 @@ export function App() {
   );
   const [screen, setScreen] = useState<Screen>({ name: "map" });
   const [placementRunning, setPlacementRunning] = useState(false);
+  const [practiceReturn, setPracticeReturn] = useState<"map" | "bridge">("map");
 
   function save(next: SavedProgress) {
     setProgress(next);
@@ -51,9 +52,22 @@ export function App() {
     });
   }
 
-  function openPractice(skillId: string) {
+  function openPractice(skillId: string, returnTo: "map" | "bridge" = "map") {
+    setPracticeReturn(returnTo);
     setPlacementRunning(false);
     setScreen({ name: "practice", skillId });
+  }
+
+  function chooseAge(age: number) {
+    save({ ...progress, age });
+  }
+
+  if (progress.age == null) {
+    return (
+      <div className="app">
+        <AgePrompt onAge={chooseAge} />
+      </div>
+    );
   }
 
   return (
@@ -76,7 +90,7 @@ export function App() {
             Placement
           </button>
           <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
-            Bridge test
+            Bridge
           </button>
         </nav>
       )}
@@ -104,7 +118,21 @@ export function App() {
           onPractice={openPractice}
         />
       ) : null}
-      {screen.name === "bridge" ? <BridgeTest /> : null}
+      {screen.name === "bridge" ? (
+        <BridgeBuild
+          age={progress.age}
+          map={progress.map}
+          completed={progress.bridgeCompleted}
+          onAge={chooseAge}
+          onPractice={(skillId) => openPractice(skillId, "bridge")}
+          onComplete={(scenarioId) => {
+            if (progress.bridgeCompleted.includes(scenarioId)) {
+              return;
+            }
+            save({ ...progress, bridgeCompleted: [...progress.bridgeCompleted, scenarioId] });
+          }}
+        />
+      ) : null}
       {screen.name === "practice" ? (
         <PracticeQuiz
           key={screen.skillId}
@@ -125,7 +153,7 @@ export function App() {
               bridgeCompleted: progress.bridgeCompleted,
             });
           }}
-          onClose={() => setScreen({ name: "map" })}
+          onClose={() => setScreen(practiceReturn === "bridge" ? { name: "bridge" } : { name: "map" })}
         />
       ) : null}
     </div>

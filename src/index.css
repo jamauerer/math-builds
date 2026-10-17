@@ -328,30 +328,144 @@ button {
   width: auto;
 }
 
-.bridge-controls {
+.bridge-screen {
+  max-width: 1100px;
+}
+
+.bridge-head {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  align-items: start;
+}
+
+.bridge-goal {
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.bridge-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  align-items: start;
 }
 
 .bridge-canvas {
   display: block;
   width: 100%;
   height: 420px;
-  background: #dbeafe;
+  background: #bae6fd;
   border-radius: 12px;
   touch-action: none;
 }
 
+.bridge-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bridge-labels span,
+.bridge-failure {
+  background: #fff;
+  border: 1px solid #d6d3d1;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 .bridge-result {
-  font-size: 1.6rem;
-  margin: 12px 0 0;
+  font-size: 1.3rem;
+  margin: 8px 0 0;
+}
+
+.bridge-failure {
+  color: #991b1b;
+}
+
+.bridge-gap,
+.part-tray,
+.age-row,
+.count-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.bridge-gap {
+  min-height: 72px;
+  padding: 8px;
+  background: #e0f2fe;
+  border: 2px dashed #0284c7;
+  border-radius: 12px;
+  align-items: stretch;
+}
+
+.part,
+.placed-piece,
+.part.locked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 48px;
+  text-align: left;
+}
+
+.part.locked {
+  color: #78716c;
+  background: #e7e5e4;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.gap-open {
+  align-self: center;
+}
+
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.truss-grid {
+  display: grid;
+  gap: 8px;
+  justify-content: start;
+}
+
+.grid-dot {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+}
+
+.calc-panel {
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.calc-panel p {
+  margin: 4px 0;
+}
+
+.bridge-work {
+  margin-bottom: 12px;
+}
+
+.age-row button {
+  min-width: 48px;
 }
 
 @media (max-width: 900px) {
   .work,
-  .strand-grid {
+  .strand-grid,
+  .bridge-layout {
     grid-template-columns: 1fr;
   }
 }
