@@ -1,7 +1,9 @@
 import levelFile from "../../data/bridge/candy-levels.json";
 import type { Problem, Skill } from "../types";
 import { answersMatch } from "../answers";
-import type { LearnerMap } from "../placement";
+import { generateProblem } from "../generate";
+import { recordLevelPass, type LearnerMap } from "../placement";
+import { createRng } from "../rng";
 import type { BlockBridge, BlockPiece } from "./simulate";
 
 export type WorldId = "candy" | "wood" | "steel";
@@ -27,11 +29,22 @@ export type LevelQuestion = {
   visual?: Problem["visual"];
 };
 
+export type Requirement = { skillId: string; level: number };
+
+export type BuildMode = "count" | "calculate" | "free";
+
+export type BuildModeInfo = {
+  id: BuildMode;
+  label: string;
+  requires: Requirement[];
+};
+
 export type WorldInfo = {
   id: WorldId;
   name: string;
-  ages: string;
+  ability: string;
   blurb: string;
+  requires: Requirement[];
 };
 
 export type CandyLevel = {
@@ -47,12 +60,25 @@ export type CandyLevel = {
   rulerLeft: number;
   rulerRight: number;
   questions: LevelQuestion[];
+  requires: Requirement[];
 };
 
 const WORLD_IDS: WorldId[] = ["candy", "wood", "steel"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseRequirementList(raw: unknown, source: string): Requirement[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.map((item, index) => {
+    if (!isRecord(item) || typeof item.skillId !== "string" || typeof item.level !== "number") {
+      throw new Error(`${source} requirement ${index + 1} is incomplete`);
+    }
+    return { skillId: item.skillId, level: item.level };
+  });
 }
 
 function parseUnlock(raw: unknown, source: string): Unlock {
@@ -123,11 +149,12 @@ function parseLevel(raw: unknown, index: number): CandyLevel {
     questions: Array.isArray(raw.questions)
       ? raw.questions.map((item, questionIndex) => parseQuestion(item, `${source} question ${questionIndex + 1}`))
       : [],
+    requires: parseRequirementList(raw.requires, source),
   };
 }
 
 function loadFile() {
-  const root = levelFile as { worlds?: unknown; parts?: unknown; levels?: unknown };
+  const root = levelFile as { worlds?: unknown; parts?: unknown; levels?: unknown; modes?: unknown };
   if (!Array.isArray(root.worlds) || !Array.isArray(root.parts) || !Array.isArray(root.levels)) {
     throw new Error("Candy level file is missing worlds, parts, or levels");
   }
@@ -139,9 +166,20 @@ function loadFile() {
       return {
         id: item.id as WorldId,
         name: item.name,
-        ages: typeof item.ages === "string" ? item.ages : "",
+        ability: typeof item.ability === "string" ? item.ability : "",
         blurb: typeof item.blurb === "string" ? item.blurb : "",
+        requires: parseRequirementList(item.requires, `world ${index + 1}`),
       };
+    }),
+    modes: (Array.isArray(root.modes) ? root.modes : []).map((item, index) => {
+      if (!isRecord(item) || (item.id !== "count" && item.id !== "calculate" && item.id !== "free")) {
+        throw new Error(`mode ${index + 1} is incomplete`);
+      }
+      return {
+        id: item.id,
+        label: typeof item.label === "string" ? item.label : item.id,
+        requires: parseRequirementList(item.requires, `mode ${index + 1}`),
+      } satisfies BuildModeInfo;
     }),
     parts: root.parts.map((item, index) => parsePart(item, index)),
     levels: root.levels.map((item, index) => parseLevel(item, index)),
@@ -153,8 +191,44 @@ const data = loadFile();
 export const worlds: WorldInfo[] = data.worlds;
 export const bridgeParts: BridgePart[] = data.parts;
 export const candyLevels: CandyLevel[] = data.levels;
+export const buildModes: BuildModeInfo[] = data.modes;
 
-export function defaultWorld(age: number): WorldId {
+export function requirementMet(requirement: Requirement, map: LearnerMap): boolean {
+  if (requirement.level <= 0) {
+    return true;
+  }
+  const entry = map[requirement.skillId];
+  if (!entry || entry.state === "unchecked") {
+    return false;
+  }
+  return entry.level >= requirement.level;
+}
+
+export function firstUnmet(requires: readonly Requirement[], map: LearnerMap): Requirement | null {
+  return requires.find((requirement) => !requirementMet(requirement, map)) ?? null;
+}
+
+export function worldById(id: WorldId): WorldInfo {
+  const world = worlds.find((item) => item.id === id);
+  if (!world) {
+    throw new Error(`Missing world ${id}`);
+  }
+  return world;
+}
+
+export function worldUnlocked(world: WorldInfo, map: LearnerMap): boolean {
+  return firstUnmet(world.requires, map) == null;
+}
+
+export function levelUnlocked(level: CandyLevel, map: LearnerMap): boolean {
+  return worldUnlocked(worldById(level.world), map) && firstUnmet(level.requires, map) == null;
+}
+
+export function hasSkillEvidence(map: LearnerMap): boolean {
+  return Object.values(map).some((entry) => entry.state !== "unchecked");
+}
+
+function worldFromAge(age: number): WorldId {
   if (age <= 9) {
     return "candy";
   }
@@ -162,6 +236,61 @@ export function defaultWorld(age: number): WorldId {
     return "wood";
   }
   return "steel";
+}
+
+function worldFromSkills(map: LearnerMap): WorldId {
+  if (worldUnlocked(worldById("steel"), map)) {
+    return "steel";
+  }
+  if (worldUnlocked(worldById("wood"), map)) {
+    return "wood";
+  }
+  return "candy";
+}
+
+export function suggestWorld(age: number | null, map: LearnerMap): WorldId {
+  if (age == null || hasSkillEvidence(map)) {
+    return worldFromSkills(map);
+  }
+  return worldFromAge(age);
+}
+
+export function modeUnlocked(mode: BuildMode, map: LearnerMap): boolean {
+  const info = buildModes.find((item) => item.id === mode);
+  if (!info) {
+    return false;
+  }
+  return firstUnmet(info.requires, map) == null;
+}
+
+export function makeSkillCheck(skill: Skill, level: number, seed: number): Problem[] {
+  const rng = createRng(seed);
+  const target = Math.min(5, Math.max(1, level));
+  return [0, 1, 2].map(() => generateProblem(skill, rng, target));
+}
+
+export function skillCheckPassed(problems: readonly Problem[], answers: readonly string[]): boolean {
+  return problems.length > 0 && problems.length <= 3 && problems.every((problem, index) => answersMatch(answers[index] ?? "", problem.answer));
+}
+
+export function applySkillCheck(
+  map: LearnerMap,
+  skillId: string,
+  level: number,
+  problems: readonly Problem[],
+  answers: readonly string[],
+): LearnerMap {
+  if (!skillCheckPassed(problems, answers)) {
+    return map;
+  }
+  return recordLevelPass(map, skillId, level);
+}
+
+export function spanReadout(level: CandyLevel, deckCount: number): { length: string; load: string } {
+  return {
+    length: `${deckCount * level.blockMeters} m`,
+    load: `${level.carWeight} kg`,
+  };
 }
 
 export function levelById(id: string): CandyLevel | null {

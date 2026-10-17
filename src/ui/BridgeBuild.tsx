@@ -1,17 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { skills } from "../data/load-skills";
 import {
+  applySkillCheck,
   bridgeParts,
+  buildModes,
   candyLevels,
-  defaultWorld,
+  firstUnmet,
   gradeQuestion,
+  levelUnlocked,
+  makeSkillCheck,
   measureAnswer,
+  modeUnlocked,
   partById,
   partUnlocked,
   questionProblem,
+  spanReadout,
+  suggestWorld,
   unlockSkillName,
+  worldUnlocked,
   worlds,
+  type BuildMode,
   type CandyLevel,
+  type Requirement,
   type WorldId,
 } from "../engine/bridge/catalog";
 import {
@@ -22,6 +32,7 @@ import {
 } from "../engine/bridge/simulate";
 import { emptyScribble, type Scribble } from "../engine/scribble";
 import type { LearnerMap } from "../engine/placement";
+import type { Problem } from "../engine/types";
 import { AnswerPanel } from "./AnswerPanel";
 import { ProblemBoard } from "./ProblemBoard";
 
@@ -80,11 +91,11 @@ const THEME_FILL: Record<ThemeId, Record<string, string>> = {
 
 const AGES = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
-export function AgePrompt({ onAge }: { onAge: (age: number) => void }) {
+export function AgePrompt({ onAge, onSkip }: { onAge: (age: number) => void; onSkip: () => void }) {
   return (
     <div className="worlds age-gate">
       <h1>How old are you?</h1>
-      <p>This picks your starting world. You can change it later.</p>
+      <p>Optional. This only picks a starting world. You can skip it or change it later.</p>
       <div className="age-choices">
         {AGES.map((age) => (
           <button key={age} type="button" onPointerUp={() => onAge(age)}>
@@ -92,42 +103,64 @@ export function AgePrompt({ onAge }: { onAge: (age: number) => void }) {
           </button>
         ))}
       </div>
+      <button type="button" className="check" onPointerUp={onSkip}>
+        Skip
+      </button>
     </div>
   );
 }
 
 type Props = {
-  age: number;
+  age: number | null;
   map: LearnerMap;
   completed: string[];
   earned: Record<string, Record<string, number>>;
-  onAge: (age: number) => void;
+  onAge: (age: number | null) => void;
+  onSkillPass: (skillId: string, level: number) => void;
   onPractice: (skillId: string) => void;
   onComplete: (levelId: string) => void;
   onEarn: (levelId: string, partId: string, count: number) => void;
 };
 
-export function BridgeBuild({ age, map, completed, earned, onAge, onPractice, onComplete, onEarn }: Props) {
-  const [worldId, setWorldId] = useState<WorldId>(defaultWorld(age));
+export function BridgeBuild({ age, map, completed, earned, onAge, onSkillPass, onPractice, onComplete, onEarn }: Props) {
+  const [worldId, setWorldId] = useState<WorldId>(suggestWorld(age, map));
   const [levelId, setLevelId] = useState<string | null>(null);
   const [agesOpen, setAgesOpen] = useState(false);
+  const [gate, setGate] = useState<Requirement | null>(null);
+  const [notice, setNotice] = useState("");
   const level = levelId ? candyLevels.find((item) => item.id === levelId) ?? null : null;
 
   if (!level) {
     return (
       <WorldPicker
         age={age}
+        map={map}
         worldId={worldId}
         completed={completed}
         agesOpen={agesOpen}
+        gate={gate}
+        notice={notice}
         onWorld={setWorldId}
         onOpenAges={() => setAgesOpen((open) => !open)}
         onAge={(next) => {
           onAge(next);
-          setWorldId(defaultWorld(next));
+          setWorldId(suggestWorld(next, map));
           setAgesOpen(false);
         }}
-        onPlay={(id) => setLevelId(id)}
+        onClearAge={() => {
+          onAge(null);
+          setWorldId(suggestWorld(null, map));
+          setAgesOpen(false);
+        }}
+        onGate={setGate}
+        onPractice={onPractice}
+        onSkillPass={onSkillPass}
+        onPlay={(id) => {
+          setGate(null);
+          setNotice("");
+          setLevelId(id);
+        }}
+        onNotice={setNotice}
       />
     );
   }
@@ -147,22 +180,38 @@ export function BridgeBuild({ age, map, completed, earned, onAge, onPractice, on
 
 function WorldPicker({
   age,
+  map,
   worldId,
   completed,
   agesOpen,
+  gate,
+  notice,
   onWorld,
   onOpenAges,
   onAge,
+  onClearAge,
+  onGate,
+  onPractice,
+  onSkillPass,
   onPlay,
+  onNotice,
 }: {
-  age: number;
+  age: number | null;
+  map: LearnerMap;
   worldId: WorldId;
   completed: string[];
   agesOpen: boolean;
+  gate: Requirement | null;
+  notice: string;
   onWorld: (id: WorldId) => void;
   onOpenAges: () => void;
   onAge: (age: number) => void;
+  onClearAge: () => void;
+  onGate: (requirement: Requirement | null) => void;
+  onPractice: (skillId: string) => void;
+  onSkillPass: (skillId: string, level: number) => void;
   onPlay: (id: string) => void;
+  onNotice: (text: string) => void;
 }) {
   return (
     <div className="worlds">
@@ -177,14 +226,14 @@ function WorldPicker({
             <span>{completed.length}</span>
           </div>
           <button type="button" className="age-chip" onPointerUp={onOpenAges}>
-            <span>{age}</span>
-            Age {age}
+            <span>{age ?? "?"}</span>
+            {age == null ? "Set age" : `Age ${age}`}
           </button>
         </div>
       </header>
       {agesOpen ? (
         <div className="age-settings">
-          <p>How old are you?</p>
+          <p>How old are you? This only changes the suggested world.</p>
           <div className="age-choices">
             {AGES.map((choice) => (
               <button key={choice} type="button" onPointerUp={() => onAge(choice)}>
@@ -192,7 +241,20 @@ function WorldPicker({
               </button>
             ))}
           </div>
+          <button type="button" className="back" onPointerUp={onClearAge}>
+            Clear age
+          </button>
         </div>
+      ) : null}
+      {notice ? <p className="hint">{notice}</p> : null}
+      {gate ? (
+        <SkillGate
+          requirement={gate}
+          map={map}
+          onPractice={onPractice}
+          onPass={onSkillPass}
+          onClose={() => onGate(null)}
+        />
       ) : null}
       <div className="worlds-intro">
         <h1>Pick a world to build in.</h1>
@@ -205,9 +267,12 @@ function WorldPicker({
             worldId={world.id}
             selected={world.id === worldId}
             completed={completed}
-            onSelect={() => onWorld(world.id)}
-            onPlay={onPlay}
-          />
+          map={map}
+          onSelect={() => onWorld(world.id)}
+          onPlay={onPlay}
+          onGate={onGate}
+          onNotice={onNotice}
+        />
         ))}
       </div>
     </div>
@@ -218,49 +283,65 @@ function WorldCard({
   worldId,
   selected,
   completed,
+  map,
   onSelect,
   onPlay,
+  onGate,
+  onNotice,
 }: {
   worldId: WorldId;
   selected: boolean;
   completed: string[];
+  map: LearnerMap;
   onSelect: () => void;
   onPlay: (id: string) => void;
+  onGate: (requirement: Requirement) => void;
+  onNotice: (text: string) => void;
 }) {
   const world = worlds.find((item) => item.id === worldId);
   if (!world) {
     return null;
   }
-  const current = candyLevels.find((level) => level.world === worldId && level.playable && !completed.includes(level.id));
+  const worldOpen = worldUnlocked(world, map);
+  const worldNeed = firstUnmet(world.requires, map);
+  const current = candyLevels.find(
+    (level) => level.world === worldId && level.playable && levelUnlocked(level, map) && !completed.includes(level.id),
+  );
   return (
     <section className={`world-card ${worldId} ${selected ? "selected" : ""}`}>
       <WorldArt worldId={worldId} />
       <div className="world-copy">
         <div className="world-title">
           <h2>{world.name}</h2>
-          <span className={`age-badge ${worldId}`}>{world.ages}</span>
+          <span className={`age-badge ${worldId}`}>{world.ability}</span>
         </div>
         <p>{world.blurb}</p>
         <div className="level-tiles">
           {Array.from({ length: 6 }, (_, index) => {
             const number = index + 1;
             const level = candyLevels.find((item) => item.world === worldId && item.number === number);
-            const playable = level?.playable === true;
+            const open = level != null && levelUnlocked(level, map);
             const done = level ? completed.includes(level.id) : false;
             const isCurrent = level != null && current?.id === level.id;
-            const state = done ? "done" : isCurrent ? "current" : playable ? "open" : "locked";
+            const state = done ? "done" : isCurrent ? "current" : open && level?.playable ? "open" : "locked";
+            const need = level ? firstUnmet([...world.requires, ...level.requires], map) : worldNeed;
             return (
               <button
                 key={number}
                 type="button"
                 className={`level-tile ${state}`}
                 aria-label={`Level ${number}, ${state}`}
-                disabled={!playable}
                 onPointerUp={() => {
                   onSelect();
-                  if (level && playable) {
+                  if (level && open && level.playable) {
                     onPlay(level.id);
+                    return;
                   }
+                  if (need) {
+                    onGate(need);
+                    return;
+                  }
+                  onNotice(`${level?.title ?? world.name} is open. The build for it comes later.`);
                 }}
               >
                 {number}
@@ -272,9 +353,13 @@ function WorldCard({
           <button type="button" className="continue" onPointerUp={() => onPlay(current.id)}>
             Continue: Level {current.number}
           </button>
+        ) : worldNeed ? (
+          <button type="button" className="continue" onPointerUp={() => onGate(worldNeed)}>
+            See what opens this
+          </button>
         ) : (
-          <button type="button" className="continue locked" disabled>
-            {worldId === "candy" ? "Candy Land is complete" : "Locked"}
+          <button type="button" className="continue" onPointerUp={() => onSelect()}>
+            {worldOpen ? "Skills are ready" : "Look at the levels"}
           </button>
         )}
       </div>
@@ -305,6 +390,8 @@ function LevelFlow({
   const [placed, setPlaced] = useState<Placed[]>([]);
   const [selected, setSelected] = useState("chocolate");
   const [driveKey, setDriveKey] = useState(0);
+  const [mode, setMode] = useState<BuildMode>("count");
+  const [modeGate, setModeGate] = useState<Requirement | null>(null);
   const ready = level.questions.every((question) => (earned[question.partId] ?? 0) >= question.count);
 
   function go(next: Step) {
@@ -337,6 +424,31 @@ function LevelFlow({
             </button>
           ))}
         </div>
+        <div className="theme-switch" aria-label="Build mode">
+          {buildModes.map((item) => {
+            const open = modeUnlocked(item.id, map);
+            const need = firstUnmet(item.requires, map);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={mode === item.id ? "on" : ""}
+                onPointerUp={() => {
+                  if (open) {
+                    setMode(item.id);
+                    setModeGate(null);
+                    return;
+                  }
+                  if (need) {
+                    setModeGate(need);
+                  }
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
         <div className="theme-switch" aria-label="Theme">
           {(["candy", "wood", "steel"] as ThemeId[]).map((item) => (
             <button key={item} type="button" className={theme === item ? "on" : ""} onPointerUp={() => setTheme(item)}>
@@ -345,6 +457,14 @@ function LevelFlow({
           ))}
         </div>
       </header>
+      {modeGate ? (
+        <p className="hint mode-note">
+          This build opens with {skills.find((item) => item.id === modeGate.skillId)?.name ?? modeGate.skillId}, level {modeGate.level}.
+          <button type="button" className="practice-link" onPointerUp={() => onPractice(modeGate.skillId)}>
+            Practice
+          </button>
+        </p>
+      ) : null}
       {step === "measure" ? (
         <MeasureStep level={level} theme={theme} onDone={() => { setMeasured(true); setStep("earn"); }} />
       ) : null}
@@ -364,6 +484,7 @@ function LevelFlow({
           earned={earned}
           placed={placed}
           selected={selected}
+          mode={mode}
           driving={step === "drive"}
           driveKey={driveKey}
           onSelect={setSelected}
@@ -553,6 +674,7 @@ function BuildStep({
   earned,
   placed,
   selected,
+  mode,
   driving,
   driveKey,
   onSelect,
@@ -568,6 +690,7 @@ function BuildStep({
   earned: Record<string, number>;
   placed: Placed[];
   selected: string;
+  mode: BuildMode;
   driving: boolean;
   driveKey: number;
   onSelect: (id: string) => void;
@@ -597,7 +720,7 @@ function BuildStep({
         sim.step();
       }
       const snap = sim.snapshot();
-      paintBridge(canvasRef.current, snap, colors);
+      paintBridge(canvasRef.current, snap, colors, mode === "free");
       if (sim.status() === "crossed") {
         setReport("The car crossed. This bridge is complete.");
         onComplete();
@@ -652,6 +775,18 @@ function BuildStep({
     <div className="build-layout">
       <div className="build-stage">
         <p className="mission">Fill the gap, flush with the ground. The car has to roll across.</p>
+        {mode === "calculate" ? (
+          <p className="plan-line">
+            Place {level.questions.find((question) => question.partId === "chocolate")?.count ?? level.gapBlocks} deck blocks
+            and {level.questions.find((question) => question.partId === "cane")?.count ?? 0} pillars.
+          </p>
+        ) : null}
+        {mode === "free" ? (
+          <p className="plan-line">
+            Length {spanReadout(level, placed.filter((item) => item.row === 0).length).length}. Load {spanReadout(level, 0).load}.
+            Stress colors show while the car drives.
+          </p>
+        ) : null}
         {driving ? (
           <canvas ref={canvasRef} className="drive-canvas" width={960} height={420} />
         ) : (
@@ -783,7 +918,12 @@ function toBridge(level: CandyLevel, placed: Placed[]): BlockBridge {
   };
 }
 
-function paintBridge(canvas: HTMLCanvasElement | null, snap: BridgeSnapshot, colors: Record<string, string>) {
+function paintBridge(
+  canvas: HTMLCanvasElement | null,
+  snap: BridgeSnapshot,
+  colors: Record<string, string>,
+  showStress: boolean,
+) {
   if (!canvas) {
     return;
   }
@@ -802,7 +942,7 @@ function paintBridge(canvas: HTMLCanvasElement | null, snap: BridgeSnapshot, col
   ctx.fillStyle = colors.water ?? "#2E9BD6";
   ctx.fillRect(0, yOf(1.2), width, height);
   for (const body of snap.bodies) {
-    drawBody(ctx, body, colors, xOf, yOf, scale);
+    drawBody(ctx, body, colors, xOf, yOf, scale, showStress);
   }
 }
 
@@ -813,9 +953,11 @@ function drawBody(
   xOf: (x: number) => number,
   yOf: (y: number) => number,
   scale: number,
+  showStress: boolean,
 ) {
-  const fill =
-    body.role === "cliff"
+  const stressed = showStress && body.role === "deck" && body.stress > 0.5 ? (body.stress > 0.85 ? "#b91c1c" : "#f59e0b") : "";
+  const fill = stressed ||
+    (body.role === "cliff"
       ? colors.cliff
       : body.role === "pillar"
         ? colors.cane
@@ -827,7 +969,7 @@ function drawBody(
               ? colors.wafer
               : body.name.toLowerCase().includes("gummy")
                 ? colors.gummy
-                : colors.chocolate;
+                : colors.chocolate);
   ctx.save();
   ctx.translate(xOf(body.x), yOf(body.y));
   ctx.rotate(-body.angle);
@@ -840,6 +982,92 @@ function drawBody(
     ctx.fillRect(-body.halfWidth * scale, -body.halfHeight * scale, body.halfWidth * 2 * scale, body.halfHeight * 2 * scale);
   }
   ctx.restore();
+}
+
+function SkillGate({
+  requirement,
+  map,
+  onPractice,
+  onPass,
+  onClose,
+}: {
+  requirement: Requirement;
+  map: LearnerMap;
+  onPractice: (skillId: string) => void;
+  onPass: (skillId: string, level: number) => void;
+  onClose: () => void;
+}) {
+  const name = skills.find((item) => item.id === requirement.skillId)?.name ?? requirement.skillId;
+  const [problems, setProblems] = useState<Problem[] | null>(null);
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [scribble, setScribble] = useState<Scribble>(emptyScribble());
+  const [note, setNote] = useState("");
+  const problem = problems?.[index];
+
+  return (
+    <section className="skill-gate">
+      <h2>Opens with {name}, level {requirement.level}</h2>
+      {problem ? (
+        <div className="work-panel">
+          <ProblemBoard problem={problem} scribble={scribble} onScribble={setScribble} />
+          <AnswerPanel
+            key={problem.prompt}
+            problem={problem}
+            locked={false}
+            onSubmit={(given) => {
+              const next = [...answers, given];
+              if (index + 1 < (problems?.length ?? 0)) {
+                setAnswers(next);
+                setIndex(index + 1);
+                setScribble(emptyScribble());
+                return;
+              }
+              const passed = applySkillCheck(map, requirement.skillId, requirement.level, problems ?? [], next) !== map;
+              if (passed) {
+                onPass(requirement.skillId, requirement.level);
+                setNote("That opens it.");
+                setProblems(null);
+                return;
+              }
+              setNote("Not yet. Practice, then try the check again.");
+              setProblems(null);
+              setAnswers([]);
+              setIndex(0);
+            }}
+            onSkip={() => setNote("Answer the question to finish the check.")}
+          />
+        </div>
+      ) : (
+        <div className="gate-actions">
+          <button type="button" className="practice-link" onPointerUp={() => onPractice(requirement.skillId)}>
+            Practice
+          </button>
+          <button
+            type="button"
+            className="check"
+            onPointerUp={() => {
+              const found = skills.find((item) => item.id === requirement.skillId);
+              if (!found) {
+                return;
+              }
+              setProblems(makeSkillCheck(found, requirement.level, Date.now() % 100000));
+              setIndex(0);
+              setAnswers([]);
+              setScribble(emptyScribble());
+              setNote("");
+            }}
+          >
+            Test me on this
+          </button>
+          <button type="button" className="back" onPointerUp={onClose}>
+            Back
+          </button>
+        </div>
+      )}
+      {note ? <p className="hint">{note}</p> : null}
+    </section>
+  );
 }
 
 function Logo() {

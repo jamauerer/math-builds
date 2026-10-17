@@ -26,10 +26,12 @@ describe("progress storage", () => {
       placement: snapshotQuiz(session),
       history: session.history,
       age: 10,
+      ageAsked: true,
       bridgeCompleted: ["candy-1"],
       bridgeEarned: { "candy-1": { chocolate: 4 } },
     });
     expect(store.load()?.age).toBe(10);
+    expect(store.load()?.ageAsked).toBe(true);
     expect(store.load()?.bridgeCompleted).toEqual(["candy-1"]);
     expect(store.load()?.bridgeEarned["candy-1"]).toEqual({ chocolate: 4 });
     const loaded = store.load();

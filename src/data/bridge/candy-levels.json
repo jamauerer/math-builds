@@ -3,20 +3,23 @@
     {
       "id": "candy",
       "name": "Candy Land",
-      "ages": "Ages 5 to 9",
-      "blurb": "Chocolate bridges, gummy towers, candy cane ramps."
+      "ability": "Counting, adding and measuring",
+      "blurb": "Chocolate bridges, gummy towers, candy cane ramps.",
+      "requires": []
     },
     {
       "id": "wood",
       "name": "Wood Valley",
-      "ages": "Ages 9 to 13",
-      "blurb": "Plank bridges, ramps and catapults. Real slopes and loads."
+      "ability": "Multiplying, dividing and slopes",
+      "blurb": "Plank bridges, ramps and catapults. Real slopes and loads.",
+      "requires": [{ "skillId": "multiply-facts-2-to-5", "level": 3 }]
     },
     {
       "id": "steel",
       "name": "Steel City",
-      "ages": "Ages 13 and up",
-      "blurb": "Trusses, arches and cables. Design it freely, test it for real."
+      "ability": "Geometry and forces",
+      "blurb": "Trusses, arches and cables. Design it freely, test it for real.",
+      "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 3 }]
     }
   ],
   "parts": [
@@ -70,6 +73,19 @@
       "unlock": { "skillId": "multiply-two-digit-by-one-digit", "level": 3 }
     }
   ],
+  "modes": [
+    { "id": "count", "label": "Count", "requires": [] },
+    {
+      "id": "calculate",
+      "label": "Calculate",
+      "requires": [{ "skillId": "subtract-no-borrow-two-digit", "level": 2 }]
+    },
+    {
+      "id": "free",
+      "label": "Free build",
+      "requires": [{ "skillId": "multiply-two-digit-by-one-digit", "level": 3 }]
+    }
+  ],
   "levels": [
     {
       "id": "candy-1",
@@ -77,6 +93,7 @@
       "number": 1,
       "title": "Cans and Planks",
       "playable": true,
+      "requires": [],
       "measure": "count",
       "gapBlocks": 4,
       "blockMeters": 1,
@@ -113,6 +130,7 @@
       "number": 2,
       "title": "Candy Canyon",
       "playable": true,
+      "requires": [],
       "measure": "ruler",
       "gapBlocks": 4,
       "blockMeters": 3,
@@ -143,6 +161,22 @@
           "visual": { "kind": "stacked", "layout": "vertical", "operator": "x", "top": 4, "bottom": 3 }
         }
       ]
-    }
+    },
+    { "id": "candy-3", "world": "candy", "number": 3, "title": "Gummy span", "playable": false, "requires": [{ "skillId": "subtract-borrow-two-digit", "level": 2 }] },
+    { "id": "candy-4", "world": "candy", "number": 4, "title": "Wafer walk", "playable": false, "requires": [{ "skillId": "multiply-facts-2-to-5", "level": 1 }] },
+    { "id": "candy-5", "world": "candy", "number": 5, "title": "Candy towers", "playable": false, "requires": [{ "skillId": "multiply-facts-6-to-9", "level": 2 }] },
+    { "id": "candy-6", "world": "candy", "number": 6, "title": "Long span", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-one-digit", "level": 2 }] },
+    { "id": "wood-1", "world": "wood", "number": 1, "title": "First plank", "playable": false, "requires": [{ "skillId": "multiply-facts-2-to-5", "level": 3 }] },
+    { "id": "wood-2", "world": "wood", "number": 2, "title": "Second plank", "playable": false, "requires": [{ "skillId": "multiply-facts-2-to-5", "level": 3 }] },
+    { "id": "wood-3", "world": "wood", "number": 3, "title": "Third plank", "playable": false, "requires": [{ "skillId": "multiply-facts-6-to-9", "level": 3 }] },
+    { "id": "wood-4", "world": "wood", "number": 4, "title": "Fourth plank", "playable": false, "requires": [{ "skillId": "multiply-by-ten-or-hundred", "level": 2 }] },
+    { "id": "wood-5", "world": "wood", "number": 5, "title": "Fifth plank", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-one-digit", "level": 2 }] },
+    { "id": "wood-6", "world": "wood", "number": 6, "title": "Sixth plank", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-one-digit", "level": 3 }] },
+    { "id": "steel-1", "world": "steel", "number": 1, "title": "First truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 3 }] },
+    { "id": "steel-2", "world": "steel", "number": 2, "title": "Second truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 3 }] },
+    { "id": "steel-3", "world": "steel", "number": 3, "title": "Third truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 4 }] },
+    { "id": "steel-4", "world": "steel", "number": 4, "title": "Fourth truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 4 }] },
+    { "id": "steel-5", "world": "steel", "number": 5, "title": "Fifth truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 5 }] },
+    { "id": "steel-6", "world": "steel", "number": 6, "title": "Sixth truss", "playable": false, "requires": [{ "skillId": "multiply-two-digit-by-two-digit", "level": 5 }] }
   ]
 }

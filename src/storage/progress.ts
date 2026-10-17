@@ -23,6 +23,7 @@ export type SavedProgress = {
   placement: PlacementSnapshot | null;
   history: AttemptRecord[];
   age: number | null;
+  ageAsked: boolean;
   bridgeCompleted: string[];
   bridgeEarned: Record<string, Record<string, number>>;
 };
@@ -43,7 +44,7 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [], age: null, bridgeCompleted: [], bridgeEarned: {} };
+    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {} };
   }
   const record = raw as {
     map?: unknown;
@@ -51,6 +52,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     placement?: unknown;
     history?: unknown;
     age?: unknown;
+    ageAsked?: unknown;
     bridgeCompleted?: unknown;
     bridgeEarned?: unknown;
   };
@@ -84,6 +86,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     placement: sanitizePlacement(skills, record.placement),
     history: sanitizeHistory(record.history),
     age: typeof age === "number" && Number.isInteger(age) && age >= 5 && age <= 18 ? age : null,
+    ageAsked: record.ageAsked === true || (typeof age === "number" && Number.isInteger(age)),
     bridgeCompleted,
     bridgeEarned: sanitizeEarned(record.bridgeEarned),
   };

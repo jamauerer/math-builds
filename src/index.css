@@ -497,6 +497,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 12px 28px;
   min-height: 84px;
@@ -947,6 +948,43 @@ button {
 .level-flow .problem-board,
 .level-flow .answer-block {
   color: #1c1917;
+}
+
+.level-flow .problem-row {
+  flex-direction: column;
+  min-width: 320px;
+}
+
+.level-flow .draw-tools {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.level-flow .work-panel,
+.level-flow .measure-panel,
+.skill-gate {
+  min-width: 320px;
+}
+
+.skill-gate {
+  margin: 0 36px 16px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #2c1d55;
+}
+
+.gate-actions,
+.mode-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.age-badge {
+  max-width: 220px;
+  text-align: center;
+  line-height: 1.2;
 }
 
 @media (max-width: 1100px) {

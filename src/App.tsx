@@ -29,6 +29,7 @@ export function App() {
         placement: null,
         history: [],
         age: null,
+        ageAsked: false,
         bridgeCompleted: [],
         bridgeEarned: {},
       },
@@ -49,6 +50,7 @@ export function App() {
       placement: keepPlacement && session.phase !== "done" ? snapshotQuiz(session) : null,
       history: session.history,
       age: progress.age,
+      ageAsked: progress.ageAsked,
       bridgeCompleted: progress.bridgeCompleted,
       bridgeEarned: progress.bridgeEarned,
     });
@@ -60,14 +62,20 @@ export function App() {
     setScreen({ name: "practice", skillId });
   }
 
-  function chooseAge(age: number) {
-    save({ ...progress, age });
+  function chooseAge(age: number | null) {
+    save({ ...progress, age, ageAsked: true });
   }
 
-  if (progress.age == null) {
+  function raiseSkill(skillId: string, level: number) {
+    const map = recordLevelPass(progress.map, skillId, level);
+    const toppedOut = noteCeilings(strands, map, progress.toppedOut);
+    save({ ...progress, map, toppedOut });
+  }
+
+  if (!progress.ageAsked) {
     return (
       <div className="app">
-        <AgePrompt onAge={chooseAge} />
+        <AgePrompt onAge={chooseAge} onSkip={() => chooseAge(null)} />
       </div>
     );
   }
@@ -127,6 +135,7 @@ export function App() {
           completed={progress.bridgeCompleted}
           earned={progress.bridgeEarned}
           onAge={chooseAge}
+          onSkillPass={raiseSkill}
           onPractice={(skillId) => openPractice(skillId, "bridge")}
           onComplete={(levelId) => {
             if (progress.bridgeCompleted.includes(levelId)) {
@@ -163,6 +172,7 @@ export function App() {
               placement: progress.placement,
               history: progress.history,
               age: progress.age,
+              ageAsked: progress.ageAsked,
               bridgeCompleted: progress.bridgeCompleted,
               bridgeEarned: progress.bridgeEarned,
             });
