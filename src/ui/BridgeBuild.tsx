@@ -1,682 +1,902 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { skills } from "../data/load-skills";
-import { answersMatch } from "../engine/answers";
 import {
-  BRIDGE_INSTRUCTION,
-  beamAngleDegrees,
-  beamLengthMeters,
-  designFromCounts,
-  designFromPieceIds,
-  designFromSegments,
-  gapLabel,
-  loadEstimateKg,
-  modeForAge,
+  bridgeParts,
+  candyLevels,
+  defaultWorld,
+  gradeQuestion,
+  measureAnswer,
+  partById,
   partUnlocked,
-  scenarioForMode,
-  strengthLabel,
-  truckLabel,
+  questionProblem,
   unlockSkillName,
-  workProblems,
-  type BridgeDesign,
-  type BridgePart,
-  type Scenario,
+  worlds,
+  type CandyLevel,
+  type WorldId,
 } from "../engine/bridge/catalog";
 import {
-  createDesignSimulation,
-  type BridgeSimulation,
+  createBlockSimulation,
+  type BlockBridge,
   type BridgeSnapshot,
-  type BridgeStatus,
   type DrawBody,
 } from "../engine/bridge/simulate";
-import type { LearnerMap } from "../engine/placement";
 import { emptyScribble, type Scribble } from "../engine/scribble";
+import type { LearnerMap } from "../engine/placement";
 import { AnswerPanel } from "./AnswerPanel";
 import { ProblemBoard } from "./ProblemBoard";
 
-type Segment = { col0: number; row0: number; col1: number; row1: number };
+type Step = "measure" | "earn" | "build" | "drive";
+type Placed = { col: number; row: 0 | 1; partId: string };
+type ThemeId = "candy" | "wood" | "steel";
+
+const STEPS: { id: Step; label: string }[] = [
+  { id: "measure", label: "Measure" },
+  { id: "earn", label: "Earn parts" },
+  { id: "build", label: "Build" },
+  { id: "drive", label: "Drive" },
+];
+
+const THEME_FILL: Record<ThemeId, Record<string, string>> = {
+  candy: {
+    cliff: "#6F4529",
+    grass: "#FFD6E8",
+    water: "#2E9BD6",
+    sky: "#3A2470",
+    chocolate: "#94603A",
+    cane: "#E8344E",
+    gummy: "#7FD6C2",
+    wafer: "#E8B36B",
+    pretzel: "#C47A3A",
+    marshmallow: "#FFF6EA",
+    car: "#FF7A1A",
+  },
+  wood: {
+    cliff: "#7A5236",
+    grass: "#5DAA3C",
+    water: "#2E7FB8",
+    sky: "#8FD0F0",
+    chocolate: "#C98F52",
+    cane: "#8A5E30",
+    gummy: "#D7B07A",
+    wafer: "#E6C48A",
+    pretzel: "#A56B3C",
+    marshmallow: "#F3E6D0",
+    car: "#FF7A1A",
+  },
+  steel: {
+    cliff: "#3B3F4C",
+    grass: "#8F97AA",
+    water: "#1F4F7A",
+    sky: "#5B6A8C",
+    chocolate: "#C8CFDF",
+    cane: "#FF7A1A",
+    gummy: "#9AA3B5",
+    wafer: "#D7DCE6",
+    pretzel: "#6E7688",
+    marshmallow: "#EEF2F8",
+    car: "#FF7A1A",
+  },
+};
+
+const AGES = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+
+export function AgePrompt({ onAge }: { onAge: (age: number) => void }) {
+  return (
+    <div className="worlds age-gate">
+      <h1>How old are you?</h1>
+      <p>This picks your starting world. You can change it later.</p>
+      <div className="age-choices">
+        {AGES.map((age) => (
+          <button key={age} type="button" onPointerUp={() => onAge(age)}>
+            {age}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 type Props = {
   age: number;
   map: LearnerMap;
   completed: string[];
+  earned: Record<string, Record<string, number>>;
   onAge: (age: number) => void;
   onPractice: (skillId: string) => void;
-  onComplete: (scenarioId: string) => void;
+  onComplete: (levelId: string) => void;
+  onEarn: (levelId: string, partId: string, count: number) => void;
 };
 
-export function AgePrompt({ onAge }: { onAge: (age: number) => void }) {
-  return (
-    <section className="screen">
-      <header className="screen-head">
-        <h1>How old are you?</h1>
-        <p>This chooses how you build the bridge.</p>
-      </header>
-      <div className="age-row">
-        {AGES.map((choice) => (
-          <button key={choice} type="button" className="choice" onPointerUp={() => onAge(choice)}>
-            {choice}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-export function BridgeBuild({ age, map, completed, onAge, onPractice, onComplete }: Props) {
-  const mode = modeForAge(age);
-  const scenario = scenarioForMode(mode);
+export function BridgeBuild({ age, map, completed, earned, onAge, onPractice, onComplete, onEarn }: Props) {
+  const [worldId, setWorldId] = useState<WorldId>(defaultWorld(age));
+  const [levelId, setLevelId] = useState<string | null>(null);
   const [agesOpen, setAgesOpen] = useState(false);
-  const [pieces, setPieces] = useState<string[]>([]);
-  const [beamCount, setBeamCount] = useState(0);
-  const [supportCount, setSupportCount] = useState(0);
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [arm, setArm] = useState<{ col: number; row: number } | null>(null);
-  const [partId, setPartId] = useState(scenario.parts.find((part) => partUnlocked(part, map))?.id ?? scenario.parts[0].id);
-  const [question, setQuestion] = useState(0);
-  const [scribble, setScribble] = useState<Scribble>(emptyScribble);
-  const [note, setNote] = useState("");
-  const [status, setStatus] = useState<BridgeStatus>("ready");
-  const [failure, setFailure] = useState("");
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const simRef = useRef<BridgeSimulation | null>(null);
-  const problems = useMemo(() => workProblems(scenario), [scenario]);
-  const design = useMemo(
-    () => currentDesign(scenario, pieces, beamCount, supportCount, segments, partId),
-    [scenario, pieces, beamCount, supportCount, segments, partId],
-  );
-  const designKey = JSON.stringify(design);
+  const level = levelId ? candyLevels.find((item) => item.id === levelId) ?? null : null;
 
-  useEffect(() => {
-    setPieces([]);
-    setBeamCount(0);
-    setSupportCount(0);
-    setSegments([]);
-    setArm(null);
-    setQuestion(0);
-    setScribble(emptyScribble());
-    setNote("");
-    const first = scenario.parts.find((part) => partUnlocked(part, map));
-    setPartId(first?.id ?? scenario.parts[0].id);
-  }, [scenario.id]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-    const sim = createDesignSimulation(design);
-    simRef.current = sim;
-    setStatus(sim.status());
-    setFailure(sim.failure()?.text ?? "");
-    const draw = () => paint(canvas, sim.snapshot(), sim.status() !== "ready");
-    draw();
-    window.addEventListener("resize", draw);
-    return () => window.removeEventListener("resize", draw);
-  }, [designKey]);
-
-  function placePiece(id: string) {
-    const part = scenario.parts.find((item) => item.id === id);
-    if (!part || !partUnlocked(part, map)) {
-      return;
-    }
-    const used = pieces.reduce((sum, pieceId) => sum + (scenario.parts.find((item) => item.id === pieceId)?.length ?? 0), 0);
-    if (used + part.length > scenario.gap) {
-      setNote("That piece does not fit in the gap.");
-      return;
-    }
-    setPieces((current) => [...current, id]);
-    setNote("");
+  if (!level) {
+    return (
+      <WorldPicker
+        age={age}
+        worldId={worldId}
+        completed={completed}
+        agesOpen={agesOpen}
+        onWorld={setWorldId}
+        onOpenAges={() => setAgesOpen((open) => !open)}
+        onAge={(next) => {
+          onAge(next);
+          setWorldId(defaultWorld(next));
+          setAgesOpen(false);
+        }}
+        onPlay={(id) => setLevelId(id)}
+      />
+    );
   }
-
-  function addSegment(col: number, row: number) {
-    const part = scenario.parts.find((item) => item.id === partId);
-    if (!part || !partUnlocked(part, map)) {
-      return;
-    }
-    if (!arm) {
-      setArm({ col, row });
-      return;
-    }
-    if (arm.col === col && arm.row === row) {
-      setArm(null);
-      return;
-    }
-    setSegments((current) => [...current, { col0: arm.col, row0: arm.row, col1: col, row1: row }]);
-    setArm(null);
-  }
-
-  function runTest() {
-    const sim = simRef.current;
-    const canvas = canvasRef.current;
-    if (!sim || !canvas || sim.status() !== "ready" || design.beams.length === 0) {
-      setNote("Build a bridge first.");
-      return;
-    }
-    sim.spawnTruck();
-    setStatus("driving");
-    setFailure("");
-    let last = performance.now();
-    const loop = () => {
-      const now = performance.now();
-      const steps = Math.max(1, Math.min(90, Math.round((now - last) / (1000 / 60))));
-      last = now;
-      for (let index = 0; index < steps && sim.status() === "driving"; index += 1) {
-        sim.step();
-      }
-      paint(canvas, sim.snapshot(), true);
-      if (sim.status() === "driving") {
-        window.setTimeout(loop, 16);
-        return;
-      }
-      setStatus(sim.status());
-      setFailure(sim.failure()?.text ?? "");
-      if (sim.status() === "crossed") {
-        onComplete(scenario.id);
-      }
-    };
-    loop();
-  }
-
-  const filled = pieces.reduce((sum, id) => sum + (scenario.parts.find((part) => part.id === id)?.length ?? 0), 0);
-  const strength = pieces.reduce((sum, id) => sum + (scenario.parts.find((part) => part.id === id)?.strength ?? 0), 0);
-  const done = completed.includes(scenario.id);
-  const latest = design.beams[design.beams.length - 1];
 
   return (
-    <section className="screen bridge-screen">
-      <header className="screen-head bridge-head">
-        <div>
-          <h1>{scenario.title}</h1>
-          <p className="bridge-goal">{BRIDGE_INSTRUCTION}</p>
-        </div>
-        <button type="button" className="choice" onPointerUp={() => setAgesOpen((open) => !open)}>
-          Age {age}
-        </button>
-      </header>
-      {agesOpen ? (
-        <div className="age-row">
-          {AGES.map((choice) => (
-            <button key={choice} type="button" className={choice === age ? "nav-button" : "choice"} onPointerUp={() => onAge(choice)}>
-              {choice}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <div className="bridge-layout">
-        <div className="bridge-scene">
-          <canvas ref={canvasRef} className="bridge-canvas" aria-label="Bridge scene" />
-          <div className="bridge-labels">
-            <span>Gap {gapLabel(scenario)}</span>
-            <span>Truck weight {truckLabel(scenario)}</span>
-            {scenario.mode === "pick" ? <span>Strength so far {strengthLabel(strength, scenario)}</span> : null}
-          </div>
-          <p className="bridge-result">
-            {status === "crossed" ? "The truck crossed." : status === "collapsed" ? "The bridge fell." : status === "driving" ? "The truck is crossing." : "The truck is waiting on the left cliff."}
-            {done && status === "crossed" ? " This bridge is complete." : ""}
-          </p>
-          {failure ? <p className="bridge-failure">{failure}</p> : null}
-        </div>
-        <div className="bridge-side">
-          {scenario.mode === "pick" ? (
-            <PickTray
-              scenario={scenario}
-              map={map}
-              pieces={pieces}
-              filled={filled}
-              onPlace={placePiece}
-              onRemove={(index) => setPieces((current) => current.filter((_, pieceIndex) => pieceIndex !== index))}
-              onPractice={onPractice}
-            />
-          ) : null}
-          {scenario.mode === "calculate" ? (
-            <CalculatePanel
-              scenario={scenario}
-              map={map}
-              problems={problems}
-              question={question}
-              scribble={scribble}
-              note={note}
-              beamCount={beamCount}
-              supportCount={supportCount}
-              onScribble={setScribble}
-              onAnswer={(answer) => {
-                const problem = problems[question];
-                if (!problem) {
-                  return;
-                }
-                if (!answersMatch(answer, problem.answer)) {
-                  setNote("Try again.");
-                  return;
-                }
-                setNote("");
-                setScribble(emptyScribble());
-                setQuestion((current) => current + 1);
-              }}
-              onBeams={setBeamCount}
-              onSupports={setSupportCount}
-              onPractice={onPractice}
-            />
-          ) : null}
-          {scenario.mode === "free" ? (
-            <FreePanel
-              scenario={scenario}
-              map={map}
-              segments={segments}
-              arm={arm}
-              partId={partId}
-              latestLength={latest ? beamLengthMeters(latest) : 0}
-              latestAngle={latest ? beamAngleDegrees(latest) : 0}
-              load={loadEstimateKg(design)}
-              onPart={setPartId}
-              onDot={addSegment}
-              onRemove={(index) => setSegments((current) => current.filter((_, segmentIndex) => segmentIndex !== index))}
-              onPractice={onPractice}
-            />
-          ) : null}
-          <button type="button" className="primary" onPointerUp={runTest} disabled={status === "driving"}>
-            Send the truck
-          </button>
-          {note ? <p>{note}</p> : null}
-        </div>
-      </div>
-    </section>
+    <LevelFlow
+      level={level}
+      map={map}
+      earned={earned[level.id] ?? {}}
+      onBack={() => setLevelId(null)}
+      onPractice={onPractice}
+      onComplete={onComplete}
+      onEarn={(partId, count) => onEarn(level.id, partId, count)}
+    />
   );
 }
 
-const AGES = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
-
-function currentDesign(
-  scenario: Scenario,
-  pieces: string[],
-  beamCount: number,
-  supportCount: number,
-  segments: Segment[],
-  partId: string,
-): BridgeDesign {
-  if (scenario.mode === "pick") {
-    return designFromPieceIds(scenario, pieces);
-  }
-  if (scenario.mode === "calculate") {
-    return designFromCounts(scenario, beamCount, supportCount);
-  }
-  const part = scenario.parts.find((item) => item.id === partId) ?? scenario.parts[0];
-  return designFromSegments(scenario, part, segments);
-}
-
-function PickTray({
-  scenario,
-  map,
-  pieces,
-  filled,
-  onPlace,
-  onRemove,
-  onPractice,
+function WorldPicker({
+  age,
+  worldId,
+  completed,
+  agesOpen,
+  onWorld,
+  onOpenAges,
+  onAge,
+  onPlay,
 }: {
-  scenario: Scenario;
-  map: LearnerMap;
-  pieces: string[];
-  filled: number;
-  onPlace: (id: string) => void;
-  onRemove: (index: number) => void;
-  onPractice: (skillId: string) => void;
+  age: number;
+  worldId: WorldId;
+  completed: string[];
+  agesOpen: boolean;
+  onWorld: (id: WorldId) => void;
+  onOpenAges: () => void;
+  onAge: (age: number) => void;
+  onPlay: (id: string) => void;
 }) {
   return (
-    <div>
-      <p>Drag pieces into the gap. The lengths must add to {gapLabel(scenario)}. Add the strengths until they reach {truckLabel(scenario)}.</p>
-      <div className="bridge-gap" aria-label="Gap">
-        {pieces.map((id, index) => {
-          const part = scenario.parts.find((item) => item.id === id);
-          if (!part) {
-            return null;
-          }
-          return (
-            <button key={`${id}-${index}`} type="button" className="placed-piece" style={{ flexGrow: part.length }} onPointerUp={() => onRemove(index)}>
-              {part.name}
-              <span>Strength {strengthLabel(part.strength, scenario)}</span>
-            </button>
-          );
-        })}
-        {filled < scenario.gap ? <span className="gap-open">{scenario.gap - filled} open</span> : null}
+    <div className="worlds">
+      <header className="worlds-bar">
+        <div className="brand">
+          <Logo />
+          <div className="brand-name">Math Builds</div>
+        </div>
+        <div className="worlds-tools">
+          <div className="star-count">
+            <Star />
+            <span>{completed.length}</span>
+          </div>
+          <button type="button" className="age-chip" onPointerUp={onOpenAges}>
+            <span>{age}</span>
+            Age {age}
+          </button>
+        </div>
+      </header>
+      {agesOpen ? (
+        <div className="age-settings">
+          <p>How old are you?</p>
+          <div className="age-choices">
+            {AGES.map((choice) => (
+              <button key={choice} type="button" onPointerUp={() => onAge(choice)}>
+                {choice}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="worlds-intro">
+        <h1>Pick a world to build in.</h1>
+        <p>Every level is a real problem. Do the math, earn blocks, build it, test it.</p>
       </div>
-      <div className="part-tray">
-        {scenario.parts.map((part) => (
-          <PartButton key={part.id} part={part} scenario={scenario} map={map} onPlace={onPlace} onPractice={onPractice} />
+      <div className="world-grid">
+        {worlds.map((world) => (
+          <WorldCard
+            key={world.id}
+            worldId={world.id}
+            selected={world.id === worldId}
+            completed={completed}
+            onSelect={() => onWorld(world.id)}
+            onPlay={onPlay}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function PartButton({
-  part,
-  scenario,
-  map,
-  onPlace,
-  onPractice,
+function WorldCard({
+  worldId,
+  selected,
+  completed,
+  onSelect,
+  onPlay,
 }: {
-  part: BridgePart;
-  scenario: Scenario;
-  map: LearnerMap;
-  onPlace: (id: string) => void;
-  onPractice: (skillId: string) => void;
+  worldId: WorldId;
+  selected: boolean;
+  completed: string[];
+  onSelect: () => void;
+  onPlay: (id: string) => void;
 }) {
-  const open = partUnlocked(part, map);
-  const drag = useRef<string | null>(null);
-  if (!open) {
+  const world = worlds.find((item) => item.id === worldId);
+  if (!world) {
+    return null;
+  }
+  const current = candyLevels.find((level) => level.world === worldId && level.playable && !completed.includes(level.id));
+  return (
+    <section className={`world-card ${worldId} ${selected ? "selected" : ""}`}>
+      <WorldArt worldId={worldId} />
+      <div className="world-copy">
+        <div className="world-title">
+          <h2>{world.name}</h2>
+          <span className={`age-badge ${worldId}`}>{world.ages}</span>
+        </div>
+        <p>{world.blurb}</p>
+        <div className="level-tiles">
+          {Array.from({ length: 6 }, (_, index) => {
+            const number = index + 1;
+            const level = candyLevels.find((item) => item.world === worldId && item.number === number);
+            const playable = level?.playable === true;
+            const done = level ? completed.includes(level.id) : false;
+            const isCurrent = current?.id === level?.id;
+            const state = done ? "done" : isCurrent ? "current" : playable ? "open" : "locked";
+            return (
+              <button
+                key={number}
+                type="button"
+                className={`level-tile ${state}`}
+                aria-label={`Level ${number}, ${state}`}
+                disabled={!playable}
+                onPointerUp={() => {
+                  onSelect();
+                  if (level && playable) {
+                    onPlay(level.id);
+                  }
+                }}
+              >
+                {number}
+              </button>
+            );
+          })}
+        </div>
+        {current ? (
+          <button type="button" className="continue" onPointerUp={() => onPlay(current.id)}>
+            Continue: Level {current.number}
+          </button>
+        ) : (
+          <button type="button" className="continue locked" disabled>
+            {worldId === "candy" ? "Candy Land is complete" : "Locked"}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LevelFlow({
+  level,
+  map,
+  earned,
+  onBack,
+  onPractice,
+  onComplete,
+  onEarn,
+}: {
+  level: CandyLevel;
+  map: LearnerMap;
+  earned: Record<string, number>;
+  onBack: () => void;
+  onPractice: (skillId: string) => void;
+  onComplete: (levelId: string) => void;
+  onEarn: (partId: string, count: number) => void;
+}) {
+  const [step, setStep] = useState<Step>("measure");
+  const [measured, setMeasured] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>("candy");
+  const [placed, setPlaced] = useState<Placed[]>([]);
+  const [selected, setSelected] = useState("chocolate");
+  const [driveKey, setDriveKey] = useState(0);
+  const ready = level.questions.every((question) => (earned[question.partId] ?? 0) >= question.count);
+
+  function go(next: Step) {
+    if ((next === "earn" || next === "build" || next === "drive") && !measured) {
+      setStep("measure");
+      return;
+    }
+    if ((next === "build" || next === "drive") && !ready) {
+      setStep("earn");
+      return;
+    }
+    setStep(next);
+  }
+
+  return (
+    <div className={`level-flow ${step === "build" || step === "drive" ? "build-theme" : "measure-theme"}`}>
+      <header className="level-bar">
+        <button type="button" className="back" onPointerUp={onBack}>
+          Worlds
+        </button>
+        <div className="step-bar">
+          {STEPS.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              className={step === item.id ? "step on" : "step"}
+              onPointerUp={() => go(item.id)}
+            >
+              {index + 1} {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="theme-switch" aria-label="Theme">
+          {(["candy", "wood", "steel"] as ThemeId[]).map((item) => (
+            <button key={item} type="button" className={theme === item ? "on" : ""} onPointerUp={() => setTheme(item)}>
+              {item === "candy" ? "Candy" : item === "wood" ? "Wood" : "Steel"}
+            </button>
+          ))}
+        </div>
+      </header>
+      {step === "measure" ? (
+        <MeasureStep level={level} theme={theme} onDone={() => { setMeasured(true); setStep("earn"); }} />
+      ) : null}
+      {step === "earn" ? (
+        <EarnStep
+          level={level}
+          earned={earned}
+          onEarn={onEarn}
+          onDone={() => setStep("build")}
+        />
+      ) : null}
+      {step === "build" || step === "drive" ? (
+        <BuildStep
+          level={level}
+          theme={theme}
+          map={map}
+          earned={earned}
+          placed={placed}
+          selected={selected}
+          driving={step === "drive"}
+          driveKey={driveKey}
+          onSelect={setSelected}
+          onPlaced={setPlaced}
+          onPractice={onPractice}
+          onDrive={() => {
+            setDriveKey((value) => value + 1);
+            setStep("drive");
+          }}
+          onBuild={() => setStep("build")}
+          onComplete={() => onComplete(level.id)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MeasureStep({ level, theme, onDone }: { level: CandyLevel; theme: ThemeId; onDone: () => void }) {
+  const answer = measureAnswer(level);
+  const [marked, setMarked] = useState<boolean[]>(() => Array.from({ length: level.gapBlocks }, () => false));
+  const [count, setCount] = useState(0);
+  const [hint, setHint] = useState("");
+  const colors = THEME_FILL[theme];
+
+  function check(given: number) {
+    if (given === answer) {
+      onDone();
+      return;
+    }
+    setHint(
+      level.measure === "ruler"
+        ? `The right cliff is at ${level.rulerRight} and the left cliff is at ${level.rulerLeft}.`
+        : "Tap each block in the gap, then check the count.",
+    );
+  }
+
+  return (
+    <div className="measure-layout">
+      <section className="measure-scene">
+        <h2>{level.measure === "count" ? "Count the blocks. How wide is the gap?" : "Read the ruler. How wide is the gap?"}</h2>
+        <div className="scene-frame" style={{ background: colors.sky }}>
+          <div className="water" style={{ background: colors.water }} />
+          <div className="cliff" style={{ background: colors.cliff }}>
+            <div className="grass" style={{ background: colors.grass }} />
+          </div>
+          <div className="gap-row">
+            {marked.map((on, index) => (
+              <button
+                key={index}
+                type="button"
+                className={on ? "gap-block filled" : "gap-block"}
+                style={on ? { background: colors.chocolate } : undefined}
+                aria-label={`Gap block ${index + 1}`}
+                onPointerUp={() => {
+                  if (level.measure !== "count") {
+                    return;
+                  }
+                  const next = marked.map((value, markIndex) => (markIndex === index ? !value : value));
+                  setMarked(next);
+                  setCount(next.filter(Boolean).length);
+                }}
+              >
+                {level.measure === "count" ? index + 1 : ""}
+              </button>
+            ))}
+          </div>
+          <div className="cliff" style={{ background: colors.cliff }}>
+            <div className="grass" style={{ background: colors.grass }} />
+          </div>
+          {level.measure === "ruler" ? (
+            <div className="ruler" aria-hidden="true">
+              <span>{level.rulerLeft}</span>
+              <span>?</span>
+              <span>{level.rulerRight}</span>
+            </div>
+          ) : null}
+        </div>
+      </section>
+      <aside className="measure-panel">
+        {level.measure === "count" ? (
+          <>
+            <p className="plan-line">The gap is {count} blocks wide</p>
+            <div className="stepper">
+              <button type="button" aria-label="Fewer" onPointerUp={() => setCount((value) => Math.max(0, value - 1))}>
+                -
+              </button>
+              <strong>{count}</strong>
+              <button type="button" aria-label="More" onPointerUp={() => setCount((value) => value + 1)}>
+                +
+              </button>
+            </div>
+            <button type="button" className="check" onPointerUp={() => check(count)}>
+              Check my answer
+            </button>
+          </>
+        ) : (
+          <AnswerPanel
+            key="measure"
+            problem={{ prompt: "How many meters is the gap?", answer: String(answer) }}
+            locked={false}
+            onSubmit={(given) => check(Number(given))}
+            onSkip={() => setHint("Look at the two numbers on the ruler.")}
+          />
+        )}
+        {hint ? <p className="hint">{hint}</p> : null}
+      </aside>
+    </div>
+  );
+}
+
+function EarnStep({
+  level,
+  earned,
+  onEarn,
+  onDone,
+}: {
+  level: CandyLevel;
+  earned: Record<string, number>;
+  onEarn: (partId: string, count: number) => void;
+  onDone: () => void;
+}) {
+  const firstOpen = level.questions.findIndex((question) => (earned[question.partId] ?? 0) < question.count);
+  const [index, setIndex] = useState(firstOpen < 0 ? level.questions.length : firstOpen);
+  const [hint, setHint] = useState("");
+  const [scribble, setScribble] = useState<Scribble>(emptyScribble());
+  const question = level.questions[index];
+
+  useEffect(() => {
+    setScribble(emptyScribble());
+    setHint("");
+  }, [index]);
+
+  if (!question) {
     return (
-      <div className="part locked">
-        <span>{part.name}</span>
-        <span>
-          Unlocks with {unlockSkillName(part, skills)}, level {part.unlock.level}
-        </span>
-        <button type="button" className="choice" onPointerUp={() => onPractice(part.unlock.skillId)}>
-          Practice
+      <div className="earn-done">
+        <h2>Parts earned</h2>
+        <p>The hotbar is ready. Build the bridge next.</p>
+        <button type="button" className="check" onPointerUp={onDone}>
+          Build
         </button>
       </div>
     );
   }
+
+  const problem = questionProblem(question);
+  return (
+    <div className="earn-layout">
+      <aside className="question-list">
+        {level.questions.map((item, itemIndex) => {
+          const done = (earned[item.partId] ?? 0) >= item.count;
+          const state = done ? "done" : itemIndex === index ? "current" : "upcoming";
+          return (
+            <p key={item.prompt} className={`q-card ${state}`}>
+              {item.prompt}
+            </p>
+          );
+        })}
+      </aside>
+      <section className="work-panel">
+        <h2>Work it out</h2>
+        <ProblemBoard problem={problem} scribble={scribble} onScribble={setScribble} />
+        <AnswerPanel
+          key={question.prompt}
+          problem={problem}
+          locked={false}
+          onSubmit={(given) => {
+            const result = gradeQuestion(question, given);
+            if (!result.correct || result.count <= 0) {
+              setHint(result.hint || "Try again.");
+              return;
+            }
+            onEarn(result.partId, result.count);
+            setIndex((value) => value + 1);
+          }}
+          onSkip={() => setHint(question.hint)}
+        />
+        {hint ? <p className="hint">{hint}</p> : null}
+      </section>
+    </div>
+  );
+}
+
+function BuildStep({
+  level,
+  theme,
+  map,
+  earned,
+  placed,
+  selected,
+  driving,
+  driveKey,
+  onSelect,
+  onPlaced,
+  onPractice,
+  onDrive,
+  onBuild,
+  onComplete,
+}: {
+  level: CandyLevel;
+  theme: ThemeId;
+  map: LearnerMap;
+  earned: Record<string, number>;
+  placed: Placed[];
+  selected: string;
+  driving: boolean;
+  driveKey: number;
+  onSelect: (id: string) => void;
+  onPlaced: (next: Placed[]) => void;
+  onPractice: (skillId: string) => void;
+  onDrive: () => void;
+  onBuild: () => void;
+  onComplete: () => void;
+}) {
+  const colors = THEME_FILL[theme];
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [report, setReport] = useState("");
+
+  useEffect(() => {
+    if (!driving) {
+      return;
+    }
+    const sim = createBlockSimulation(toBridge(level, placed));
+    sim.spawnCar();
+    let last = performance.now();
+    let frame = 0;
+    let raf = 0;
+    const tick = (now: number) => {
+      const steps = Math.min(90, Math.max(1, Math.round((now - last) / 16.67)));
+      last = now;
+      for (let index = 0; index < steps; index += 1) {
+        sim.step();
+      }
+      const snap = sim.snapshot();
+      paintBridge(canvasRef.current, snap, colors);
+      if (sim.status() === "crossed") {
+        setReport("The car crossed. This bridge is complete.");
+        onComplete();
+        return;
+      }
+      if (sim.status() === "collapsed") {
+        setReport(sim.failure()?.text ?? "The bridge fell.");
+        return;
+      }
+      frame += 1;
+      if (frame < 500) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [driving, driveKey]);
+
+  function stock(partId: string) {
+    const used = placed.filter((item) => item.partId === partId).length;
+    return Math.max(0, (earned[partId] ?? 0) - used);
+  }
+
+  function tap(col: number, row: 0 | 1) {
+    if (driving) {
+      return;
+    }
+    const existing = placed.find((item) => item.col === col && item.row === row);
+    if (existing || selected === "remove") {
+      if (existing) {
+        onPlaced(placed.filter((item) => item !== existing));
+      }
+      return;
+    }
+    const part = partById(selected);
+    if (!part || part.role === "ramp" || !partUnlocked(part, map) || stock(part.id) <= 0) {
+      return;
+    }
+    if (row === 0 && part.role !== "deck") {
+      return;
+    }
+    if (row === 1 && part.role !== "pillar") {
+      return;
+    }
+    if (row === 1 && !placed.some((item) => item.col === col && item.row === 0)) {
+      return;
+    }
+    onPlaced([...placed, { col, row, partId: part.id }]);
+  }
+
+  return (
+    <div className="build-layout">
+      <div className="build-stage">
+        <p className="mission">Fill the gap, flush with the ground. The car has to roll across.</p>
+        {driving ? (
+          <canvas ref={canvasRef} className="drive-canvas" width={960} height={420} />
+        ) : (
+          <div className="builder" style={{ background: `linear-gradient(${colors.sky}, ${colors.sky} 42%, ${colors.water} 42%)` }}>
+            <div className="land" style={{ background: colors.cliff }}>
+              <div className="grass" style={{ background: colors.grass }} />
+            </div>
+            <div className="span" style={{ gridTemplateColumns: `repeat(${level.gapBlocks}, 52px)` }}>
+              {Array.from({ length: level.gapBlocks }, (_, col) => (
+                <div key={col} className="column">
+                  <Cell
+                    label={`Deck ${col + 1}`}
+                    placed={placed.find((item) => item.col === col && item.row === 0)}
+                    colors={colors}
+                    onTap={() => tap(col, 0)}
+                  />
+                  <Cell
+                    label={`Pillar ${col + 1}`}
+                    placed={placed.find((item) => item.col === col && item.row === 1)}
+                    colors={colors}
+                    tall
+                    onTap={() => tap(col, 1)}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="land" style={{ background: colors.cliff }}>
+              <div className="grass" style={{ background: colors.grass }} />
+            </div>
+          </div>
+        )}
+        <p className="gap-label">gap: {level.gapBlocks} blocks</p>
+        {report ? <p className={report.includes("complete") ? "drive-ok" : "drive-fail"}>{report}</p> : null}
+        <div className="drive-actions">
+          {driving ? (
+            <button type="button" className="back" onPointerUp={onBuild}>
+              Change the build
+            </button>
+          ) : (
+            <button type="button" className="drive" onPointerUp={onDrive}>
+              Drive
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="hotbar">
+        {bridgeParts.map((part) => {
+          const locked = part.role === "ramp" || !partUnlocked(part, map);
+          return (
+            <button
+              key={part.id}
+              type="button"
+              className={selected === part.id ? "slot on" : locked ? "slot locked" : "slot"}
+              disabled={locked}
+              onPointerUp={() => onSelect(part.id)}
+            >
+              <span className="swatch" style={{ background: colors[part.id] ?? "#ccc" }} />
+              <span>{part.name}</span>
+              <strong>{locked ? "Locked" : stock(part.id)}</strong>
+              {locked ? (
+                <small>
+                  {part.role === "ramp"
+                    ? "A later level"
+                    : `${unlockSkillName(part, skills)} level ${part.unlock.level}`}
+                </small>
+              ) : null}
+            </button>
+          );
+        })}
+        <button type="button" className={selected === "remove" ? "slot on" : "slot"} onPointerUp={() => onSelect("remove")}>
+          <span>Remove</span>
+        </button>
+        {bridgeParts
+          .filter((part) => part.role === "ramp" || !partUnlocked(part, map))
+          .filter((part) => part.role !== "ramp")
+          .map((part) => (
+            <button key={`${part.id}-practice`} type="button" className="practice-link" onPointerUp={() => onPractice(part.unlock.skillId)}>
+              Practice {unlockSkillName(part, skills)}
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function Cell({
+  label,
+  placed,
+  colors,
+  tall,
+  onTap,
+}: {
+  label: string;
+  placed: Placed | undefined;
+  colors: Record<string, string>;
+  tall?: boolean;
+  onTap: () => void;
+}) {
   return (
     <button
       type="button"
-      className="part"
-      onPointerDown={(event) => {
-        drag.current = part.id;
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerUp={(event) => {
-        const hit = document.elementFromPoint(event.clientX, event.clientY);
-        if (drag.current && hit?.closest(".bridge-gap, .bridge-canvas, .bridge-scene")) {
-          onPlace(part.id);
-        } else {
-          onPlace(part.id);
-        }
-        drag.current = null;
-      }}
-    >
-      {part.name}
-      <span>
-        {part.length > 0 ? `${part.length} long. ` : ""}
-        Strength {strengthLabel(part.strength, scenario)}
-      </span>
-    </button>
+      className={tall ? "cell tall" : "cell"}
+      aria-label={label}
+      style={placed ? { background: colors[placed.partId] ?? "#fff" } : undefined}
+      onPointerUp={onTap}
+    />
   );
 }
 
-function CalculatePanel({
-  scenario,
-  map,
-  problems,
-  question,
-  scribble,
-  note,
-  beamCount,
-  supportCount,
-  onScribble,
-  onAnswer,
-  onBeams,
-  onSupports,
-  onPractice,
-}: {
-  scenario: Scenario;
-  map: LearnerMap;
-  problems: ReturnType<typeof workProblems>;
-  question: number;
-  scribble: Scribble;
-  note: string;
-  beamCount: number;
-  supportCount: number;
-  onScribble: (next: Scribble) => void;
-  onAnswer: (answer: string) => void;
-  onBeams: (count: number) => void;
-  onSupports: (count: number) => void;
-  onPractice: (skillId: string) => void;
-}) {
-  const ready = question >= problems.length;
-  const problem = problems[question];
-  return (
-    <div>
-      {problem && !ready ? (
-        <div className="work bridge-work">
-          <ProblemBoard problem={problem} scribble={scribble} onScribble={onScribble} />
-          <AnswerPanel key={question} problem={problem} locked={false} onSubmit={onAnswer} onSkip={() => onAnswer("")} />
-        </div>
-      ) : (
-        <p>Use the numbers you found. Pick the beams and supports.</p>
-      )}
-      {note ? <p>{note}</p> : null}
-      <div className="count-row">
-        <Counter label="Beams" value={beamCount} disabled={!ready} onChange={onBeams} />
-        <Counter label="Supports" value={supportCount} disabled={!ready} onChange={onSupports} />
-      </div>
-      {scenario.parts.filter((part) => !partUnlocked(part, map)).map((part) => (
-        <div key={part.id} className="part locked">
-          <span>{part.name}</span>
-          <span>
-            Unlocks with {unlockSkillName(part, skills)}, level {part.unlock.level}
-          </span>
-          <button type="button" className="choice" onPointerUp={() => onPractice(part.unlock.skillId)}>
-            Practice
-          </button>
-        </div>
-      ))}
-    </div>
-  );
+function toBridge(level: CandyLevel, placed: Placed[]): BlockBridge {
+  return {
+    gap: level.gapBlocks,
+    carKg: level.carWeight,
+    pieces: placed.flatMap((item) => {
+      const part = partById(item.partId);
+      if (!part) {
+        return [];
+      }
+      return [
+        {
+          id: `${item.partId}-${item.col}-${item.row}`,
+          name: part.name,
+          col: item.col,
+          role: item.row === 0 ? "deck" as const : "pillar" as const,
+          strengthKg: part.strength,
+        },
+      ];
+    }),
+  };
 }
 
-function Counter({
-  label,
-  value,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  disabled: boolean;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <div className="counter">
-      <span>{label}</span>
-      <button type="button" disabled={disabled || value <= 0} onPointerUp={() => onChange(value - 1)}>
-        Less
-      </button>
-      <strong>{value}</strong>
-      <button type="button" disabled={disabled || value >= 8} onPointerUp={() => onChange(value + 1)}>
-        More
-      </button>
-    </div>
-  );
-}
-
-function FreePanel({
-  scenario,
-  map,
-  segments,
-  arm,
-  partId,
-  latestLength,
-  latestAngle,
-  load,
-  onPart,
-  onDot,
-  onRemove,
-  onPractice,
-}: {
-  scenario: Scenario;
-  map: LearnerMap;
-  segments: Segment[];
-  arm: { col: number; row: number } | null;
-  partId: string;
-  latestLength: number;
-  latestAngle: number;
-  load: number;
-  onPart: (id: string) => void;
-  onDot: (col: number, row: number) => void;
-  onRemove: (index: number) => void;
-  onPractice: (skillId: string) => void;
-}) {
-  const cols = Math.round(scenario.gap / scenario.cell) + 1;
-  return (
-    <div>
-      <p>Tap two dots to place a beam. Triangles hold. A square can fold.</p>
-      <div className="truss-grid" style={{ gridTemplateColumns: `repeat(${cols}, 48px)` }}>
-        {Array.from({ length: 2 }, (_, row) =>
-          Array.from({ length: cols }, (_, col) => {
-            const selected = arm?.col === col && arm?.row === row;
-            return (
-              <button
-                key={`${col}-${row}`}
-                type="button"
-                className={selected ? "nav-button grid-dot" : "choice grid-dot"}
-                aria-label={row === 0 ? `Top dot ${col + 1}` : `Deck dot ${col + 1}`}
-                onPointerUp={() => onDot(col, 1 - row)}
-              >
-                •
-              </button>
-            );
-          }),
-        )}
-      </div>
-      <div className="calc-panel">
-        <p>Length {latestLength.toFixed(1)} m</p>
-        <p>Angle {latestAngle} degrees</p>
-        <p>Load estimate {load} kg</p>
-      </div>
-      <div className="part-tray">
-        {scenario.parts.map((part) =>
-          partUnlocked(part, map) ? (
-            <button key={part.id} type="button" className={part.id === partId ? "nav-button" : "choice"} onPointerUp={() => onPart(part.id)}>
-              {part.name}. Strength {strengthLabel(part.strength, scenario)}
-            </button>
-          ) : (
-            <div key={part.id} className="part locked">
-              <span>{part.name}</span>
-              <span>
-                Unlocks with {unlockSkillName(part, skills)}, level {part.unlock.level}
-              </span>
-              <button type="button" className="choice" onPointerUp={() => onPractice(part.unlock.skillId)}>
-                Practice
-              </button>
-            </div>
-          ),
-        )}
-      </div>
-      {segments.map((segment, index) => (
-        <button key={`${segment.col0}-${segment.row0}-${segment.col1}-${segment.row1}-${index}`} type="button" className="choice" onPointerUp={() => onRemove(index)}>
-          Remove beam {index + 1}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function paint(canvas: HTMLCanvasElement, shot: BridgeSnapshot, colorize: boolean) {
+function paintBridge(canvas: HTMLCanvasElement | null, snap: BridgeSnapshot, colors: Record<string, string>) {
+  if (!canvas) {
+    return;
+  }
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
   }
-  const width = canvas.clientWidth || 640;
-  const height = canvas.clientHeight || 420;
-  const pixelRatio = window.devicePixelRatio || 1;
-  if (canvas.width !== Math.floor(width * pixelRatio) || canvas.height !== Math.floor(height * pixelRatio)) {
-    canvas.width = Math.floor(width * pixelRatio);
-    canvas.height = Math.floor(height * pixelRatio);
-  }
-  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  const width = canvas.width;
+  const height = canvas.height;
+  const scale = width / (snap.maxX - snap.minX);
+  const xOf = (x: number) => (x - snap.minX) * scale;
+  const yOf = (y: number) => height - (y - snap.minY) * scale;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#bae6fd";
+  ctx.fillStyle = colors.sky ?? "#3A2470";
   ctx.fillRect(0, 0, width, height);
-  const spanX = shot.maxX - shot.minX;
-  const spanY = shot.maxY - shot.minY;
-  const scale = Math.min(width / spanX, height / spanY);
-  const originX = (width - spanX * scale) / 2;
-  const originY = (height - spanY * scale) / 2;
-  const toX = (x: number) => originX + (x - shot.minX) * scale;
-  const toY = (y: number) => originY + (shot.maxY - y) * scale;
-  const waterTop = toY(2.2);
-  ctx.fillStyle = "#0284c7";
-  ctx.fillRect(0, waterTop, width, height - waterTop);
-  const cliffs = shot.bodies.filter((body) => body.role === "cliff");
-  for (const body of shot.bodies) {
-    drawBody(ctx, body, toX, toY, scale, colorize);
+  ctx.fillStyle = colors.water ?? "#2E9BD6";
+  ctx.fillRect(0, yOf(1.2), width, height);
+  for (const body of snap.bodies) {
+    drawBody(ctx, body, colors, xOf, yOf, scale);
   }
-  const left = cliffs.reduce((best, body) => (body.x < best.x ? body : best), cliffs[0]);
-  const right = cliffs.reduce((best, body) => (body.x > best.x ? body : best), cliffs[0]);
-  if (left && !shot.bodies.some((body) => body.role === "truck")) {
-    drawTruck(ctx, toX(left.x), toY(left.y + left.halfHeight + 0.45), scale);
-  }
-  if (right) {
-    drawFlag(ctx, toX(right.x), toY(right.y + right.halfHeight));
-  }
-}
-
-function drawTruck(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number) {
-  ctx.fillStyle = "#1d4ed8";
-  ctx.fillRect(x - 0.7 * scale, y - 0.24 * scale, 1.4 * scale, 0.48 * scale);
-  ctx.fillStyle = "#1c1917";
-  ctx.beginPath();
-  ctx.arc(x - 0.4 * scale, y + 0.24 * scale, 0.22 * scale, 0, Math.PI * 2);
-  ctx.arc(x + 0.4 * scale, y + 0.24 * scale, 0.22 * scale, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawFlag(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  ctx.strokeStyle = "#1c1917";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x, y - 46);
-  ctx.stroke();
-  ctx.fillStyle = "#dc2626";
-  ctx.beginPath();
-  ctx.moveTo(x, y - 46);
-  ctx.lineTo(x + 28, y - 36);
-  ctx.lineTo(x, y - 26);
-  ctx.fill();
 }
 
 function drawBody(
   ctx: CanvasRenderingContext2D,
   body: DrawBody,
-  toX: (x: number) => number,
-  toY: (y: number) => number,
+  colors: Record<string, string>,
+  xOf: (x: number) => number,
+  yOf: (y: number) => number,
   scale: number,
-  colorize: boolean,
 ) {
+  const fill =
+    body.role === "cliff"
+      ? colors.cliff
+      : body.role === "pillar"
+        ? colors.cane
+        : body.role === "car"
+          ? colors.car
+          : body.role === "wheel"
+            ? "#1A1033"
+            : body.name.toLowerCase().includes("wafer")
+              ? colors.wafer
+              : body.name.toLowerCase().includes("gummy")
+                ? colors.gummy
+                : colors.chocolate;
   ctx.save();
-  ctx.translate(toX(body.x), toY(body.y));
+  ctx.translate(xOf(body.x), yOf(body.y));
   ctx.rotate(-body.angle);
-  if (body.role === "plank") {
-    ctx.fillStyle = colorize ? stressColor(body.stress, body.broken) : "#d97706";
-  } else if (body.role === "truck") {
-    ctx.fillStyle = "#1d4ed8";
-  } else if (body.role === "wheel") {
-    ctx.fillStyle = "#1c1917";
-  } else if (body.role === "support") {
-    ctx.fillStyle = "#57534e";
-  } else if (body.role === "joint") {
-    ctx.fillStyle = "#44403c";
-  } else {
-    ctx.fillStyle = "#78716c";
-  }
-  if (body.role === "wheel" || body.role === "joint") {
+  ctx.fillStyle = body.broken ? "#7f1d1d" : (fill ?? "#fff");
+  if (body.radius > 0) {
     ctx.beginPath();
-    ctx.arc(0, 0, Math.max(body.radius, body.role === "joint" ? 0.08 : 0) * scale, 0, Math.PI * 2);
+    ctx.arc(0, 0, body.radius * scale, 0, Math.PI * 2);
     ctx.fill();
   } else {
-    const w = body.halfWidth * 2 * scale;
-    const h = body.halfHeight * 2 * scale;
-    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.fillRect(-body.halfWidth * scale, -body.halfHeight * scale, body.halfWidth * 2 * scale, body.halfHeight * 2 * scale);
   }
   ctx.restore();
 }
 
-function stressColor(stress: number, broken: boolean): string {
-  if (broken || stress >= 0.9) {
-    return "#dc2626";
+function Logo() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#FF8FB8" />
+      <rect x="26" y="2" width="20" height="20" rx="4" fill="#7FD6C2" />
+      <rect x="2" y="26" width="20" height="20" rx="4" fill="#FFD23F" />
+      <rect x="26" y="26" width="20" height="20" rx="4" fill="#FF7A1A" />
+    </svg>
+  );
+}
+
+function Star() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z" fill="#FFD23F" />
+    </svg>
+  );
+}
+
+function WorldArt({ worldId }: { worldId: WorldId }) {
+  if (worldId === "wood") {
+    return (
+      <svg viewBox="0 0 400 220" className="world-art" role="img" aria-label="Wood world with a plank bridge">
+        <rect width="400" height="220" fill="#8FD0F0" />
+        <rect y="150" width="400" height="70" fill="#2E7FB8" />
+        <rect x="0" y="100" width="110" height="120" fill="#7A5236" />
+        <rect x="290" y="100" width="110" height="120" fill="#7A5236" />
+        <rect x="0" y="100" width="110" height="12" fill="#5DAA3C" />
+        <rect x="290" y="100" width="110" height="12" fill="#5DAA3C" />
+        <rect x="90" y="84" width="220" height="16" fill="#C98F52" />
+      </svg>
+    );
   }
-  if (stress >= 0.6) {
-    return "#ca8a04";
+  if (worldId === "steel") {
+    return (
+      <svg viewBox="0 0 400 220" className="world-art" role="img" aria-label="Steel world with a truss bridge">
+        <rect width="400" height="220" fill="#5B6A8C" />
+        <rect y="160" width="400" height="60" fill="#1F4F7A" />
+        <rect x="0" y="104" width="100" height="116" fill="#3B3F4C" />
+        <rect x="300" y="104" width="100" height="116" fill="#3B3F4C" />
+        <rect x="80" y="92" width="240" height="12" fill="#C8CFDF" />
+      </svg>
+    );
   }
-  return "#16a34a";
+  return (
+    <svg viewBox="0 0 400 220" className="world-art" role="img" aria-label="Candy world with chocolate cliffs">
+      <rect width="400" height="220" fill="#FF8FB8" />
+      <rect y="150" width="400" height="70" fill="#2E9BD6" />
+      <rect x="0" y="100" width="120" height="120" fill="#6F4529" />
+      <rect x="280" y="100" width="120" height="120" fill="#6F4529" />
+      <rect x="0" y="100" width="120" height="8" fill="#FFD6E8" />
+      <rect x="280" y="100" width="120" height="8" fill="#FFD6E8" />
+      <rect x="90" y="76" width="220" height="24" fill="#94603A" />
+      <rect x="170" y="100" width="24" height="52" fill="#E8344E" />
+      <rect x="226" y="100" width="24" height="52" fill="#E8344E" />
+    </svg>
+  );
 }

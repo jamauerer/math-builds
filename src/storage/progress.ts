@@ -24,6 +24,7 @@ export type SavedProgress = {
   history: AttemptRecord[];
   age: number | null;
   bridgeCompleted: string[];
+  bridgeEarned: Record<string, Record<string, number>>;
 };
 
 export type ProgressStore = {
@@ -42,7 +43,7 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [], age: null, bridgeCompleted: [] };
+    return { map, toppedOut: [], placement: null, history: [], age: null, bridgeCompleted: [], bridgeEarned: {} };
   }
   const record = raw as {
     map?: unknown;
@@ -51,6 +52,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     history?: unknown;
     age?: unknown;
     bridgeCompleted?: unknown;
+    bridgeEarned?: unknown;
   };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
@@ -83,7 +85,28 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     history: sanitizeHistory(record.history),
     age: typeof age === "number" && Number.isInteger(age) && age >= 5 && age <= 18 ? age : null,
     bridgeCompleted,
+    bridgeEarned: sanitizeEarned(record.bridgeEarned),
   };
+}
+
+function sanitizeEarned(raw: unknown): Record<string, Record<string, number>> {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+  const earned: Record<string, Record<string, number>> = {};
+  for (const [levelId, parts] of Object.entries(raw as Record<string, unknown>)) {
+    if (!parts || typeof parts !== "object") {
+      continue;
+    }
+    const counts: Record<string, number> = {};
+    for (const [partId, count] of Object.entries(parts as Record<string, unknown>)) {
+      if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+        counts[partId] = count;
+      }
+    }
+    earned[levelId] = counts;
+  }
+  return earned;
 }
 
 function sanitizeHistory(raw: unknown): AttemptRecord[] {

@@ -30,6 +30,7 @@ export function App() {
         history: [],
         age: null,
         bridgeCompleted: [],
+        bridgeEarned: {},
       },
   );
   const [screen, setScreen] = useState<Screen>({ name: "map" });
@@ -49,6 +50,7 @@ export function App() {
       history: session.history,
       age: progress.age,
       bridgeCompleted: progress.bridgeCompleted,
+      bridgeEarned: progress.bridgeEarned,
     });
   }
 
@@ -90,7 +92,7 @@ export function App() {
             Placement
           </button>
           <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
-            Bridge
+            Worlds
           </button>
         </nav>
       )}
@@ -123,13 +125,24 @@ export function App() {
           age={progress.age}
           map={progress.map}
           completed={progress.bridgeCompleted}
+          earned={progress.bridgeEarned}
           onAge={chooseAge}
           onPractice={(skillId) => openPractice(skillId, "bridge")}
-          onComplete={(scenarioId) => {
-            if (progress.bridgeCompleted.includes(scenarioId)) {
+          onComplete={(levelId) => {
+            if (progress.bridgeCompleted.includes(levelId)) {
               return;
             }
-            save({ ...progress, bridgeCompleted: [...progress.bridgeCompleted, scenarioId] });
+            save({ ...progress, bridgeCompleted: [...progress.bridgeCompleted, levelId] });
+          }}
+          onEarn={(levelId, partId, count) => {
+            const current = progress.bridgeEarned[levelId] ?? {};
+            save({
+              ...progress,
+              bridgeEarned: {
+                ...progress.bridgeEarned,
+                [levelId]: { ...current, [partId]: Math.max(current[partId] ?? 0, count) },
+              },
+            });
           }}
         />
       ) : null}
@@ -151,6 +164,7 @@ export function App() {
               history: progress.history,
               age: progress.age,
               bridgeCompleted: progress.bridgeCompleted,
+              bridgeEarned: progress.bridgeEarned,
             });
           }}
           onClose={() => setScreen(practiceReturn === "bridge" ? { name: "bridge" } : { name: "map" })}

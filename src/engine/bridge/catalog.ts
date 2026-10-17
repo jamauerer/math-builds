@@ -1,161 +1,179 @@
-import scenarioFile from "../../data/bridge/scenarios.json";
+import levelFile from "../../data/bridge/candy-levels.json";
 import type { Problem, Skill } from "../types";
+import { answersMatch } from "../answers";
 import type { LearnerMap } from "../placement";
+import type { BlockBridge, BlockPiece } from "./simulate";
 
-export type BuildMode = "pick" | "calculate" | "free";
+export type WorldId = "candy" | "wood" | "steel";
+export type MeasureKind = "count" | "ruler";
+export type PartRole = "deck" | "pillar" | "ramp";
 
-export type PartRole = "beam" | "support";
-
-export type Unlock = {
-  skillId: string;
-  level: number;
-};
+export type Unlock = { skillId: string; level: number };
 
 export type BridgePart = {
   id: string;
   name: string;
   role: PartRole;
-  length: number;
   strength: number;
   unlock: Unlock;
 };
 
-export type Scenario = {
-  id: string;
-  mode: BuildMode;
-  title: string;
-  gap: number;
-  gapUnit: string;
-  truck: number;
-  truckUnit: string;
-  margin: number;
-  cell: number;
-  parts: BridgePart[];
+export type LevelQuestion = {
+  prompt: string;
+  answer: string;
+  hint: string;
+  partId: string;
+  count: number;
+  visual?: Problem["visual"];
 };
 
-export type DesignBeam = {
-  id: string;
+export type WorldInfo = {
+  id: WorldId;
   name: string;
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  strengthKg: number;
+  ages: string;
+  blurb: string;
 };
 
-export type DesignSupport = {
+export type CandyLevel = {
   id: string;
-  x: number;
-  strengthKg: number;
+  world: WorldId;
+  number: number;
+  title: string;
+  playable: boolean;
+  measure: MeasureKind;
+  gapBlocks: number;
+  blockMeters: number;
+  carWeight: number;
+  rulerLeft: number;
+  rulerRight: number;
+  questions: LevelQuestion[];
 };
 
-export type BridgeDesign = {
-  gap: number;
-  truckKg: number;
-  beams: DesignBeam[];
-  supports: DesignSupport[];
-};
-
-export type ReferenceDesigns = {
-  correct: BridgeDesign;
-  weak: BridgeDesign;
-  margin: BridgeDesign;
-};
-
-const MODES: BuildMode[] = ["pick", "calculate", "free"];
+const WORLD_IDS: WorldId[] = ["candy", "wood", "steel"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parsePart(raw: unknown, source: string): BridgePart {
-  if (!isRecord(raw)) {
-    throw new Error(`${source} is not a part`);
-  }
-  const unlock = raw.unlock;
-  if (!isRecord(unlock) || typeof unlock.skillId !== "string" || typeof unlock.level !== "number") {
+function parseUnlock(raw: unknown, source: string): Unlock {
+  if (!isRecord(raw) || typeof raw.skillId !== "string" || typeof raw.level !== "number") {
     throw new Error(`${source} is missing an unlock`);
   }
-  if (raw.role !== "beam" && raw.role !== "support") {
-    throw new Error(`${source} has a bad role`);
-  }
-  if (typeof raw.id !== "string" || typeof raw.name !== "string") {
+  return { skillId: raw.skillId, level: raw.level };
+}
+
+function parsePart(raw: unknown, index: number): BridgePart {
+  const source = `part ${index + 1}`;
+  if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.name !== "string") {
     throw new Error(`${source} is missing a name`);
   }
-  if (typeof raw.length !== "number" || typeof raw.strength !== "number") {
-    throw new Error(`${source} is missing length or strength`);
+  if (raw.role !== "deck" && raw.role !== "pillar" && raw.role !== "ramp") {
+    throw new Error(`${source} has a bad role`);
+  }
+  if (typeof raw.strength !== "number") {
+    throw new Error(`${source} is missing strength`);
   }
   return {
     id: raw.id,
     name: raw.name,
     role: raw.role,
-    length: raw.length,
     strength: raw.strength,
-    unlock: { skillId: unlock.skillId, level: unlock.level },
+    unlock: parseUnlock(raw.unlock, source),
   };
 }
 
-function parseScenario(raw: unknown, index: number): Scenario {
-  const source = `scenario ${index + 1}`;
-  if (!isRecord(raw)) {
-    throw new Error(`${source} is not an object`);
+function parseQuestion(raw: unknown, source: string): LevelQuestion {
+  if (!isRecord(raw) || typeof raw.prompt !== "string" || typeof raw.answer !== "string" || typeof raw.hint !== "string") {
+    throw new Error(`${source} is missing a prompt`);
   }
-  if (typeof raw.id !== "string" || typeof raw.title !== "string") {
+  if (typeof raw.partId !== "string" || typeof raw.count !== "number") {
+    throw new Error(`${source} is missing a part reward`);
+  }
+  const visual = isRecord(raw.visual) ? (raw.visual as Problem["visual"]) : undefined;
+  return {
+    prompt: raw.prompt,
+    answer: raw.answer,
+    hint: raw.hint,
+    partId: raw.partId,
+    count: raw.count,
+    visual,
+  };
+}
+
+function parseLevel(raw: unknown, index: number): CandyLevel {
+  const source = `level ${index + 1}`;
+  if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.title !== "string") {
     throw new Error(`${source} is missing an id`);
   }
-  if (!MODES.includes(raw.mode as BuildMode)) {
-    throw new Error(`${source} has a bad mode`);
-  }
-  if (typeof raw.gap !== "number" || typeof raw.truck !== "number" || typeof raw.margin !== "number") {
-    throw new Error(`${source} is missing gap, truck, or margin`);
-  }
-  if (!Array.isArray(raw.parts) || raw.parts.length === 0) {
-    throw new Error(`${source} needs parts`);
+  if (!WORLD_IDS.includes(raw.world as WorldId) || typeof raw.number !== "number") {
+    throw new Error(`${source} has a bad world`);
   }
   return {
     id: raw.id,
-    mode: raw.mode as BuildMode,
+    world: raw.world as WorldId,
+    number: raw.number,
     title: raw.title,
-    gap: raw.gap,
-    gapUnit: typeof raw.gapUnit === "string" ? raw.gapUnit : "",
-    truck: raw.truck,
-    truckUnit: typeof raw.truckUnit === "string" ? raw.truckUnit : "",
-    margin: raw.margin,
-    cell: typeof raw.cell === "number" ? raw.cell : 1,
-    parts: raw.parts.map((part, partIndex) => parsePart(part, `${source} part ${partIndex + 1}`)),
+    playable: raw.playable === true,
+    measure: raw.measure === "ruler" ? "ruler" : "count",
+    gapBlocks: typeof raw.gapBlocks === "number" ? raw.gapBlocks : 0,
+    blockMeters: typeof raw.blockMeters === "number" ? raw.blockMeters : 1,
+    carWeight: typeof raw.carWeight === "number" ? raw.carWeight : 0,
+    rulerLeft: typeof raw.rulerLeft === "number" ? raw.rulerLeft : 0,
+    rulerRight: typeof raw.rulerRight === "number" ? raw.rulerRight : 0,
+    questions: Array.isArray(raw.questions)
+      ? raw.questions.map((item, questionIndex) => parseQuestion(item, `${source} question ${questionIndex + 1}`))
+      : [],
   };
 }
 
-function loadScenarios(): Scenario[] {
-  const root = scenarioFile as { scenarios?: unknown };
-  if (!Array.isArray(root.scenarios)) {
-    throw new Error("Bridge scenarios file is missing a list");
+function loadFile() {
+  const root = levelFile as { worlds?: unknown; parts?: unknown; levels?: unknown };
+  if (!Array.isArray(root.worlds) || !Array.isArray(root.parts) || !Array.isArray(root.levels)) {
+    throw new Error("Candy level file is missing worlds, parts, or levels");
   }
-  return root.scenarios.map((entry, index) => parseScenario(entry, index));
+  return {
+    worlds: root.worlds.map((item, index) => {
+      if (!isRecord(item) || typeof item.id !== "string" || typeof item.name !== "string") {
+        throw new Error(`world ${index + 1} is incomplete`);
+      }
+      return {
+        id: item.id as WorldId,
+        name: item.name,
+        ages: typeof item.ages === "string" ? item.ages : "",
+        blurb: typeof item.blurb === "string" ? item.blurb : "",
+      };
+    }),
+    parts: root.parts.map((item, index) => parsePart(item, index)),
+    levels: root.levels.map((item, index) => parseLevel(item, index)),
+  };
 }
 
-export const scenarios: Scenario[] = loadScenarios();
+const data = loadFile();
 
-export function modeForAge(age: number): BuildMode {
-  if (age <= 8) {
-    return "pick";
+export const worlds: WorldInfo[] = data.worlds;
+export const bridgeParts: BridgePart[] = data.parts;
+export const candyLevels: CandyLevel[] = data.levels;
+
+export function defaultWorld(age: number): WorldId {
+  if (age <= 9) {
+    return "candy";
   }
-  if (age <= 12) {
-    return "calculate";
+  if (age <= 13) {
+    return "wood";
   }
-  return "free";
+  return "steel";
 }
 
-export function scenarioForMode(mode: BuildMode): Scenario {
-  const scenario = scenarios.find((item) => item.mode === mode);
-  if (!scenario) {
-    throw new Error(`No scenario for ${mode}`);
-  }
-  return scenario;
+export function levelById(id: string): CandyLevel | null {
+  return candyLevels.find((level) => level.id === id) ?? null;
 }
 
-export function scenarioById(id: string): Scenario | null {
-  return scenarios.find((item) => item.id === id) ?? null;
+export function levelsForWorld(world: WorldId): CandyLevel[] {
+  return candyLevels.filter((level) => level.world === world);
+}
+
+export function partById(id: string): BridgePart | null {
+  return bridgeParts.find((part) => part.id === id) ?? null;
 }
 
 export function partUnlocked(part: BridgePart, map: LearnerMap): boolean {
@@ -173,260 +191,88 @@ export function unlockSkillName(part: BridgePart, skills: readonly Skill[]): str
   return skills.find((skill) => skill.id === part.unlock.skillId)?.name ?? part.unlock.skillId;
 }
 
-export function gapLabel(scenario: Scenario): string {
-  return scenario.gapUnit ? `${scenario.gap} ${scenario.gapUnit}` : String(scenario.gap);
-}
-
-export function truckLabel(scenario: Scenario): string {
-  return scenario.truckUnit ? `${scenario.truck} ${scenario.truckUnit}` : String(scenario.truck);
-}
-
-export function strengthLabel(strength: number, scenario: Scenario): string {
-  return scenario.truckUnit ? `${strength} ${scenario.truckUnit}` : String(strength);
-}
-
-function partById(scenario: Scenario, id: string): BridgePart {
-  const part = scenario.parts.find((item) => item.id === id);
-  if (!part) {
-    throw new Error(`Missing part ${id}`);
+export function measureAnswer(level: CandyLevel): number {
+  if (level.measure === "ruler") {
+    return level.rulerRight - level.rulerLeft;
   }
-  return part;
+  return level.gapBlocks;
 }
 
-function deckFromParts(scenario: Scenario, ids: string[]): BridgeDesign {
-  const beams: DesignBeam[] = [];
-  let cursor = 0;
-  ids.forEach((id, index) => {
-    const part = partById(scenario, id);
-    beams.push({
-      id: `${id}-${index}`,
-      name: part.name,
-      x0: cursor,
-      y0: 0,
-      x1: cursor + part.length,
-      y1: 0,
-      strengthKg: part.strength,
-    });
-    cursor += part.length;
-  });
-  return { gap: scenario.gap, truckKg: scenario.truck, beams, supports: [] };
+export function questionProblem(question: LevelQuestion): Problem {
+  return { prompt: question.prompt, answer: question.answer, visual: question.visual };
 }
 
-function spannedBeams(scenario: Scenario, part: BridgePart, count: number, strengthKg: number): DesignBeam[] {
-  const length = scenario.gap / count;
-  const beams: DesignBeam[] = [];
-  for (let index = 0; index < count; index += 1) {
-    const x0 = index * length;
-    beams.push({
-      id: `${part.id}-${index}`,
-      name: part.name,
-      x0,
-      y0: 0,
-      x1: x0 + length,
-      y1: 0,
-      strengthKg,
-    });
-  }
-  return beams;
-}
+export type EarnResult = {
+  correct: boolean;
+  hint: string;
+  partId: string;
+  count: number;
+};
 
-function supportsAt(scenario: Scenario, part: BridgePart, count: number): DesignSupport[] {
-  const supports: DesignSupport[] = [];
-  for (let index = 0; index < count; index += 1) {
-    supports.push({
-      id: `${part.id}-${index}`,
-      x: (scenario.gap * (index + 1)) / (count + 1),
-      strengthKg: part.strength,
-    });
-  }
-  return supports;
-}
-
-function point(scenario: Scenario, col: number, row: number) {
-  return { x: col * scenario.cell, y: row * scenario.cell };
-}
-
-function member(
-  part: BridgePart,
-  index: number,
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  strengthKg: number,
-): DesignBeam {
+export function gradeQuestion(question: LevelQuestion, given: string): EarnResult {
+  const correct = answersMatch(given, question.answer);
   return {
-    id: `${part.id}-${index}`,
+    correct,
+    hint: correct ? "" : question.hint,
+    partId: question.partId,
+    count: correct ? question.count : 0,
+  };
+}
+
+export function deckPiece(part: BridgePart, col: number): BlockPiece {
+  return {
+    id: `${part.id}-${col}`,
     name: part.name,
-    x0: from.x,
-    y0: from.y,
-    x1: to.x,
-    y1: to.y,
-    strengthKg,
+    col,
+    role: "deck",
+    strengthKg: part.strength,
   };
 }
 
-function truss(scenario: Scenario, part: BridgePart, strengthKg: number, diagonals: boolean): BridgeDesign {
-  const left = point(scenario, 0, 0);
-  const midLeft = point(scenario, 1, 0);
-  const midRight = point(scenario, 2, 0);
-  const right = point(scenario, 3, 0);
-  const upLeft = point(scenario, 1, 1);
-  const upRight = point(scenario, 2, 1);
-  const pairs = [
-    [left, midLeft],
-    [midLeft, midRight],
-    [midRight, right],
-    [midLeft, upLeft],
-    [upLeft, upRight],
-    [upRight, midRight],
+export function pillarPiece(part: BridgePart, col: number): BlockPiece {
+  return {
+    id: `${part.id}-p-${col}`,
+    name: part.name,
+    col,
+    role: "pillar",
+    strengthKg: part.strength,
+  };
+}
+
+export function bridgeFromPieces(level: CandyLevel, pieces: BlockPiece[]): BlockBridge {
+  return { gap: level.gapBlocks, carKg: level.carWeight, pieces };
+}
+
+export function referenceBridges(level: CandyLevel): { correct: BlockBridge; weak: BlockBridge; limit: BlockBridge } {
+  const chocolate = partById("chocolate");
+  const wafer = partById("wafer");
+  const gummy = partById("gummy");
+  const cane = partById("cane");
+  if (!chocolate || !wafer || !gummy || !cane) {
+    throw new Error("Candy parts are missing");
+  }
+  const span = (part: BridgePart, strength = part.strength) =>
+    Array.from({ length: level.gapBlocks }, (_, col) => ({
+      ...deckPiece(part, col),
+      strengthKg: strength,
+    }));
+  const caneCount = level.questions.find((question) => question.partId === "cane")?.count ?? 0;
+  const pillars =
+    caneCount >= 2
+      ? [1, level.gapBlocks - 2].filter((col, index, list) => col >= 0 && col < level.gapBlocks && list.indexOf(col) === index)
+      : caneCount === 1
+        ? [Math.floor(level.gapBlocks / 2)]
+        : [];
+  const withPillars = (deck: BlockPiece[]) => [
+    ...deck,
+    ...pillars.map((col) => pillarPiece(cane, col)),
   ];
-  if (diagonals) {
-    pairs.push([left, upLeft], [upLeft, midRight], [midLeft, upRight], [upRight, right]);
-  }
   return {
-    gap: scenario.gap,
-    truckKg: scenario.truck,
-    beams: pairs.map((pair, index) => member(part, index, pair[0], pair[1], strengthKg)),
-    supports: [],
-  };
-}
-
-export function designFromPieceIds(scenario: Scenario, ids: string[]): BridgeDesign {
-  return deckFromParts(scenario, ids);
-}
-
-export function designFromCounts(scenario: Scenario, beamCount: number, supportCount: number): BridgeDesign {
-  const beam = scenario.parts.find((part) => part.role === "beam" && part.length > 0);
-  const support = scenario.parts.find((part) => part.role === "support");
-  if (!beam || !support || beamCount < 1) {
-    return {
-      gap: scenario.gap,
-      truckKg: scenario.truck,
-      beams: [],
-      supports: support && supportCount > 0 ? supportsAt(scenario, support, supportCount) : [],
-    };
-  }
-  return {
-    gap: scenario.gap,
-    truckKg: scenario.truck,
-    beams: spannedBeams(scenario, beam, beamCount, beam.strength),
-    supports: supportCount > 0 ? supportsAt(scenario, support, supportCount) : [],
-  };
-}
-
-export function designFromSegments(
-  scenario: Scenario,
-  part: BridgePart,
-  segments: { col0: number; row0: number; col1: number; row1: number }[],
-): BridgeDesign {
-  return {
-    gap: scenario.gap,
-    truckKg: scenario.truck,
-    supports: [],
-    beams: segments.map((segment, index) =>
-      member(
-        part,
-        index,
-        point(scenario, segment.col0, segment.row0),
-        point(scenario, segment.col1, segment.row1),
-        part.strength,
-      ),
+    correct: bridgeFromPieces(level, withPillars(span(chocolate))),
+    weak: bridgeFromPieces(
+      level,
+      span(chocolate).filter((_, col) => col !== 1 && col !== 2),
     ),
+    limit: bridgeFromPieces(level, span(gummy, gummy.strength)),
   };
 }
-
-export function referenceDesigns(scenario: Scenario): ReferenceDesigns {
-  if (scenario.mode === "pick") {
-    return {
-      correct: deckFromParts(scenario, ["plank-3", "plank-3"]),
-      weak: deckFromParts(scenario, ["plank-2", "plank-2", "plank-2"]),
-      margin: {
-        gap: scenario.gap,
-        truckKg: scenario.truck,
-        supports: [],
-        beams: [0, 1].map((index) => ({
-          id: `margin-${index}`,
-          name: "3-block plank",
-          x0: index * 3,
-          y0: 0,
-          x1: index * 3 + 3,
-          y1: 0,
-          strengthKg: (scenario.truck + scenario.margin) / 2,
-        })),
-      },
-    };
-  }
-  if (scenario.mode === "calculate") {
-    const beam = partById(scenario, "beam-3");
-    const support = partById(scenario, "support-400");
-    const beamCount = scenario.gap / beam.length;
-    const supportCount = Math.ceil(scenario.truck / support.strength);
-    return {
-      correct: {
-        gap: scenario.gap,
-        truckKg: scenario.truck,
-        beams: spannedBeams(scenario, beam, beamCount, beam.strength),
-        supports: supportsAt(scenario, support, supportCount),
-      },
-      weak: {
-        gap: scenario.gap,
-        truckKg: scenario.truck,
-        beams: spannedBeams(scenario, beam, beamCount, beam.strength),
-        supports: supportsAt(scenario, support, supportCount - 1),
-      },
-      margin: {
-        gap: scenario.gap,
-        truckKg: scenario.truck,
-        beams: spannedBeams(scenario, beam, beamCount, beam.strength + scenario.margin / beamCount),
-        supports: supportsAt(scenario, support, supportCount),
-      },
-    };
-  }
-  const beam = partById(scenario, "truss-beam");
-  return {
-    correct: truss(scenario, beam, beam.strength, true),
-    weak: truss(scenario, beam, beam.strength, false),
-    margin: truss(scenario, beam, beam.strength + scenario.margin, true),
-  };
-}
-
-export function workProblems(scenario: Scenario): Problem[] {
-  const beam = scenario.parts.find((part) => part.role === "beam" && part.length > 0);
-  const support = scenario.parts.find((part) => part.role === "support");
-  if (!beam || !support) {
-    return [];
-  }
-  const beams = scenario.gap / beam.length;
-  const supports = Math.ceil(scenario.truck / support.strength);
-  const capacity = beams * beam.strength;
-  return [
-    {
-      prompt: `The gap is ${scenario.gap} meters. Each beam is ${beam.length} meters. How many beams?`,
-      answer: String(beams),
-    },
-    {
-      prompt: `The truck is ${scenario.truck} kilograms. Each support holds ${support.strength} kilograms. How many supports?`,
-      answer: String(supports),
-    },
-    {
-      prompt: `${beams} beams hold ${beam.strength} kilograms each. How many kilograms can they hold?`,
-      answer: String(capacity),
-      visual: { kind: "stacked", layout: "vertical", operator: "x", top: beams, bottom: beam.strength },
-    },
-  ];
-}
-
-export function beamLengthMeters(beam: DesignBeam): number {
-  return Math.hypot(beam.x1 - beam.x0, beam.y1 - beam.y0);
-}
-
-export function beamAngleDegrees(beam: DesignBeam): number {
-  const degrees = (Math.atan2(beam.y1 - beam.y0, beam.x1 - beam.x0) * 180) / Math.PI;
-  return Math.round(degrees * 10) / 10;
-}
-
-export function loadEstimateKg(design: BridgeDesign): number {
-  const deck = design.beams.filter((beam) => beam.y0 === 0 && beam.y1 === 0).length;
-  return Math.round(design.truckKg / Math.max(1, deck));
-}
-
-export const BRIDGE_INSTRUCTION = "Get the truck across the gap.";

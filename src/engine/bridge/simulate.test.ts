@@ -1,40 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { scenarios, referenceDesigns, type Scenario } from "./catalog";
-import { createDesignSimulation, type BridgeStatus } from "./simulate";
+import { bridgeFromPieces, candyLevels, deckPiece, partById, referenceBridges } from "./catalog";
+import { createBlockSimulation, type BlockBridge } from "./simulate";
 
-function run(scenario: Scenario, kind: "correct" | "weak" | "margin") {
-  const design = referenceDesigns(scenario)[kind];
-  const sim = createDesignSimulation(design);
-  const settled = sim.status();
-  sim.spawnTruck();
-  let steps = 0;
-  while (sim.status() === "driving" && steps < 2200) {
+function run(design: BlockBridge) {
+  const sim = createBlockSimulation(design);
+  sim.spawnCar();
+  for (let step = 0; step < 2200 && sim.status() === "driving"; step += 1) {
     sim.step();
-    steps += 1;
   }
-  return {
-    settled,
-    status: sim.status() as BridgeStatus,
-    broken: sim.brokenJoints(),
-    failure: sim.failure()?.text ?? "",
-  };
+  return sim;
 }
 
-describe("bridge math matches the physics", () => {
-  for (const scenario of scenarios) {
-    it(`${scenario.mode}: a correct design crosses`, () => {
-      const result = run(scenario, "correct");
-      expect(result.status).toBe("crossed");
+describe("candy bridge physics", () => {
+  for (const level of candyLevels.filter((item) => item.playable)) {
+    const designs = referenceBridges(level);
+
+    it(`${level.id} carries the car when the math design is complete`, () => {
+      const sim = run(designs.correct);
+      expect(sim.status()).toBe("crossed");
+      expect(sim.failure()).toBeNull();
     });
 
-    it(`${scenario.mode}: a design the math calls too weak collapses`, () => {
-      const result = run(scenario, "weak");
-      expect(result.status).toBe("collapsed");
+    it(`${level.id} fails when a block is missing`, () => {
+      const sim = run(designs.weak);
+      expect(sim.status()).toBe("collapsed");
+      expect(sim.failure()?.text.length).toBeGreaterThan(10);
     });
 
-    it(`${scenario.mode}: a design at the limit plus a margin holds`, () => {
-      const result = run(scenario, "margin");
-      expect(result.status).toBe("crossed");
+    it(`${level.id} holds at the strength limit`, () => {
+      const sim = run(designs.limit);
+      expect(sim.status()).toBe("crossed");
     });
   }
+
+  it("a wafer deck is too weak for the car", () => {
+    const level = candyLevels.find((item) => item.id === "candy-1");
+    const wafer = partById("wafer");
+    if (!level || !wafer) {
+      throw new Error("wafer level is missing");
+    }
+    const sim = run(
+      bridgeFromPieces(
+        level,
+        Array.from({ length: level.gapBlocks }, (_, col) => deckPiece(wafer, col)),
+      ),
+    );
+    expect(sim.status()).toBe("collapsed");
+    expect(sim.failure()?.text).toContain("wafer");
+  });
 });

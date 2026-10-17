@@ -1,0 +1,148 @@
+{
+  "worlds": [
+    {
+      "id": "candy",
+      "name": "Candy Land",
+      "ages": "Ages 5 to 9",
+      "blurb": "Chocolate bridges, gummy towers, candy cane ramps."
+    },
+    {
+      "id": "wood",
+      "name": "Wood Valley",
+      "ages": "Ages 9 to 13",
+      "blurb": "Plank bridges, ramps and catapults. Real slopes and loads."
+    },
+    {
+      "id": "steel",
+      "name": "Steel City",
+      "ages": "Ages 13 and up",
+      "blurb": "Trusses, arches and cables. Design it freely, test it for real."
+    }
+  ],
+  "parts": [
+    {
+      "id": "chocolate",
+      "name": "Chocolate bar",
+      "role": "deck",
+      "strength": 8,
+      "unlock": { "skillId": "tens-and-ones", "level": 0 }
+    },
+    {
+      "id": "cane",
+      "name": "Candy cane pillar",
+      "role": "pillar",
+      "strength": 8,
+      "unlock": { "skillId": "add-two-digit-no-regroup", "level": 0 }
+    },
+    {
+      "id": "gummy",
+      "name": "Gummy",
+      "role": "deck",
+      "strength": 5,
+      "unlock": { "skillId": "compare-numbers", "level": 0 }
+    },
+    {
+      "id": "wafer",
+      "name": "Wafer block",
+      "role": "deck",
+      "strength": 1,
+      "unlock": { "skillId": "subtract-no-borrow-two-digit", "level": 0 }
+    },
+    {
+      "id": "pretzel",
+      "name": "Pretzel rod",
+      "role": "deck",
+      "strength": 10,
+      "unlock": { "skillId": "multiply-facts-2-to-5", "level": 3 }
+    },
+    {
+      "id": "marshmallow",
+      "name": "Marshmallow",
+      "role": "deck",
+      "strength": 10,
+      "unlock": { "skillId": "multiply-facts-6-to-9", "level": 2 }
+    },
+    {
+      "id": "ramp",
+      "name": "Ramp",
+      "role": "ramp",
+      "strength": 0,
+      "unlock": { "skillId": "multiply-two-digit-by-one-digit", "level": 3 }
+    }
+  ],
+  "levels": [
+    {
+      "id": "candy-1",
+      "world": "candy",
+      "number": 1,
+      "title": "Cans and Planks",
+      "playable": true,
+      "measure": "count",
+      "gapBlocks": 4,
+      "blockMeters": 1,
+      "carWeight": 4,
+      "rulerLeft": 0,
+      "rulerRight": 4,
+      "questions": [
+        {
+          "prompt": "The gap is 4 blocks wide. How many chocolate bars fill it?",
+          "answer": "4",
+          "hint": "One bar fills one block. Count the blocks.",
+          "partId": "chocolate",
+          "count": 4
+        },
+        {
+          "prompt": "The car weighs 4. One candy cane holds 4. How many candy canes hold the car?",
+          "answer": "1",
+          "hint": "4 is the same as one cane.",
+          "partId": "cane",
+          "count": 1
+        },
+        {
+          "prompt": "A wafer holds 1. The car weighs 4. How many wafers match the car?",
+          "answer": "4",
+          "hint": "Add 1 four times.",
+          "partId": "wafer",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "candy-2",
+      "world": "candy",
+      "number": 2,
+      "title": "Candy Canyon",
+      "playable": true,
+      "measure": "ruler",
+      "gapBlocks": 4,
+      "blockMeters": 3,
+      "carWeight": 800,
+      "rulerLeft": 3,
+      "rulerRight": 15,
+      "questions": [
+        {
+          "prompt": "The gap is 12 meters. One block is 3 meters. How many blocks?",
+          "answer": "4",
+          "hint": "Split 12 into groups of 3.",
+          "partId": "chocolate",
+          "count": 4
+        },
+        {
+          "prompt": "The car weighs 800 kilograms. A pillar holds 500 kilograms. How many pillars?",
+          "answer": "2",
+          "hint": "500 plus 500 is 1000, which covers 800.",
+          "partId": "cane",
+          "count": 2
+        },
+        {
+          "prompt": "4 blocks are 3 meters each. How many meters is that?",
+          "answer": "12",
+          "hint": "4 times 3.",
+          "partId": "gummy",
+          "count": 2,
+          "visual": { "kind": "stacked", "layout": "vertical", "operator": "x", "top": 4, "bottom": 3 }
+        }
+      ]
+    }
+  ]
+}
