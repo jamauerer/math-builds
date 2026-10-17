@@ -203,6 +203,11 @@ button {
   font-size: 0.9rem;
 }
 
+.skill.unchecked {
+  background: #fff;
+  border-style: dashed;
+}
+
 .skill.unknown {
   background: #e7e5e4;
 }

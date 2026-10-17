@@ -1,17 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import { skills, strands } from "../data/load-skills";
-import { createRng } from "./rng";
 import {
   CEILING_MESSAGE,
   continueQuiz,
   createLearnerMap,
   createQuizSession,
   gradeAnswer,
+  inferImpliedLevels,
   labelForLevel,
+  placementMinutes,
   practiceLevel,
+  questionsRemaining,
   recordLevelPass,
+  restoreQuiz,
   runPlacement,
   skipQuestion,
+  snapshotQuiz,
   strandIsMastered,
   type LearnerMap,
 } from "./placement";
@@ -30,14 +34,14 @@ function levels(map: LearnerMap, ids: string[]): number[] {
   return ids.map((id) => map[id].level);
 }
 
-function learnerA(skill: Skill): boolean {
-  if (skill.strand === "multiplication" || skill.strand === "place-value") {
-    return true;
+function learnerMixed(skill: Skill): boolean {
+  if (BORROW_IDS.includes(skill.id)) {
+    return false;
   }
-  return !BORROW_IDS.includes(skill.id);
+  return true;
 }
 
-function learnerB(skill: Skill): boolean {
+function learnerReverse(skill: Skill): boolean {
   return skill.strand !== "multiplication";
 }
 
@@ -50,124 +54,153 @@ function place(respond: (skill: Skill) => boolean, seed: number) {
   });
 }
 
+function play(respond: (skill: Skill) => boolean, seed: number, pauseAfter: number | null) {
+  let session = createQuizSession({ skills, strands, seed });
+  const questions: { skillId: string; level: number; prompt: string }[] = [];
+  let restored = false;
+  for (let guard = 0; session.phase !== "done" && guard < 200; guard += 1) {
+    if (pauseAfter != null && questions.length === pauseAfter && !restored) {
+      session = restoreQuiz(snapshotQuiz(session), skills, strands);
+      restored = true;
+    }
+    const skill = skills.find((item) => item.id === session.skillId);
+    if (!skill || !session.problem) {
+      break;
+    }
+    const correct = respond(skill);
+    questions.push({ skillId: skill.id, level: session.level, prompt: session.problem.prompt });
+    const given = correct ? session.problem.answer : "nope";
+    session = continueQuiz(gradeAnswer(session, given));
+  }
+  return { session, questions };
+}
+
 describe("level labels", () => {
-  it("derives unknown, shaky, and solid from the highest level passed", () => {
+  it("keeps not checked yet separate from a checked level of 0", () => {
     expect(labelForLevel(0)).toBe("unknown");
     expect(labelForLevel(3)).toBe("shaky");
     expect(labelForLevel(5)).toBe("solid");
-    let map = createLearnerMap(skills);
-    map = recordLevelPass(map, "tens-and-ones", 3);
+    const fresh = createLearnerMap(skills);
+    expect(fresh["tens-and-ones"]).toEqual({ level: 0, state: "unchecked" });
+    let map = recordLevelPass(fresh, "tens-and-ones", 3);
     expect(map["tens-and-ones"]).toEqual({ level: 3, state: "shaky" });
     map = recordLevelPass(map, "tens-and-ones", 1);
     expect(map["tens-and-ones"].level).toBe(3);
     expect(practiceLevel(map["tens-and-ones"])).toBe(4);
+    expect(practiceLevel(fresh["hundreds"])).toBe(1);
     expect(CEILING_MESSAGE).toBe("You have finished all current skills in this strand");
+    expect(placementMinutes(strands.length, skills.length)).toBe(10);
+  });
+});
+
+describe("implied levels", () => {
+  it("copies a level 4 or 5 pass onto unchecked prerequisites", () => {
+    const map = inferImpliedLevels(createLearnerMap(skills), skills, "round-to-ten", 5);
+    expect(map["round-to-ten"]).toEqual({ level: 5, state: "solid" });
+    expect(map["compare-numbers"].level).toBe(5);
+    expect(map["hundreds"].level).toBe(5);
+    expect(map["tens-and-ones"].level).toBe(5);
+    expect(map["thousands-place"].state).toBe("unchecked");
+  });
+
+  it("marks dependents at level 0 when level 1 is failed", () => {
+    const map = inferImpliedLevels(createLearnerMap(skills), skills, "multiply-facts-2-to-5", 0);
+    expect(map["multiply-facts-2-to-5"]).toEqual({ level: 0, state: "unknown" });
+    for (const id of MULTIPLY_IDS.slice(1)) {
+      expect(map[id]).toEqual({ level: 0, state: "unknown" });
+    }
+    expect(map["tens-and-ones"].state).toBe("unchecked");
   });
 });
 
 describe("quiz session", () => {
-  it("raises the level after a correct answer and stops a skill after two level-1 misses", () => {
-    const rng = createRng(5);
-    let session = createQuizSession({ skills, strands, rng });
+  it("starts at level 3, jumps up after a correct answer, and drops after a skip", () => {
+    let session = createQuizSession({ skills, strands, seed: 5 });
     expect(session.skillId).toBe("tens-and-ones");
-    expect(session.level).toBe(1);
-    session = gradeAnswer(session, session.problem?.answer ?? "");
-    expect(session.correct).toBe(true);
-    expect(session.map["tens-and-ones"].level).toBe(1);
-    session = continueQuiz(session, rng);
+    expect(session.level).toBe(3);
+    expect(questionsRemaining(skills, session.map, session.probe)).toBe(skills.length * 3);
+    session = continueQuiz(gradeAnswer(session, session.problem?.answer ?? ""));
     expect(session.skillId).toBe("tens-and-ones");
-    expect(session.level).toBe(2);
+    expect(session.level).toBe(4);
 
-    let missed = createQuizSession({ skills, strands, rng: createRng(9) });
-    const wrong = missed.problem?.answer === "4" ? "5" : "4";
-    missed = gradeAnswer(missed, wrong);
-    missed = continueQuiz(missed, createRng(9));
-    expect(missed.skillId).toBe("tens-and-ones");
-    expect(missed.level).toBe(1);
-    missed = gradeAnswer(missed, wrong);
-    missed = continueQuiz(missed, createRng(9));
-    expect(missed.map["tens-and-ones"].level).toBe(0);
-    expect(missed.skillId).toBe("add-two-digit-no-regroup");
-  });
-
-  it("steps back one level after a miss, then stops on the next miss", () => {
-    const rng = createRng(4);
-    let session = createQuizSession({ skills, strands, rng });
-    session = continueQuiz(gradeAnswer(session, session.problem?.answer ?? ""), rng);
-    expect(session.level).toBe(2);
-    const wrong = session.problem?.answer === "4" ? "5" : "4";
-    session = continueQuiz(gradeAnswer(session, wrong), rng);
-    expect(session.skillId).toBe("tens-and-ones");
-    expect(session.level).toBe(1);
-    session = continueQuiz(gradeAnswer(session, wrong), rng);
-    expect(session.map["tens-and-ones"].level).toBe(1);
-    expect(session.skillId).not.toBe("tens-and-ones");
-  });
-
-  it("counts I don't know yet as a miss and moves on", () => {
-    const rng = createRng(6);
-    let session = createQuizSession({ skills, strands, rng });
-    session = skipQuestion(session, rng);
-    expect(session.phase).toBe("answering");
-    expect(session.skillId).toBe("tens-and-ones");
-    session = skipQuestion(session, rng);
-    expect(session.map["tens-and-ones"].level).toBe(0);
-    expect(session.skillId).toBe("add-two-digit-no-regroup");
+    let skipped = createQuizSession({ skills, strands, seed: 6 });
+    skipped = skipQuestion(skipped);
+    expect(skipped.phase).toBe("answering");
+    expect(skipped.level).toBe(2);
+    skipped = skipQuestion(skipped);
+    expect(skipped.level).toBe(1);
+    skipped = skipQuestion(skipped);
+    expect(skipped.map["tens-and-ones"]).toEqual({ level: 0, state: "unknown" });
+    expect(skipped.map["hundreds"]).toEqual({ level: 0, state: "unknown" });
+    expect(skipped.skillId).toBe("add-two-digit-no-regroup");
   });
 });
 
 describe("simulated placement", () => {
-  const a = place(learnerA, 11);
-  const b = place(learnerB, 22);
+  const mixed = place(learnerMixed, 11);
+  const reverse = place(learnerReverse, 22);
   const weak = place(() => false, 33);
   const strong = place(() => true, 44);
 
   it("gives a multiplication-strong learner a different map from a borrowing-strong learner", () => {
-    expect(levels(a.map, MULTIPLY_IDS)).toEqual(MULTIPLY_IDS.map(() => 5));
-    expect(levels(a.map, BORROW_IDS)).toEqual(BORROW_IDS.map(() => 0));
-    expect(a.map["add-two-digit-no-regroup"].level).toBe(5);
-    expect(a.map["subtract-no-borrow-two-digit"].level).toBe(5);
-    expect(levels(a.map, PLACE_IDS)).toEqual(PLACE_IDS.map(() => 5));
+    expect(levels(mixed.map, MULTIPLY_IDS)).toEqual(MULTIPLY_IDS.map(() => 5));
+    expect(levels(mixed.map, BORROW_IDS)).toEqual(BORROW_IDS.map(() => 0));
+    expect(mixed.map["add-two-digit-no-regroup"].level).toBe(5);
+    expect(mixed.map["subtract-no-borrow-two-digit"].level).toBe(5);
+    expect(levels(mixed.map, PLACE_IDS)).toEqual(PLACE_IDS.map(() => 5));
 
-    expect(levels(b.map, BORROW_IDS)).toEqual(BORROW_IDS.map(() => 5));
-    expect(b.map["multiply-facts-2-to-5"].level).toBe(0);
-    expect(levels(b.map, MULTIPLY_IDS.slice(1))).toEqual(MULTIPLY_IDS.slice(1).map(() => 0));
-    expect(levels(b.map, PLACE_IDS)).toEqual(PLACE_IDS.map(() => 5));
-
-    expect(levels(a.map, MULTIPLY_IDS)).not.toEqual(levels(b.map, MULTIPLY_IDS));
-    expect(a.map).not.toEqual(b.map);
+    expect(levels(reverse.map, BORROW_IDS)).toEqual(BORROW_IDS.map(() => 5));
+    expect(reverse.map["multiply-facts-2-to-5"].level).toBe(0);
+    expect(levels(reverse.map, MULTIPLY_IDS.slice(1))).toEqual(MULTIPLY_IDS.slice(1).map(() => 0));
+    expect(mixed.map).not.toEqual(reverse.map);
   });
 
-  it("stops a weak learner early and still finishes the session", () => {
-    expect(weak.questions).toHaveLength(6);
+  it("finishes a weak learner in under 20 questions", () => {
+    expect(weak.questions.length).toBeLessThan(20);
     for (const skill of skills) {
       expect(weak.map[skill.id].level).toBe(0);
       expect(weak.map[skill.id].state).toBe("unknown");
     }
     expect(weak.toppedOut).toEqual([]);
-    const roots = new Set(weak.questions.map((item) => item.skillId));
-    expect(roots).toEqual(
+    const asked = new Set(weak.questions.map((item) => item.skillId));
+    expect(asked).toEqual(
       new Set(["tens-and-ones", "add-two-digit-no-regroup", "multiply-facts-2-to-5"]),
     );
   });
 
-  it("masters every skill in one session and records each strand that topped out", () => {
+  it("finishes a strong learner in 45 questions or fewer at level 5", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const result = place(() => true, 45);
     for (const skill of skills) {
-      expect(result.map[skill.id].level).toBe(5);
-      expect(result.map[skill.id].state).toBe("solid");
+      expect(result.map[skill.id]).toEqual({ level: 5, state: "solid" });
     }
-    expect(result.questions).toHaveLength(skills.length * 5);
-    expect(new Set(result.questions.map((item) => item.strandId))).toEqual(
-      new Set(strands.map((strand) => strand.id)),
-    );
+    expect(result.questions.length).toBeLessThanOrEqual(45);
+    expect(result.questions[0].level).toBe(3);
+    const perSkill = new Map<string, number>();
+    for (const question of result.questions) {
+      perSkill.set(question.skillId, (perSkill.get(question.skillId) ?? 0) + 1);
+    }
+    for (const count of perSkill.values()) {
+      expect(count).toBeLessThanOrEqual(3);
+    }
     expect(result.toppedOut).toEqual(strands.map((strand) => strand.id));
     for (const strand of strands) {
       expect(strandIsMastered(strand, result.map)).toBe(true);
       expect(log).toHaveBeenCalledWith(`Strand topped out: ${strand.id}`);
     }
     log.mockRestore();
-    expect(strong.toppedOut).toEqual(strands.map((strand) => strand.id));
+    expect(strong.questions.length).toBeLessThanOrEqual(45);
+  });
+
+  it("matches an uninterrupted sitting after a stop and resume", () => {
+    const steady = play(() => true, 45, null);
+    const paused = play(() => true, 45, 4);
+    expect(paused.questions).toEqual(steady.questions);
+    expect(paused.session.map).toEqual(steady.session.map);
+    expect(paused.questions.length).toBe(steady.questions.length);
+    const mid = play(learnerMixed, 11, 5);
+    const whole = play(learnerMixed, 11, null);
+    expect(mid.session.map).toEqual(whole.session.map);
+    expect(mid.questions).toEqual(whole.questions);
   });
 });

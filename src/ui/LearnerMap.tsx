@@ -5,6 +5,7 @@ const STATE_LABEL = {
   unknown: "Unknown",
   shaky: "Shaky",
   solid: "Solid",
+  unchecked: "Not checked yet",
 } as const;
 
 type Props = {
@@ -21,6 +22,7 @@ export function LearnerMap({ map, toppedOut = [], onPractice }: Props) {
         <p>Each strand keeps its own picture of what you know. Tap a skill to practice it.</p>
       </header>
       <div className="legend">
+        <span className="skill unchecked">Not checked yet</span>
         <span className="skill unknown">Unknown</span>
         <span className="skill shaky">Shaky</span>
         <span className="skill solid">Solid</span>
@@ -43,7 +45,9 @@ export function LearnerMap({ map, toppedOut = [], onPractice }: Props) {
                 >
                   <span className="skill-name">{skill.name}</span>
                   <span className="skill-meta">
-                    {skill.gradeBand} · {STATE_LABEL[state]} · {level} of 5
+                    {state === "unchecked"
+                      ? `${skill.gradeBand} · Not checked yet`
+                      : `${skill.gradeBand} · ${STATE_LABEL[state]} · ${level} of 5`}
                   </span>
                 </button>
               );

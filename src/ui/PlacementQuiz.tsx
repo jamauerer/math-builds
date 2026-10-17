@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { skills, strands } from "../data/load-skills";
 import { answersMatch } from "../engine/answers";
 import { generateProblem } from "../engine/generate";
@@ -6,9 +6,13 @@ import {
   continueQuiz,
   createQuizSession,
   gradeAnswer,
+  placementMinutes,
   practiceLevel,
+  questionsRemaining,
+  restoreQuiz,
   skipQuestion,
   type LearnerMap,
+  type PlacementSnapshot,
   type QuizSession,
 } from "../engine/placement";
 import { createRng } from "../engine/rng";
@@ -19,7 +23,9 @@ import { ProblemView } from "./ProblemView";
 type PlacementProps = {
   initialMap: LearnerMap;
   initialToppedOut: string[];
-  onProgress: (map: LearnerMap, toppedOut: string[]) => void;
+  initialSnapshot: PlacementSnapshot | null;
+  onProgress: (session: QuizSession) => void;
+  onStop: (session: QuizSession) => void;
   onRunning: (running: boolean) => void;
   onPractice: (skillId: string) => void;
 };
@@ -27,20 +33,39 @@ type PlacementProps = {
 export function PlacementQuiz({
   initialMap,
   initialToppedOut,
+  initialSnapshot,
   onProgress,
+  onStop,
   onRunning,
   onPractice,
 }: PlacementProps) {
-  const rng = useRef(createRng(Math.floor(Math.random() * 1_000_000_000) + 1));
-  const [started, setStarted] = useState(false);
-  const [session, setSession] = useState<QuizSession | null>(null);
+  const [started, setStarted] = useState(initialSnapshot != null);
+  const [session, setSession] = useState<QuizSession | null>(() =>
+    initialSnapshot ? restoreQuiz(initialSnapshot, skills, strands) : null,
+  );
+  const minutes = placementMinutes(strands.length, skills.length);
+
+  useEffect(() => {
+    if (initialSnapshot) {
+      onRunning(true);
+    }
+  }, [initialSnapshot, onRunning]);
+
+  function publish(next: QuizSession) {
+    setSession(next);
+    onProgress(next);
+    if (next.phase === "done") {
+      onRunning(false);
+    }
+  }
 
   if (!started || !session) {
     return (
       <section className="screen">
         <header className="screen-head">
           <h1>Placement</h1>
-          <p>One sitting across every strand. Each skill gets harder when an answer is right.</p>
+          <p>One sitting across every strand. A few questions find the level of each skill.</p>
+          <p>About {minutes} {minutes === 1 ? "minute" : "minutes"}.</p>
         </header>
         <button
           type="button"
@@ -51,11 +76,12 @@ export function PlacementQuiz({
               strands,
               map: initialMap,
               toppedOut: initialToppedOut,
-              rng: rng.current,
+              seed: Math.floor(Math.random() * 1_000_000_000) + 1,
             });
             setSession(next);
             setStarted(true);
             onRunning(true);
+            onProgress(next);
           }}
         >
           Start
@@ -78,8 +104,9 @@ export function PlacementQuiz({
       <header className="screen-head">
         <h1>Placement</h1>
         <p className="progress">
-          Question {session.questionNumber} · {strand?.name ?? "Strand"} · Level {session.level} of 5 ·{" "}
-          {session.finished.length} of {skills.length} skills
+          Question {session.questionNumber} · {strand?.name ?? "Strand"} · Level {session.level} of 5 · About{" "}
+          {questionsRemaining(skills, session.map, session.probe)}{" "}
+          {questionsRemaining(skills, session.map, session.probe) === 1 ? "question" : "questions"} left
         </p>
         {skill ? <p>{skill.name}</p> : null}
       </header>
@@ -91,37 +118,23 @@ export function PlacementQuiz({
             problem={session.problem}
             locked={false}
             onSubmit={(answer) => {
-              const graded = gradeAnswer(session, answer);
-              setSession(graded);
-              onProgress(graded.map, graded.toppedOut);
+              publish(gradeAnswer(session, answer));
             }}
             onSkip={() => {
-              const next = skipQuestion(session, rng.current);
-              setSession(next);
-              onProgress(next.map, next.toppedOut);
-              if (next.phase === "done") {
-                onRunning(false);
-              }
+              publish(skipQuestion(session));
             }}
           />
         ) : (
           <div className="feedback">
             <p>{session.correct ? "Correct." : `Not yet. The answer is ${session.problem.answer}.`}</p>
-            <button
-              type="button"
-              className="primary"
-              onPointerUp={() => {
-                const next = continueQuiz(session, rng.current);
-                setSession(next);
-                if (next.phase === "done") {
-                  onRunning(false);
-                }
-              }}
-            >
+            <button type="button" className="primary" onPointerUp={() => publish(continueQuiz(session))}>
               Next
             </button>
           </div>
         )}
+        <button type="button" className="choice skip" onPointerUp={() => onStop(session)}>
+          Stop for now
+        </button>
       </div>
     </section>
   );

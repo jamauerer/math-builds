@@ -1,10 +1,9 @@
 import { answersMatch } from "./answers";
 import { generateProblem } from "./generate";
 import type { Rng } from "./rng";
-import { createRng } from "./rng";
 import { MAX_LEVEL, type Problem, type Skill, type Strand } from "./types";
 
-export type SkillStateName = "unknown" | "shaky" | "solid";
+export type SkillStateName = "unknown" | "shaky" | "solid" | "unchecked";
 
 export type SkillProgress = {
   /** Highest level passed, from 0 through 5. */
@@ -30,9 +29,15 @@ export function labelForLevel(level: number): SkillStateName {
 export function createLearnerMap(skills: readonly Skill[]): LearnerMap {
   const map: LearnerMap = {};
   for (const skill of skills) {
-    map[skill.id] = { level: 0, state: "unknown" };
+    map[skill.id] = { level: 0, state: "unchecked" };
   }
   return map;
+}
+
+/** Worst-case sitting length turned into a minute estimate. Uses both strand and skill counts. */
+export function placementMinutes(strandCount: number, skillCount: number): number {
+  const seconds = skillCount * 3 * 12 + strandCount * 20;
+  return Math.max(1, Math.round(seconds / 60));
 }
 
 /** Highest level passed only moves up. Practice and placement share this. */
@@ -74,78 +79,165 @@ export function noteCeilings(
   return next;
 }
 
-type Probe = {
+const MAX_PROBE_QUESTIONS = 3;
+
+export type Probe = {
   skillId: string;
   level: number;
-  misses: number[];
-  steppedBack: boolean;
+  /** Highest level passed so far in this skill's probe. */
+  passed: number;
+  asked: number;
 };
 
 function freshProbe(skillId: string): Probe {
-  return { skillId, level: 1, misses: [0, 0, 0, 0, 0, 0], steppedBack: false };
+  return { skillId, level: 3, passed: 0, asked: 0 };
+}
+
+/** Correct jumps up, a miss drops down, and the probe ends in at most three questions. */
+function nextProbeLevel(level: number, correct: boolean): number | null {
+  if (level === 3) {
+    return correct ? 4 : 2;
+  }
+  if (level === 4) {
+    return correct ? 5 : null;
+  }
+  if (level === 2) {
+    return correct ? null : 1;
+  }
+  return null;
 }
 
 function applyResult(
   probe: Probe,
   correct: boolean,
-): { probe: Probe | null; passedLevel: number | null } {
-  if (correct) {
-    const passedLevel = probe.level;
-    if (probe.level >= MAX_LEVEL) {
-      return { probe: null, passedLevel };
-    }
-    return {
-      probe: { ...probe, level: probe.level + 1 },
-      passedLevel,
-    };
+): { probe: Probe | null; finalLevel: number | null } {
+  const passed = correct ? Math.max(probe.passed, probe.level) : probe.passed;
+  const asked = probe.asked + 1;
+  const next = nextProbeLevel(probe.level, correct);
+  if (next == null || asked >= MAX_PROBE_QUESTIONS) {
+    return { probe: null, finalLevel: passed };
   }
-  const misses = probe.misses.slice();
-  misses[probe.level] = (misses[probe.level] ?? 0) + 1;
-  if (misses[probe.level] >= 2) {
-    return { probe: null, passedLevel: null };
-  }
-  if (probe.level > 1 && !probe.steppedBack) {
-    return {
-      probe: { ...probe, misses, level: probe.level - 1, steppedBack: true },
-      passedLevel: null,
-    };
-  }
-  if (probe.steppedBack) {
-    return { probe: null, passedLevel: null };
-  }
-  return { probe: { ...probe, misses }, passedLevel: null };
+  return {
+    probe: { skillId: probe.skillId, level: next, passed, asked },
+    finalLevel: null,
+  };
 }
 
 function skillById(skills: readonly Skill[]): Map<string, Skill> {
   return new Map(skills.map((skill) => [skill.id, skill]));
 }
 
-function prerequisitesMet(skill: Skill, map: LearnerMap): boolean {
-  return skill.prerequisites.every((id) => (map[id]?.level ?? 0) >= MAX_LEVEL);
+function transitivePrerequisites(skills: readonly Skill[], skillId: string): string[] {
+  const byId = skillById(skills);
+  const found: string[] = [];
+  const walk = (id: string) => {
+    const skill = byId.get(id);
+    if (!skill) {
+      return;
+    }
+    for (const prerequisite of skill.prerequisites) {
+      if (found.includes(prerequisite)) {
+        continue;
+      }
+      found.push(prerequisite);
+      walk(prerequisite);
+    }
+  };
+  walk(skillId);
+  return found;
 }
 
-function nextSkill(
-  skills: readonly Skill[],
-  strands: readonly Strand[],
+function transitiveDependents(skills: readonly Skill[], skillId: string): string[] {
+  const found: string[] = [];
+  const walk = (id: string) => {
+    for (const skill of skills) {
+      if (!skill.prerequisites.includes(id) || found.includes(skill.id)) {
+        continue;
+      }
+      found.push(skill.id);
+      walk(skill.id);
+    }
+  };
+  walk(skillId);
+  return found;
+}
+
+function assignLevel(map: LearnerMap, skillId: string, level: number): LearnerMap {
+  const previous = map[skillId];
+  if (!previous) {
+    throw new Error(`Unknown skill ${skillId}`);
+  }
+  if (previous.state !== "unchecked" && previous.level >= level) {
+    return map;
+  }
+  const nextLevel = previous.state === "unchecked" ? level : Math.max(previous.level, level);
+  return {
+    ...map,
+    [skillId]: { level: nextLevel, state: labelForLevel(nextLevel) },
+  };
+}
+
+/** Passing 4 or 5 fills unchecked prerequisites. Failing level 1 fills dependents with 0. */
+export function inferImpliedLevels(
   map: LearnerMap,
-  finished: ReadonlySet<string>,
-): Skill | null {
+  skills: readonly Skill[],
+  skillId: string,
+  level: number,
+): LearnerMap {
+  let next = assignLevel(map, skillId, level);
+  if (level >= 4) {
+    for (const prerequisite of transitivePrerequisites(skills, skillId)) {
+      if (next[prerequisite]?.state === "unchecked") {
+        next = assignLevel(next, prerequisite, level);
+      }
+    }
+  }
+  if (level === 0) {
+    for (const dependent of transitiveDependents(skills, skillId)) {
+      if (next[dependent]?.state === "unchecked") {
+        next = assignLevel(next, dependent, 0);
+      }
+    }
+  }
+  return next;
+}
+
+function nextSkill(skills: readonly Skill[], strands: readonly Strand[], map: LearnerMap): Skill | null {
   const byId = skillById(skills);
   for (const strand of strands) {
     for (const id of strand.skills) {
-      if (finished.has(id)) {
+      if (map[id]?.state !== "unchecked") {
         continue;
       }
       const skill = byId.get(id);
       if (!skill) {
         throw new Error(`Strand ${strand.id} lists missing skill ${id}`);
       }
-      if (prerequisitesMet(skill, map)) {
+      const waiting = skill.prerequisites.some((prerequisite) => map[prerequisite]?.state === "unchecked");
+      const blocked = skill.prerequisites.some(
+        (prerequisite) => map[prerequisite]?.state !== "unchecked" && (map[prerequisite]?.level ?? 0) === 0,
+      );
+      if (!waiting && !blocked) {
         return skill;
       }
     }
   }
   return null;
+}
+
+export function questionsRemaining(skills: readonly Skill[], map: LearnerMap, probe: Probe | null): number {
+  let total = 0;
+  for (const skill of skills) {
+    if (map[skill.id]?.state !== "unchecked") {
+      continue;
+    }
+    if (probe && probe.skillId === skill.id) {
+      total += Math.max(0, MAX_PROBE_QUESTIONS - probe.asked);
+    } else {
+      total += MAX_PROBE_QUESTIONS;
+    }
+  }
+  return total;
 }
 
 export type PlacementQuestion = {
@@ -162,46 +254,45 @@ export type PlacementResult = {
   toppedOut: string[];
 };
 
+function cursorRng(cursor: { state: number }): Rng {
+  return () => {
+    cursor.state = (cursor.state + 0x6d2b79f5) >>> 0;
+    let mixed = cursor.state;
+    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function runPlacement(options: {
   skills: readonly Skill[];
   strands: readonly Strand[];
   respond: (skill: Skill, problem: Problem, level: number) => boolean;
   seed?: number;
-  rng?: Rng;
 }): PlacementResult {
-  const rng = options.rng ?? createRng(options.seed ?? 1);
-  let map = createLearnerMap(options.skills);
-  let toppedOut: string[] = [];
+  let session = createQuizSession({
+    skills: options.skills,
+    strands: options.strands,
+    seed: options.seed ?? 1,
+  });
   const questions: PlacementQuestion[] = [];
-  const finished = new Set<string>();
-
-  for (let guard = 0; guard < options.skills.length + 2; guard += 1) {
-    const skill = nextSkill(options.skills, options.strands, map, finished);
-    if (!skill) {
+  for (let guard = 0; session.phase !== "done" && guard < 500; guard += 1) {
+    const skill = options.skills.find((item) => item.id === session.skillId);
+    if (!skill || !session.problem) {
       break;
     }
-    let probe: Probe | null = freshProbe(skill.id);
-    for (let asked = 0; probe && asked < 20; asked += 1) {
-      const problem = generateProblem(skill, rng, probe.level);
-      const correct = options.respond(skill, problem, probe.level);
-      questions.push({
-        strandId: skill.strand,
-        skillId: skill.id,
-        level: probe.level,
-        correct,
-        prompt: problem.prompt,
-      });
-      const result = applyResult(probe, correct);
-      if (result.passedLevel != null) {
-        map = recordLevelPass(map, skill.id, result.passedLevel);
-      }
-      probe = result.probe;
-    }
-    finished.add(skill.id);
-    toppedOut = noteCeilings(options.strands, map, toppedOut);
+    const correct = options.respond(skill, session.problem, session.level);
+    questions.push({
+      strandId: skill.strand,
+      skillId: skill.id,
+      level: session.level,
+      correct,
+      prompt: session.problem.prompt,
+    });
+    const given = correct ? session.problem.answer : "nope";
+    session = continueQuiz(gradeAnswer(session, given));
   }
-
-  return { map, questions, toppedOut };
+  return { map: session.map, questions, toppedOut: session.toppedOut };
 }
 
 export type QuizPhase = "answering" | "feedback" | "done";
@@ -213,13 +304,27 @@ export type QuizSession = {
   toppedOut: string[];
   phase: QuizPhase;
   probe: Probe | null;
-  finished: string[];
   problem: Problem | null;
   skillId: string | null;
   level: number;
   questionNumber: number;
   correct: boolean | null;
   skipped: boolean;
+  rngState: number;
+};
+
+export type PlacementSnapshot = {
+  map: LearnerMap;
+  toppedOut: string[];
+  phase: QuizPhase;
+  probe: Probe | null;
+  problem: Problem | null;
+  skillId: string | null;
+  level: number;
+  questionNumber: number;
+  correct: boolean | null;
+  skipped: boolean;
+  rngState: number;
 };
 
 function withResult(session: QuizSession, correct: boolean): QuizSession {
@@ -228,25 +333,24 @@ function withResult(session: QuizSession, correct: boolean): QuizSession {
   }
   const result = applyResult(session.probe, correct);
   let map = session.map;
-  if (result.passedLevel != null) {
-    map = recordLevelPass(map, session.skillId, result.passedLevel);
+  let toppedOut = session.toppedOut;
+  if (result.finalLevel != null) {
+    map = inferImpliedLevels(map, session.skills, session.skillId, result.finalLevel);
+    toppedOut = noteCeilings(session.strands, map, toppedOut);
   }
-  const finished = result.probe ? session.finished : [...session.finished, session.skillId];
-  const toppedOut = result.probe ? session.toppedOut : noteCeilings(session.strands, map, session.toppedOut);
   return {
     ...session,
     map,
     toppedOut,
-    finished,
     probe: result.probe,
   };
 }
 
-function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
+function presentQuestion(session: QuizSession): QuizSession {
   let probe = session.probe;
   let toppedOut = session.toppedOut;
   if (!probe) {
-    const skill = nextSkill(session.skills, session.strands, session.map, new Set(session.finished));
+    const skill = nextSkill(session.skills, session.strands, session.map);
     if (!skill) {
       toppedOut = noteCeilings(session.strands, session.map, toppedOut);
       return {
@@ -266,6 +370,8 @@ function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
   if (!skill) {
     throw new Error(`Missing skill ${probe.skillId}`);
   }
+  const cursor = { state: session.rngState };
+  const problem = generateProblem(skill, cursorRng(cursor), probe.level);
   return {
     ...session,
     toppedOut,
@@ -273,10 +379,11 @@ function presentQuestion(session: QuizSession, rng: Rng): QuizSession {
     phase: "answering",
     skillId: skill.id,
     level: probe.level,
-    problem: generateProblem(skill, rng, probe.level),
+    problem,
     questionNumber: session.questionNumber + 1,
     correct: null,
     skipped: false,
+    rngState: cursor.state,
   };
 }
 
@@ -285,8 +392,10 @@ export function createQuizSession(options: {
   strands: readonly Strand[];
   map?: LearnerMap;
   toppedOut?: string[];
-  rng: Rng;
+  seed?: number;
+  rngState?: number;
 }): QuizSession {
+  const seed = options.seed ?? 1;
   const base: QuizSession = {
     skills: options.skills,
     strands: options.strands,
@@ -294,15 +403,43 @@ export function createQuizSession(options: {
     toppedOut: options.toppedOut ?? [],
     phase: "answering",
     probe: null,
-    finished: [],
     problem: null,
     skillId: null,
-    level: 1,
+    level: 3,
     questionNumber: 0,
     correct: null,
     skipped: false,
+    rngState: options.rngState ?? (seed >>> 0 || 1),
   };
-  return presentQuestion(base, options.rng);
+  return presentQuestion(base);
+}
+
+export function snapshotQuiz(session: QuizSession): PlacementSnapshot {
+  return {
+    map: session.map,
+    toppedOut: session.toppedOut,
+    phase: session.phase,
+    probe: session.probe,
+    problem: session.problem,
+    skillId: session.skillId,
+    level: session.level,
+    questionNumber: session.questionNumber,
+    correct: session.correct,
+    skipped: session.skipped,
+    rngState: session.rngState,
+  };
+}
+
+export function restoreQuiz(
+  snapshot: PlacementSnapshot,
+  skills: readonly Skill[],
+  strands: readonly Strand[],
+): QuizSession {
+  return {
+    ...snapshot,
+    skills,
+    strands,
+  };
 }
 
 export function gradeAnswer(session: QuizSession, given: string): QuizSession {
@@ -319,16 +456,16 @@ export function gradeAnswer(session: QuizSession, given: string): QuizSession {
 }
 
 /** A skip is a miss and moves straight to the next problem. */
-export function skipQuestion(session: QuizSession, rng: Rng): QuizSession {
+export function skipQuestion(session: QuizSession): QuizSession {
   if (session.phase !== "answering" || !session.problem) {
     return session;
   }
-  return presentQuestion(withResult(session, false), rng);
+  return presentQuestion(withResult(session, false));
 }
 
-export function continueQuiz(session: QuizSession, rng: Rng): QuizSession {
+export function continueQuiz(session: QuizSession): QuizSession {
   if (session.phase === "answering") {
     return session;
   }
-  return presentQuestion(session, rng);
+  return presentQuestion(session);
 }

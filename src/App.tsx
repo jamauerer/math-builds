@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { skills, strands } from "./data/load-skills";
-import { createLearnerMap, noteCeilings, practiceLevel, recordLevelPass, type LearnerMap } from "./engine/placement";
+import {
+  createLearnerMap,
+  noteCeilings,
+  practiceLevel,
+  recordLevelPass,
+  snapshotQuiz,
+  type QuizSession,
+} from "./engine/placement";
 import { browserProgressStore, type SavedProgress } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
@@ -15,7 +22,7 @@ type Screen =
 export function App() {
   const store = useMemo(() => browserProgressStore(skills), []);
   const [progress, setProgress] = useState<SavedProgress>(
-    () => store.load() ?? { map: createLearnerMap(skills), toppedOut: [] },
+    () => store.load() ?? { map: createLearnerMap(skills), toppedOut: [], placement: null },
   );
   const [screen, setScreen] = useState<Screen>({ name: "map" });
   const [placementRunning, setPlacementRunning] = useState(false);
@@ -23,6 +30,14 @@ export function App() {
   function save(next: SavedProgress) {
     setProgress(next);
     store.save(next);
+  }
+
+  function saveSession(session: QuizSession, keepPlacement: boolean) {
+    save({
+      map: session.map,
+      toppedOut: session.toppedOut,
+      placement: keepPlacement && session.phase !== "done" ? snapshotQuiz(session) : null,
+    });
   }
 
   function openPractice(skillId: string) {
@@ -40,7 +55,12 @@ export function App() {
           <button
             type="button"
             className="nav-button"
-            onPointerUp={() => setScreen({ name: "placement" })}
+            onPointerUp={() => {
+              setScreen({ name: "placement" });
+              if (progress.placement) {
+                setPlacementRunning(true);
+              }
+            }}
           >
             Placement
           </button>
@@ -61,7 +81,13 @@ export function App() {
           key="placement"
           initialMap={progress.map}
           initialToppedOut={progress.toppedOut}
-          onProgress={(map: LearnerMap, toppedOut: string[]) => save({ map, toppedOut })}
+          initialSnapshot={progress.placement}
+          onProgress={(session) => saveSession(session, true)}
+          onStop={(session) => {
+            saveSession(session, true);
+            setPlacementRunning(false);
+            setScreen({ name: "map" });
+          }}
           onRunning={setPlacementRunning}
           onPractice={openPractice}
         />
@@ -78,7 +104,7 @@ export function App() {
             }
             const map = recordLevelPass(progress.map, skillId, level);
             const toppedOut = noteCeilings(strands, map, progress.toppedOut);
-            save({ map, toppedOut });
+            save({ map, toppedOut, placement: progress.placement });
           }}
           onClose={() => setScreen({ name: "map" })}
         />
