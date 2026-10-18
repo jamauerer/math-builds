@@ -1136,13 +1136,19 @@ button {
   min-height: 84px;
 }
 
+.workshop-play .tray {
+  background: linear-gradient(#9a6230, #7a4a20);
+  border-radius: 12px;
+  padding: 8px;
+}
+
 .tray-piece {
   width: 84px;
   height: 76px;
   border-radius: 14px;
-  border: 3px solid #6e56b8;
-  background: #2c1d55;
-  color: #f6f1ff;
+  border: 3px solid #d9c27a;
+  background: #fbf6ea;
+  color: #2b2117;
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -1223,15 +1229,56 @@ button {
 }
 
 .workshop {
+  --paper: #f3ebd9;
+  --ink: #2b2117;
+  --card: #fbf6ea;
+  --board: #eadfc6;
+  --brass: #8a6a14;
+  --wood-tray: #9a6230;
+  --crank: #c8450a;
   height: 100dvh;
   max-height: 100dvh;
   width: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #1a1033;
-  color: #f6f1ff;
+  background-color: var(--paper);
+  background-image: linear-gradient(rgba(43, 33, 23, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(43, 33, 23, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink);
   font-family: Figtree, "Segoe UI", sans-serif;
+}
+
+.workshop[data-theme="candy"] {
+  --brass: #c45c9a;
+  --crank: #e85d4c;
+  --board: #ffe8f2;
+}
+
+.workshop[data-theme="wood"] {
+  --brass: #6b4423;
+  --crank: #a56a32;
+  --board: #e7d3b0;
+}
+
+.workshop[data-theme="steel"] {
+  --brass: #5c6b7a;
+  --crank: #3e4c59;
+  --board: #d5dde6;
+}
+
+.workshop h1,
+.workshop h2,
+.workshop-title {
+  font-family: "Bricolage Grotesque", sans-serif;
+}
+
+.mission-line {
+  margin: 0;
+  font-family: Caveat, cursive;
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--brass);
 }
 
 .workshop-bar {
@@ -1314,8 +1361,9 @@ button {
 }
 
 .family-card {
-  background: #2c1d55;
-  border: 3px solid #6e56b8;
+  background: var(--card);
+  border: 3px solid var(--brass);
+  color: var(--ink);
   border-radius: 16px;
   padding: 8px;
 }
@@ -1332,7 +1380,7 @@ button {
   object-position: center;
   border-radius: 8px;
   display: block;
-  background: #1a1033;
+  background: var(--board);
 }
 
 .tile-row,
@@ -1512,7 +1560,7 @@ button {
   max-height: min(240px, 32vh);
   object-fit: contain;
   border-radius: 16px;
-  background: #1a1033;
+  background: var(--board);
 }
 
 .workshop .problem-face,
@@ -1531,16 +1579,16 @@ button {
 .workshop .check,
 .workshop .challenge-link,
 .workshop .step-link {
-  color: #f6f1ff;
-  background: #2c1d55;
-  border: 2px solid #8b74d6;
+  color: var(--card);
+  background: var(--ink);
+  border: 2px solid var(--brass);
   border-radius: 10px;
   font: inherit;
   font-weight: 700;
 }
 
 .workshop .step-link.on {
-  background: #6e56b8;
+  background: var(--crank);
 }
 
 .workshop .pad,
@@ -1548,6 +1596,7 @@ button {
 .workshop .pad-display {
   color: #1c1917;
   background: #fff7ea;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 .workshop .problem-row {

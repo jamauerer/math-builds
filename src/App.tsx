@@ -33,7 +33,7 @@ export function App() {
         ageAsked: false,
         bridgeCompleted: [],
         bridgeEarned: {},
-        workshop: { completed: [], mastery: {}, sandbox: [], theme: "candy" },
+        workshop: { completed: [], mastery: {}, sandbox: [], theme: "draft" },
       },
   );
   const [screen, setScreen] = useState<Screen>(() =>

@@ -30,6 +30,7 @@ type Props = {
 };
 
 const THEME = {
+  draft: { ground: "#9A6230", beam: "#8A6A14", accent: "#C8450A", water: "#1F8A8C", gear: "#E0A526" },
   candy: { ground: "#8a4b2f", beam: "#c47b3a", accent: "#e85d4c", water: "#3ec6e0", gear: "#f0d090" },
   wood: { ground: "#6b4423", beam: "#a56a32", accent: "#d7b48a", water: "#2f6f8f", gear: "#e6d3b1" },
   steel: { ground: "#3e4c59", beam: "#9aa7b5", accent: "#d5dde6", water: "#1d4e89", gear: "#c5ced6" },
@@ -46,7 +47,7 @@ function challengeById(id: string): Challenge | undefined {
 }
 
 export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }: Props) {
-  const save = progress.workshop ?? { completed: [], mastery: {}, sandbox: [], theme: "candy" as const };
+  const save = progress.workshop ?? { completed: [], mastery: {}, sandbox: [], theme: "draft" as const };
   const [theme, setTheme] = useState(save.theme);
   const [settings, setSettings] = useState(false);
   const [modeled, setModeled] = useState(false);
@@ -307,7 +308,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   const playing = Boolean(challenge) && step !== "sandbox";
 
   return (
-    <div className="workshop">
+    <div className="workshop" data-theme={theme}>
       <header className="workshop-bar">
         <button type="button" className="step-link" onPointerUp={() => setChallenge(null)}>
           Worlds
@@ -330,7 +331,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
       {settings ? (
         <div className="settings-menu">
           <p>Theme</p>
-          {(["candy", "wood", "steel"] as const).map((name) => (
+          {(["draft", "candy", "wood", "steel"] as const).map((name) => (
             <button key={name} type="button" className={theme === name ? "on" : ""} onPointerUp={() => { setTheme(name); write({ ...save, theme: name }); }}>
               {name[0].toUpperCase() + name.slice(1)}
             </button>

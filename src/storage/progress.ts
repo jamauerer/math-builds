@@ -34,7 +34,7 @@ export type WorkshopSave = {
   completed: string[];
   mastery: Record<string, MasteryRecord>;
   sandbox: string[];
-  theme: "candy" | "wood" | "steel";
+  theme: "draft" | "candy" | "wood" | "steel";
 };
 
 export type ProgressStore = {
@@ -104,12 +104,15 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
 }
 
 function sanitizeWorkshop(raw: unknown): WorkshopSave {
-  const blank: WorkshopSave = { completed: [], mastery: {}, sandbox: [], theme: "candy" };
+  const blank: WorkshopSave = { completed: [], mastery: {}, sandbox: [], theme: "draft" };
   if (!raw || typeof raw !== "object") {
     return blank;
   }
   const record = raw as Partial<WorkshopSave>;
-  const theme = record.theme === "wood" || record.theme === "steel" ? record.theme : "candy";
+  const theme =
+    record.theme === "candy" || record.theme === "wood" || record.theme === "steel" || record.theme === "draft"
+      ? record.theme
+      : "draft";
   const mastery: Record<string, MasteryRecord> = {};
   if (record.mastery && typeof record.mastery === "object") {
     for (const [id, entry] of Object.entries(record.mastery)) {

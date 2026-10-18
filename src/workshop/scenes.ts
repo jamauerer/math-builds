@@ -96,16 +96,16 @@ export type PaintInput = {
 export function paintMachine(ctx: ScenePainter, input: PaintInput): void {
   const width = 640;
   const height = 280;
-  ctx.fillStyle = "#1a1033";
+  ctx.fillStyle = "#f3ebd9";
   ctx.fillRect(0, 0, width, height);
-  ctx.fillStyle = "#2a1b4a";
+  ctx.fillStyle = "#eadfc6";
   ctx.fillRect(0, 40, width, 200);
   const ruler = rulerEnds(input.span);
-  ctx.fillStyle = "#f6f1ff";
+  ctx.fillStyle = "#2b2117";
   ctx.font = "16px Figtree, sans-serif";
   ctx.fillText(ruler.start, 24, 28);
   ctx.fillText(ruler.end, 560, 28);
-  ctx.strokeStyle = "#f6f1ff";
+  ctx.strokeStyle = "#2b2117";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(40, 36);
@@ -166,7 +166,7 @@ function drawBridge(ctx: ScenePainter, input: PaintInput): void {
     ctx.fillStyle = "#9aa7b5";
     ctx.fillRect(150, 70, 16, 120);
     ctx.fillRect(474, 70, 16, 120);
-    ctx.strokeStyle = "#f6f1ff";
+    ctx.strokeStyle = "#2b2117";
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(158, 78);
@@ -214,7 +214,7 @@ function drawLever(ctx: ScenePainter, input: PaintInput): void {
   ctx.beginPath();
   ctx.arc(480, 150 - tip, 16, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#f6f1ff";
+  ctx.fillStyle = "#2b2117";
   ctx.fillText("plank", 300, 150);
 }
 
@@ -223,7 +223,7 @@ function drawGears(ctx: ScenePainter, input: PaintInput): void {
   gear(ctx, 180, 150, 48, spin, "#e85d4c");
   gear(ctx, 300, 150, 70, -spin * 0.6, "#f0d090");
   if (input.sceneId === "clock") {
-    ctx.strokeStyle = "#f6f1ff";
+    ctx.strokeStyle = "#2b2117";
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(480, 140, 50, 0, Math.PI * 2);
@@ -235,7 +235,7 @@ function drawGears(ctx: ScenePainter, input: PaintInput): void {
     ctx.lineTo(480 + Math.sin(spin / 60) * 42, 140 - Math.cos(spin / 60) * 42);
     ctx.stroke();
   }
-  ctx.fillStyle = "#f6f1ff";
+  ctx.fillStyle = "#2b2117";
   ctx.fillText("gear", 160, 230);
 }
 
