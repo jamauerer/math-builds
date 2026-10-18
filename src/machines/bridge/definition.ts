@@ -1,3 +1,5 @@
+import ladder from "./ladder.json";
+import { challengesFromLadder, type LadderFile } from "../from-ladder";
 import { makeChallenge, type Seed } from "../make";
 import type { MachineDefinition } from "../types";
 
@@ -452,5 +454,5 @@ export const bridgeMachine: MachineDefinition = {
   id: "bridge",
   name: "Bridge family",
   summary: "Beams, piers, trusses, arches, and a suspension cable.",
-  challenges: seeds.map(makeChallenge),
+  challenges: [...seeds.map(makeChallenge), ...challengesFromLadder(ladder as LadderFile, "beam", stages)],
 };
