@@ -10,6 +10,7 @@ import {
 import { emptyScribble, type Scribble, type ScribbleStroke } from "../engine/scribble";
 import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
+import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 
 const STORAGE_KEY = "math-builds.progress.v3";
 
@@ -28,6 +29,7 @@ export type SavedProgress = {
   bridgeCompleted: string[];
   bridgeEarned: Record<string, Record<string, number>>;
   workshop?: WorkshopSave;
+  sequence?: SequenceSave;
 };
 
 export type GalleryShot = {
@@ -107,6 +109,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     bridgeCompleted?: unknown;
     bridgeEarned?: unknown;
     workshop?: unknown;
+    sequence?: unknown;
   };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
@@ -142,6 +145,55 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     bridgeCompleted,
     bridgeEarned: sanitizeEarned(record.bridgeEarned),
     workshop: sanitizeWorkshop(record.workshop),
+    sequence: sanitizeSequence(record.sequence),
+  };
+}
+
+function sanitizeSequence(raw: unknown): SequenceSave {
+  const blank = blankSequence();
+  if (!raw || typeof raw !== "object") {
+    return blank;
+  }
+  const record = raw as Partial<SequenceSave>;
+  const codex: CodexPage[] = [];
+  if (Array.isArray(record.codex)) {
+    for (const item of record.codex) {
+      if (!item || typeof item !== "object") {
+        continue;
+      }
+      const page = item as CodexPage;
+      if (typeof page.handwriting !== "string" || typeof page.image !== "string" || !page.results) {
+        continue;
+      }
+      codex.push({
+        id: typeof page.id === "string" ? page.id : "page",
+        title: typeof page.title === "string" ? page.title : "Bridge",
+        image: page.image,
+        handwriting: page.handwriting,
+        gap: typeof page.gap === "number" ? page.gap : 0,
+        bearing: typeof page.bearing === "number" ? page.bearing : 0,
+        loadKg: typeof page.loadKg === "number" ? page.loadKg : 0,
+        budget: typeof page.budget === "number" ? page.budget : 0,
+        beamLength: typeof page.beamLength === "number" ? page.beamLength : 0,
+        materials: Array.isArray(page.materials) ? page.materials.filter((entry) => typeof entry === "string") : [],
+        alternatives: Array.isArray(page.alternatives) ? page.alternatives.filter((entry) => typeof entry === "string") : [],
+        changes: Array.isArray(page.changes) ? page.changes.filter((entry) => typeof entry === "string") : [],
+        results: {
+          designWorked: page.results.designWorked === true,
+          mathUse: page.results.mathUse === "assisted" || page.results.mathUse === "corrected" ? page.results.mathUse : "independent",
+          explained: page.results.explained === true,
+        },
+        reflection: typeof page.reflection === "string" ? page.reflection : "",
+        next: typeof page.next === "string" ? page.next : "",
+        disclaimer: typeof page.disclaimer === "string" ? page.disclaimer : blankSequence().codex[0]?.disclaimer ?? "",
+      });
+    }
+  }
+  return {
+    narration: record.narration !== false,
+    completedTiers: Array.isArray(record.completedTiers) ? record.completedTiers.filter((item): item is string => typeof item === "string") : [],
+    marks: typeof record.marks === "number" ? record.marks : 0,
+    codex,
   };
 }
 
