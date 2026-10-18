@@ -192,7 +192,7 @@ export function BridgeApp({
       stress,
       fail: session.showResult && session.results?.designWorked === false,
       celebrate: session.showResult && session.results?.designWorked === true,
-      label: tier.unit === "m" && !session.phase.startsWith("starter") && session.phase !== "arrive" ? `${tier.gap} m` : `${STARTER_GAP} blocks`,
+      label: session.phase.startsWith("starter") || session.phase === "arrive" ? `${STARTER_GAP} blocks` : `${tier.gap} ${session.representation === "blocks" ? "blocks" : tier.unit}`,
     });
   }, [session, frame, tier]);
 
@@ -210,7 +210,7 @@ export function BridgeApp({
   }, [session.driving, session.drive]);
 
   useEffect(() => {
-    if (!session.results || session.stars >= 3) return;
+    if (!session.results?.designWorked || session.stars >= 3) return;
     const timer = window.setTimeout(() => setSession((current) => ({ ...current, stars: current.stars + 1 })), 180);
     return () => window.clearTimeout(timer);
   }, [session.results, session.stars]);
@@ -244,11 +244,11 @@ export function BridgeApp({
 
   const script = useMemo(() => discoveryScript(session.representation, tier), [session.representation, tier]);
 
-  function openNotebookEntry(entry: NotebookEntry) {
+  function rememberEntry(entry: NotebookEntry, open: boolean) {
     setSession((current) => {
       const before = snapshot(current);
       const notebook = current.notebook.some((item) => item.id === entry.id) ? current.notebook : [...current.notebook, entry];
-      const next = { ...current, notebook, notebookOpen: true };
+      const next = { ...current, notebook, notebookOpen: open ? true : current.notebookOpen };
       return sameBuild(before, snapshot(next)) ? next : current;
     });
   }
@@ -438,7 +438,7 @@ export function BridgeApp({
               </div>
               <button type="button" className="wb-go" onPointerUp={() => {
                 const entry = script[session.beat];
-                if (entry) openNotebookEntry(entry);
+                if (entry) rememberEntry(entry, false);
                 if (session.beat < script.length - 1) patch({ beat: session.beat + 1 });
                 else patch({ phase: "prove", proveIndex: 0, misses: 0, hintsUsed: 0 });
               }}>{session.beat < script.length - 1 ? "Next" : "Now you try"}</button>
@@ -483,7 +483,7 @@ export function BridgeApp({
               <button type="button" className="wb-go" onPointerUp={cutBeam}>Cut and place</button>
               {session.beamSpec == null && session.versions.at(-1)?.includes("short") ? <p className="wb-fail">{session.versions.at(-1)} The piece is back in the pile.</p> : null}
               {session.beamSpec != null ? <button type="button" className="wb-go" onPointerUp={() => patch({ deck: true, phase: "test", drive: 0, frames: 0, driving: false, showResult: false, stars: 0 })}>Place the supplied deck</button> : null}
-              <button type="button" className="wb-text" onPointerUp={() => openNotebookEntry(script[1] ?? script[0])}>Open the worked example</button>
+              <button type="button" className="wb-text" onPointerUp={() => rememberEntry(script[1] ?? script[0], true)}>Open the worked example</button>
             </div>
           </article>
         ) : null}

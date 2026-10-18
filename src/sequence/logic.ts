@@ -48,7 +48,8 @@ export type SceneFrame = {
 /** One coordinate frame for every representation. The picture changes. The numbers do not. */
 export function sceneFrame(gap: number, bearing: number): SceneFrame {
   const unitPx = 22;
-  const origin = 96;
+  const span = (gap + 2 * bearing) * unitPx;
+  const origin = Math.max(48, (900 - span) / 2);
   const beamStart = origin;
   const gapStart = origin + bearing * unitPx;
   const gapEnd = gapStart + gap * unitPx;

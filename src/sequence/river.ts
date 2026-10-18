@@ -32,7 +32,7 @@ export type RiverDraw = {
 export function paintRiver(ctx: RiverPainter, draw: RiverDraw) {
   const sky = draw.theme === "dusk" ? "#F3C9A0" : "#C9E7F6";
   ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, 900, 150);
+  ctx.fillRect(0, 0, 900, 340);
   ctx.fillStyle = draw.theme === "dusk" ? "#E7B56A" : "#F7E7A1";
   ctx.beginPath();
   ctx.arc(760, 48, 26, 0, Math.PI * 2);
