@@ -12,7 +12,18 @@ export const GEAR_ASSUMPTIONS = [
   {
     text: "Direction reverses at every mesh. Torque goes up as speed goes down, with no friction loss in this model.",
   },
+  {
+    text: "A winch drum lifts the bucket by its circumference divided by the gear-down ratio. The crank force is the load divided by that ratio. The model is ideal: no friction.",
+  },
 ];
+
+export function bucketRise(circumference: number, ratio: number): number {
+  return circumference / ratio;
+}
+
+export function crankForce(load: number, ratio: number): number {
+  return load / ratio;
+}
 
 export function gearRadius(teeth: number): number {
   return teeth / 2;
@@ -89,6 +100,11 @@ export const gearModel: EngineeringModel = {
         { label: "Times slower", value: num(slower) },
         { label: "Output torque", value: num(torque) },
       ];
+      if (scene.drum > 0 && scene.driver > 0) {
+        const slower = scene.driven / scene.driver;
+        numbers.push({ label: "Bucket height per crank", value: `${num(bucketRise(scene.drum, slower))} m` });
+        numbers.push({ label: "Crank force", value: num(crankForce(scene.load, slower)) });
+      }
       if (Math.abs(part.spec - torque) > 0.001) {
         return finish(false, part.id, `The output torque is ${num(torque)}. Yours is ${num(part.spec)}.`, numbers);
       }
@@ -120,6 +136,11 @@ export const gearModel: EngineeringModel = {
     }
     if (scene.goal > 0 && Math.abs(ratio - scene.goal) > 0.001) {
       return finish(false, part.id, `The output turns ${num(ratio)} times for each input turn. This challenge needs ${num(scene.goal)}.`, numbers);
+    }
+    if (scene.drum > 0 && ratio > 0) {
+      const slower = 1 / ratio;
+      numbers.push({ label: "Bucket height per crank", value: `${num(bucketRise(scene.drum, slower))} m` });
+      numbers.push({ label: "Crank force", value: num(crankForce(scene.load, slower)) });
     }
     if (scene.hourDriver > 0 && scene.hourDriven > 0) {
       const hour = speedRatio(scene.hourDriver, scene.hourDriven);

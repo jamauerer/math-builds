@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import bridge from "./bridge/ladder.json";
+import { gearMachine } from "./gears/definition";
 import gears from "./gears/ladder.json";
+import { bucketRise, crankForce, gearModel, meshes } from "./gears/model";
 import lever from "./lever/ladder.json";
+import { referenceDesign } from "./loop";
 
 type Dials = {
   numbers: number;
@@ -53,6 +56,24 @@ describe("machine ladders", () => {
         expect(signatures.size).toBe(level.challenges.length);
       }
     }
+  });
+
+  it("rejects a wrong gear center distance and grades the winch from circumference and load", () => {
+    expect(meshes(12, 36, (12 + 36) / 2)).toBe(true);
+    expect(meshes(12, 36, 20)).toBe(false);
+    expect(bucketRise(3, 3)).toBe(1);
+    expect(crankForce(20, 3)).toBeCloseTo(20 / 3);
+    const winch = gearMachine.challenges.find((item) => item.id === "gears-l04-a");
+    expect(winch?.output).toBe("bucket");
+    const report = gearModel.evaluate(referenceDesign(winch!), winch!.scene);
+    expect(report.ok).toBe(true);
+    expect(report.numbers.some((item) => item.label === "Bucket height per crank" && item.value.startsWith("1"))).toBe(true);
+    expect(report.assumptions.some((item) => item.text.includes("ideal"))).toBe(true);
+    const wrong = gearModel.evaluate(
+      [{ id: "part", kind: "gear", spec: 24, slot: "main" }],
+      winch!.scene,
+    );
+    expect(wrong.ok).toBe(false);
   });
 
   it("keeps dial values from falling as the ladder climbs", () => {

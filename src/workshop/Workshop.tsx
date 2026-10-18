@@ -82,7 +82,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("challenge");
     const found = id ? challengeById(id) : undefined;
-    if (found && challengeOpen(familyChallenges(found), found.id, save.completed, map)) {
+    if (found && levelOpen(found, save.completed, map)) {
       openChallenge(found);
     }
     const due = Object.entries(save.mastery).find(([, record]) => recallReady(record, Date.now()));
@@ -396,7 +396,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
                     <h2>{family}</h2>
                     <div className="tile-row">
                       {list.map((item, tileIndex) => {
-                        const open = challengeOpen(list, item.id, save.completed, map);
+                        const open = levelOpen(item, save.completed, map);
                         const done = save.completed.includes(item.id);
                         const state = done ? "done" : open ? "current" : "locked";
                         const current = !done && open && list.slice(0, tileIndex).every((earlier) => save.completed.includes(earlier.id));
@@ -450,6 +450,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
         <div className="workshop-play" data-step={step}>
           <div className="workshop-split">
             <div className="scene-wrap">
+              {challenge.mission ? <p className="mission-line">{challenge.mission}</p> : null}
               <SceneCanvas
                 challenge={challenge}
                 progress={step === "test" || step === "diagnose" ? frame / Math.max(1, frames.length - 1) : 0}
@@ -556,6 +557,25 @@ function familyChallenges(challenge: Challenge): Challenge[] {
   return machine?.challenges.filter((item) => item.family === challenge.family) ?? [challenge];
 }
 
+function levelOpen(challenge: Challenge, completed: string[], map: Parameters<typeof challengeOpen>[3]): boolean {
+  if (!challenge.ladderLevel) {
+    return challengeOpen(familyChallenges(challenge), challenge.id, completed, map);
+  }
+  const machine = machines.find((item) => item.id === challenge.machine);
+  const all = machine?.challenges ?? [challenge];
+  const same = all.filter((item) => item.ladderLevel === challenge.ladderLevel);
+  const index = same.findIndex((item) => item.id === challenge.id);
+  const previous = all.filter((item) => item.ladderLevel === (challenge.ladderLevel ?? 1) - 1);
+  const previousDone = previous.length > 0 && previous.every((item) => completed.includes(item.id));
+  if (index <= 0 && (challenge.ladderLevel === 1 || previousDone)) {
+    return challenge.ladderLevel === 1 ? challengeOpen(same, challenge.id, completed, map) : true;
+  }
+  if (index > 0 && completed.includes(same[index - 1].id)) {
+    return true;
+  }
+  return challengeOpen(same, challenge.id, completed, map);
+}
+
 function limitLines(challenge: Challenge): string[] {
   if (challenge.machine === "bridge") {
     return [`Sag limit: ${challenge.scene.sagCap}.`, `Stress limit: ${challenge.scene.stressLimit}.`];
@@ -564,6 +584,10 @@ function limitLines(challenge: Challenge): string[] {
     return [`Plank torque limit: ${challenge.scene.torqueLimit} N m.`];
   }
   const lines = [`Output turns per input turn: ${challenge.scene.goal}.`];
+  if (challenge.scene.drum > 0) {
+    lines.push(`Bucket height per crank is the drum circumference ${challenge.scene.drum} m divided by the ratio.`);
+    lines.push(`Crank force is the load ${challenge.scene.load} divided by the ratio. Ideal, no friction.`);
+  }
   if (challenge.scene.hourDriven > 0) {
     lines.push("Minute train: 60 to 1.");
     lines.push("Hour hand: 12 to 1.");
@@ -659,7 +683,18 @@ export function SceneCanvas({
     if (!canvas || !context) {
       return;
     }
-    paintMachine(context as unknown as ScenePainter, { sceneId, span: sceneSpan(challenge), progress, angle, placed, slow });
+    paintMachine(context as unknown as ScenePainter, {
+      sceneId,
+      span: sceneSpan(challenge),
+      progress,
+      angle,
+      placed,
+      slow,
+      output: challenge.output,
+      teethA: challenge.scene.driver,
+      teethB: placed > 0 ? placed : challenge.scene.driven,
+      load: challenge.scene.load,
+    });
   }, [sceneId, challenge, progress, angle, placed, slow]);
   return (
     <canvas
@@ -670,6 +705,7 @@ export function SceneCanvas({
       data-scene={sceneId}
       data-subjects={subjectsFor(sceneId).join(" ")}
       data-progress={String(progress)}
+      data-output={challenge.output ?? ""}
     />
   );
 }

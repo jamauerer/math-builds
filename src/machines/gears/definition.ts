@@ -1,3 +1,5 @@
+import ladder from "./ladder.json";
+import { challengesFromLadder, type LadderFile } from "../from-ladder";
 import { makeChallenge, type Seed } from "../make";
 import type { MachineDefinition } from "../types";
 import { gearRadius } from "./model";
@@ -349,5 +351,5 @@ export const gearMachine: MachineDefinition = {
   id: "gears",
   name: "Gears and clockwork",
   summary: "Tooth counts, idlers, compound trains, and a clock.",
-  challenges: seeds.map(makeChallenge),
+  challenges: [...seeds.map(makeChallenge), ...challengesFromLadder(ladder as LadderFile, "gear", stages)],
 };

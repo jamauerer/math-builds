@@ -21,6 +21,10 @@ export type Seed = {
   decoy: number;
   creative: { kind: string; spec: number } | null;
   spare: boolean;
+  mission?: string;
+  output?: string;
+  ladderLevel?: number;
+  job?: string;
 };
 
 function hints(answer: number): HintRung {
@@ -68,5 +72,9 @@ export function makeChallenge(seed: Seed): Challenge {
     decoy: { kind: seed.partKind, spec: seed.decoy },
     creative: seed.creative,
     spare: seed.spare,
+    mission: seed.mission,
+    output: seed.output,
+    ladderLevel: seed.ladderLevel,
+    job: seed.job,
   };
 }

@@ -24,6 +24,10 @@ export type Challenge = {
   creative: { kind: string; spec: number } | null;
   /** First challenge in a family keeps a correct spare in the tray. */
   spare: boolean;
+  mission?: string;
+  output?: string;
+  ladderLevel?: number;
+  job?: string;
 };
 
 export type MachineDefinition = {
