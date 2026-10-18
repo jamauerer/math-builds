@@ -3,7 +3,6 @@ import { skills, strands } from "../data/load-skills";
 import { answersMatch } from "../engine/answers";
 import { generateProblem } from "../engine/generate";
 import type { DesignPart, ModelReport, SimFrame } from "../engine/model";
-import type { DrivePhase } from "../engine/bridge/place";
 import type { LearnerMap } from "../engine/placement";
 import { createRng } from "../engine/rng";
 import { emptyScribble, type Scribble } from "../engine/scribble";
@@ -11,11 +10,13 @@ import type { Problem } from "../engine/types";
 import { hintFor } from "../curriculum/hints";
 import { challengeOpen, emptyMastery, queueRecall, recallReady, strandSummary } from "../curriculum/mastery";
 import { machines, models } from "../machines";
-import { craftStars, numbersMatch, piecesFor, predictsChecked, returnFailed, specFromAnswer } from "../machines/loop";
+import { numbersMatch, piecesFor, predictsChecked, returnFailed, specFromAnswer } from "../machines/loop";
 import type { Challenge } from "../machines/types";
 import { exportProgress, importProgress } from "../progress/transfer";
 import { paintMachine, resultAllowed, sceneIdFor, subjectsFor, type ScenePainter } from "./scenes";
-import type { SavedProgress, WorkshopSave } from "../storage/progress";
+import { awardStars, cameraFrame, failureLine, featBadges, rankFor, rememberSnapshot, showcaseFor, successPlate, weeklyId, xpFor, PRIZES } from "./craft";
+import { playTone, tap } from "./feel";
+import { blankWorkshop, type SavedProgress, type WorkshopSave } from "../storage/progress";
 import { AnswerPanel } from "../ui/AnswerPanel";
 import { ProblemBoard } from "../ui/ProblemBoard";
 
@@ -47,7 +48,7 @@ function challengeById(id: string): Challenge | undefined {
 }
 
 export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }: Props) {
-  const save = progress.workshop ?? { completed: [], mastery: {}, sandbox: [], theme: "draft" as const };
+  const save = progress.workshop ?? blankWorkshop();
   const [theme, setTheme] = useState(save.theme);
   const [settings, setSettings] = useState(false);
   const [modeled, setModeled] = useState(false);
@@ -64,10 +65,14 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   const [stage, setStage] = useState(0);
   const [note, setNote] = useState("");
   const [report, setReport] = useState<ModelReport | null>(null);
-  const [phase, setPhase] = useState<DrivePhase>("playing");
+  const [phase, setPhase] = useState<"playing" | "slow" | "holding" | "result">("playing");
+  const [dust, setDust] = useState(false);
+  const [shownStars, setShownStars] = useState(0);
+  const skipRef = useRef(false);
   const [dragId, setDragId] = useState<string | null>(null);
   const [frame, setFrame] = useState(0);
   const [replay, setReplay] = useState(0);
+  const awarded = useRef("");
   const [frames, setFrames] = useState<SimFrame[]>([]);
   const [gate, setGate] = useState<Challenge | null>(null);
   const [check, setCheck] = useState<Problem | null>(null);
@@ -197,6 +202,10 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
       setExtra(stored);
     }
     setNote("");
+    setDust(true);
+    window.setTimeout(() => setDust(false), 280);
+    playTone(save.sound, "drop");
+    tap(save.haptic);
   }
 
   function runTest() {
@@ -214,6 +223,8 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
     setReport(result);
     setFrames(movie);
     setFrame(0);
+    setShownStars(0);
+    skipRef.current = false;
     setPhase("playing");
     setStep("test");
     setNote("");
@@ -242,13 +253,121 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
         }, 280);
         return;
       }
-      const slow = Math.abs(cursor - frames.length / 2) < 2;
-      setPhase("playing");
-      timer = window.setTimeout(tick, slow ? 420 : 80);
+      const slow = !skipRef.current && Math.abs(cursor - frames.length / 2) < 2;
+      setPhase(slow ? "slow" : "playing");
+      timer = window.setTimeout(tick, skipRef.current ? 16 : slow ? 420 : 80);
     };
     timer = window.setTimeout(tick, 70);
     return () => window.clearTimeout(timer);
   }, [step, frames, replay]);
+
+  const earnedStars = challenge && report?.ok
+    ? awardStars({
+        passed: true,
+        usedExtra: Boolean(extra),
+        predictRight: challenge.questions.filter((question) => question.kind === "predict").every((question) => answers[question.id] === question.answer),
+        spec: placed?.spec ?? 0,
+        answer: challenge.questions.find((question) => question.kind === "part")?.answer ?? 0,
+      })
+    : [];
+
+  useEffect(() => {
+    if (step !== "diagnose" || !report?.ok) {
+      return;
+    }
+    let count = 0;
+    const timer = window.setInterval(() => {
+      count += 1;
+      setShownStars(count);
+      if (count >= earnedStars.length) {
+        window.clearInterval(timer);
+      }
+    }, 180);
+    return () => window.clearInterval(timer);
+  }, [step, report, earnedStars.length]);
+
+  useEffect(() => {
+    if (step !== "diagnose" || !challenge || !report) {
+      return;
+    }
+    const token = `${challenge.id}:${replay}:${report.ok}`;
+    if (awarded.current === token) {
+      return;
+    }
+    awarded.current = token;
+    playTone(save.sound, report.ok ? "success" : "fail");
+    if (!report.ok) {
+      return;
+    }
+    const machineChallenges = machines.find((item) => item.id === challenge.machine)?.challenges.map((item) => item.id) ?? [];
+    const week = weeklyId(machineChallenges, Date.now());
+    const feats = featBadges(challenge, true, earnedStars);
+    const badges = [...save.badges];
+    for (const feat of feats) {
+      if (!badges.some((badge) => badge.id === feat.id)) {
+        badges.push({ id: feat.id, title: feat.title, machine: challenge.machine, snapshotId: "", at: Date.now() });
+      }
+    }
+    if (challenge.id === week && !badges.some((badge) => badge.id === `weekly-${challenge.machine}`)) {
+      badges.push({ id: `weekly-${challenge.machine}`, title: `This week's ${challenge.machine} build`, machine: challenge.machine, snapshotId: "", at: Date.now() });
+    }
+    const completedCount = (save.completed.includes(challenge.id) ? save.completed : [...save.completed, challenge.id]).filter((id) => machines.find((item) => item.id === challenge.machine)?.challenges.some((item) => item.id === id)).length;
+    const rank = rankFor(completedCount);
+    const prizes = [...save.prizes];
+    for (const prize of PRIZES) {
+      if (prizes.includes(prize.id)) {
+        continue;
+      }
+      const [kind, name] = prize.needs.split(":");
+      if (kind === "rank" && rank.name === name) {
+        prizes.push(prize.id);
+      }
+      if (kind === "badge" && badges.some((badge) => badge.id === name)) {
+        prizes.push(prize.id);
+      }
+    }
+    write({
+      ...save,
+      stars: { ...save.stars, [challenge.id]: earnedStars },
+      badges,
+      prizes,
+      weekly: challenge.id === week ? { ...save.weekly, [challenge.machine]: week } : save.weekly,
+    });
+  }, [step, replay]);
+
+  function cameraStyle(): { transform: string; transition: string } {
+    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!challenge || reduced) {
+      return { transform: "none", transition: "none" };
+    }
+    const progress = step === "test" || step === "diagnose" ? frame / Math.max(1, frames.length - 1) : 0;
+    const moment = step === "diagnose" ? "result" : phase === "slow" ? "slow" : phase === "holding" ? "hold" : "play";
+    const shot = cameraFrame(sceneIdFor(challenge), progress, moment);
+    return { transform: `translateX(${shot.x}px) scale(${shot.scale})`, transition: "transform 280ms ease" };
+  }
+
+  function saveSnapshot() {
+    if (!challenge) {
+      return;
+    }
+    const canvas = document.querySelector("canvas.workshop-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return;
+    }
+    const shot = {
+      id: `${challenge.id}-${Date.now()}`,
+      machine: challenge.machine,
+      challengeId: challenge.id,
+      title: challenge.title,
+      image: canvas.toDataURL("image/png"),
+      at: Date.now(),
+    };
+    write({
+      ...save,
+      snapshots: rememberSnapshot(save.snapshots, shot),
+      badges: save.badges.map((badge) => badge.machine === challenge.machine && badge.snapshotId === "" ? { ...badge, snapshotId: shot.id } : badge),
+    });
+  }
 
   function finishSuccess() {
     if (!challenge) {
@@ -336,6 +455,12 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
               {name[0].toUpperCase() + name.slice(1)}
             </button>
           ))}
+          <button type="button" className={save.sound ? "on" : ""} onPointerUp={() => write({ ...save, sound: !save.sound })}>
+            {save.sound ? "Sound on" : "Sound off"}
+          </button>
+          <button type="button" className={save.haptic ? "on" : ""} onPointerUp={() => write({ ...save, haptic: !save.haptic })}>
+            {save.haptic ? "Tap on" : "Tap off"}
+          </button>
           <button type="button" onPointerUp={() => setModeled(true)}>How this is modeled</button>
           <button type="button" onPointerUp={() => download(exportProgress({ ...progress, workshop: { ...save, theme } }))}>Export</button>
           <button type="button" onPointerUp={() => fileRef.current?.click()}>Import</button>
@@ -369,7 +494,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
         <div className="workshop-home">
           <div className="strand-bars">
             {summary.map((strand) => (
-              <button key={strand.id} type="button" className="strand-bar" title={`${strand.name}: ${strand.mastered} of ${strand.skills}`}>
+              <button key={strand.id} type="button" className="strand-bar" title={`${strand.name}: ${strand.mastered} of ${strand.skills}. ${xpForStrand(strand.id, save.mastery)} XP`}>
                 <span style={{ width: `${Math.round((strand.mastered / Math.max(1, strand.skills)) * 100)}%` }} />
                 <span className="strand-tip">{strand.name}: {strand.mastered}/{strand.skills}</span>
               </button>
@@ -386,6 +511,31 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
               }} />
             </div>
           ) : null}
+          <section className="showcase" data-showcase>
+            <h2>Showcase</h2>
+            {showcaseFor(save.snapshots).length === 0 ? <p>Snapshots of your best builds land here.</p> : null}
+            <div className="showcase-row">
+              {showcaseFor(save.snapshots).map((shot) => (
+                <figure key={shot.id}>
+                  <img src={shot.image} alt={shot.title} />
+                  <figcaption>{shot.title}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <div className="rank-row">
+              {machines.map((machine) => {
+                const count = save.completed.filter((id) => machine.challenges.some((item) => item.id === id)).length;
+                const rank = rankFor(count);
+                const week = weeklyId(machine.challenges.map((item) => item.id), Date.now());
+                return (
+                  <p key={machine.id}>
+                    <strong>{machine.name}</strong> {rank.name}. {rank.because}.
+                    {save.weekly[machine.id] === week ? " Weekly badge earned." : ` This week: ${machine.challenges.find((item) => item.id === week)?.title ?? "a build"}.`}
+                  </p>
+                );
+              })}
+            </div>
+          </section>
           <div className="family-grid">
             {machines.map((machine) => (
               families(machine.challenges).map((family) => {
@@ -449,14 +599,21 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
       ) : (
         <div className="workshop-play" data-step={step}>
           <div className="workshop-split">
-            <div className="scene-wrap">
+            <div
+              className={`scene-wrap${dust ? " dust" : ""}`}
+              style={cameraStyle()}
+            >
               {challenge.mission ? <p className="mission-line">{challenge.mission}</p> : null}
               <SceneCanvas
                 challenge={challenge}
                 progress={step === "test" || step === "diagnose" ? frame / Math.max(1, frames.length - 1) : 0}
                 angle={frames[frame]?.bodies.find((body) => body.id === "plank" || body.id === "driver")?.angle ?? 0}
                 placed={placed?.spec ?? 0}
-                slow={phase === "holding"}
+                slow={phase === "slow" || phase === "holding"}
+                stress={phase === "slow" || phase === "playing" ? (frame % 6) / 5 : 0}
+                celebrate={step === "diagnose" && Boolean(report?.ok)}
+                fail={step === "diagnose" && Boolean(report && !report.ok)}
+                skin={save.equipped}
               />
               {step === "build" || step === "sandbox" ? (
                 <DropLayer
@@ -510,13 +667,25 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
             ) : null}
             {step === "test" || step === "diagnose" ? (
               <div className="test-side">
-                <p className="ask">{step === "test" ? (phase === "holding" ? "Holding the last frame." : "Watch the test.") : report?.ok ? "The design met these numbers." : report?.failures[0]?.text}</p>
+                <p className="ask">{step === "test" ? cameraFrame(sceneIdFor(challenge), frame / Math.max(1, frames.length - 1), phase === "slow" ? "slow" : phase === "holding" ? "hold" : "play").caption : report?.ok ? "The design met these numbers." : failureLine(report?.failures[0]?.text ?? "")}</p>
+                {step === "test" ? (
+                  <button type="button" className="check" onPointerUp={() => { skipRef.current = true; }}>Skip</button>
+                ) : null}
                 {step === "diagnose" && report ? (
                   <div className="build-footer">
+                    <p className="plate" data-plate>{report.ok ? successPlate(challenge.machine, challenge.scene, report.numbers) : failureLine(report.failures[0]?.text ?? "")}</p>
+                    {report.ok ? (
+                      <p className="star-row">
+                        {earnedStars.slice(0, shownStars).map((star) => (
+                          <span key={star} className="star-drop">{star}</span>
+                        ))}
+                      </p>
+                    ) : null}
                     {report.numbers.map((item) => (
                       <p key={item.label}>{item.label}: {item.value}</p>
                     ))}
-                    {report.ok ? <p>{craftStars(Boolean(extra), true).join(". ")}</p> : <p>{report.failures[0]?.followUp}</p>}
+                    {report.ok ? null : <p>{report.failures[0]?.followUp}</p>}
+                    <button type="button" className="check" onPointerUp={saveSnapshot}>Snapshot</button>
                     {report.ok ? (
                       <button type="button" className="check" onPointerUp={finishSuccess}>Next</button>
                     ) : (
@@ -595,6 +764,14 @@ function limitLines(challenge: Challenge): string[] {
   return lines;
 }
 
+function xpForStrand(id: string, records: WorkshopSave["mastery"]): number {
+  const strand = strands.find((item) => item.id === id);
+  if (!strand) {
+    return 0;
+  }
+  return strand.skills.reduce((sum, skillId) => sum + xpFor(records[skillId] ?? emptyMastery()), 0);
+}
+
 function skillName(challenge: Challenge): string {
   return skills.find((item) => item.id === challenge.skills[0]?.skillId)?.name ?? "a skill";
 }
@@ -668,12 +845,20 @@ export function SceneCanvas({
   angle,
   placed,
   slow,
+  stress = 0,
+  celebrate = false,
+  fail = false,
+  skin = "",
 }: {
   challenge: Challenge;
   progress: number;
   angle: number;
   placed: number;
   slow: boolean;
+  stress?: number;
+  celebrate?: boolean;
+  fail?: boolean;
+  skin?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const sceneId = sceneIdFor(challenge);
@@ -694,8 +879,12 @@ export function SceneCanvas({
       teethA: challenge.scene.driver,
       teethB: placed > 0 ? placed : challenge.scene.driven,
       load: challenge.scene.load,
+      stress,
+      celebrate,
+      fail,
+      skin,
     });
-  }, [sceneId, challenge, progress, angle, placed, slow]);
+  }, [sceneId, challenge, progress, angle, placed, slow, stress, celebrate, fail, skin]);
   return (
     <canvas
       ref={ref}

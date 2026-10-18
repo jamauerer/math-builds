@@ -8,7 +8,7 @@ import {
   snapshotQuiz,
   type QuizSession,
 } from "./engine/placement";
-import { browserProgressStore, type SavedProgress } from "./storage/progress";
+import { blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
 import { AgePrompt } from "./ui/BridgeBuild";
@@ -33,7 +33,7 @@ export function App() {
         ageAsked: false,
         bridgeCompleted: [],
         bridgeEarned: {},
-        workshop: { completed: [], mastery: {}, sandbox: [], theme: "draft" },
+        workshop: blankWorkshop(),
       },
   );
   const [screen, setScreen] = useState<Screen>(() =>

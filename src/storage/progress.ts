@@ -30,12 +30,54 @@ export type SavedProgress = {
   workshop?: WorkshopSave;
 };
 
+export type GalleryShot = {
+  id: string;
+  machine: string;
+  challengeId: string;
+  title: string;
+  image: string;
+  at: number;
+};
+
+export type SavedBadge = {
+  id: string;
+  title: string;
+  machine: string;
+  snapshotId: string;
+  at: number;
+};
+
 export type WorkshopSave = {
   completed: string[];
   mastery: Record<string, MasteryRecord>;
   sandbox: string[];
   theme: "draft" | "candy" | "wood" | "steel";
+  stars: Record<string, string[]>;
+  badges: SavedBadge[];
+  snapshots: GalleryShot[];
+  prizes: string[];
+  equipped: string;
+  sound: boolean;
+  haptic: boolean;
+  weekly: Record<string, string>;
 };
+
+export function blankWorkshop(): WorkshopSave {
+  return {
+    completed: [],
+    mastery: {},
+    sandbox: [],
+    theme: "draft",
+    stars: {},
+    badges: [],
+    snapshots: [],
+    prizes: [],
+    equipped: "",
+    sound: false,
+    haptic: false,
+    weekly: {},
+  };
+}
 
 export type ProgressStore = {
   load: () => SavedProgress | null;
@@ -104,7 +146,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
 }
 
 function sanitizeWorkshop(raw: unknown): WorkshopSave {
-  const blank: WorkshopSave = { completed: [], mastery: {}, sandbox: [], theme: "draft" };
+  const blank = blankWorkshop();
   if (!raw || typeof raw !== "object") {
     return blank;
   }
@@ -127,11 +169,52 @@ function sanitizeWorkshop(raw: unknown): WorkshopSave {
       };
     }
   }
+  const stars: Record<string, string[]> = {};
+  if (record.stars && typeof record.stars === "object") {
+    for (const [id, names] of Object.entries(record.stars)) {
+      if (Array.isArray(names)) {
+        stars[id] = names.filter((name): name is string => typeof name === "string");
+      }
+    }
+  }
+  const badges: WorkshopSave["badges"] = Array.isArray(record.badges)
+    ? record.badges.filter((badge): badge is WorkshopSave["badges"][number] => {
+        return Boolean(badge) && typeof badge.id === "string" && typeof badge.title === "string" && typeof badge.machine === "string";
+      }).map((badge) => ({
+        id: badge.id,
+        title: badge.title,
+        machine: badge.machine,
+        snapshotId: typeof badge.snapshotId === "string" ? badge.snapshotId : "",
+        at: typeof badge.at === "number" ? badge.at : 0,
+      }))
+    : [];
+  const snapshots: WorkshopSave["snapshots"] = Array.isArray(record.snapshots)
+    ? record.snapshots.filter((shot): shot is WorkshopSave["snapshots"][number] => {
+        return Boolean(shot) && typeof shot.id === "string" && typeof shot.image === "string" && typeof shot.machine === "string";
+      }).map((shot) => ({
+        id: shot.id,
+        machine: shot.machine,
+        challengeId: typeof shot.challengeId === "string" ? shot.challengeId : "",
+        title: typeof shot.title === "string" ? shot.title : shot.machine,
+        image: shot.image,
+        at: typeof shot.at === "number" ? shot.at : 0,
+      }))
+    : [];
   return {
     completed: Array.isArray(record.completed) ? record.completed.filter((item): item is string => typeof item === "string") : [],
     mastery,
     sandbox: Array.isArray(record.sandbox) ? record.sandbox.filter((item): item is string => typeof item === "string") : [],
     theme,
+    stars,
+    badges,
+    snapshots,
+    prizes: Array.isArray(record.prizes) ? record.prizes.filter((item): item is string => typeof item === "string") : [],
+    equipped: typeof record.equipped === "string" ? record.equipped : "",
+    sound: record.sound === true,
+    haptic: record.haptic === true,
+    weekly: record.weekly && typeof record.weekly === "object"
+      ? Object.fromEntries(Object.entries(record.weekly).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
+      : {},
   };
 }
 

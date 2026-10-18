@@ -3,6 +3,7 @@ import gearsLadder from "../machines/gears/ladder.json";
 import leverLadder from "../machines/lever/ladder.json";
 import type { LadderFile } from "../machines/from-ladder";
 import type { Challenge } from "../machines/types";
+import { skinColor } from "./craft";
 
 export type DrawCall = { op: "rect" | "circle" | "text"; x: number; y: number; w: number; h: number; color: string; text?: string };
 
@@ -119,6 +120,10 @@ export type PaintInput = {
   teethA?: number;
   teethB?: number;
   load?: number;
+  stress?: number;
+  celebrate?: boolean;
+  fail?: boolean;
+  skin?: string;
 };
 
 export function paintMachine(ctx: ScenePainter, input: PaintInput): void {
@@ -133,6 +138,18 @@ export function paintMachine(ctx: ScenePainter, input: PaintInput): void {
   ctx.font = "16px Figtree, sans-serif";
   ctx.fillText(ruler.start, 24, 28);
   ctx.fillText(ruler.end, 560, 28);
+  if (input.fail) {
+    ctx.fillStyle = "#c8450a";
+    ctx.fillRect(8, 48, width - 16, 6);
+  }
+  if (input.celebrate) {
+    ctx.fillStyle = "#e0a526";
+    for (let bit = 0; bit < 10; bit += 1) {
+      const x = 80 + ((bit * 53) % 480);
+      const y = 60 + ((bit * 29) % 140);
+      ctx.fillRect(x, y, 6, 6);
+    }
+  }
   ctx.strokeStyle = "#2b2117";
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -208,11 +225,11 @@ function drawBridge(ctx: ScenePainter, input: PaintInput): void {
       ctx.stroke();
     }
   } else {
-    ctx.fillStyle = input.slow ? "#e85d4c" : "#c47b3a";
+    ctx.fillStyle = (input.stress ?? 0) > 0.55 ? "#c8450a" : input.slow ? "#e85d4c" : "#c47b3a";
     ctx.fillRect(130, 168, reach, 18);
   }
   const carX = 40 + input.progress * 460;
-  ctx.fillStyle = "#e85d4c";
+  ctx.fillStyle = skinColor("#e85d4c", input.skin);
   ctx.fillRect(carX, 148, 36, 16);
   ctx.fillStyle = "#1c1917";
   ctx.beginPath();
