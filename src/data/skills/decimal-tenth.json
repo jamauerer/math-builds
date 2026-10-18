@@ -1,0 +1,28 @@
+{
+  "id": "decimal-tenth",
+  "strand": "fractions-and-decimals",
+  "name": "Tenths of a whole",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "unit-fraction-of-a-whole"
+  ],
+  "generator": "decimal-tenth",
+  "description": "Find one tenth of a whole number of tens.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

@@ -35,41 +35,73 @@
   {
     "id": "fractions-and-decimals",
     "name": "Fractions and decimals",
-    "skills": ["unit-fraction-of-a-whole"]
+    "skills": [
+      "unit-fraction-of-a-whole",
+      "decimal-tenth",
+      "half-of-a-whole"
+    ]
   },
   {
     "id": "measurement-and-units",
     "name": "Measurement and units",
-    "skills": ["gap-between-marks"]
+    "skills": [
+      "gap-between-marks",
+      "centimeters-in-meters",
+      "half-a-length"
+    ]
   },
   {
     "id": "geometry",
     "name": "Geometry",
-    "skills": ["rectangle-area"]
+    "skills": [
+      "rectangle-area",
+      "triangle-angle-sum",
+      "truss-triangles"
+    ]
   },
   {
     "id": "ratios-and-proportion",
     "name": "Ratios and proportion",
-    "skills": ["ratio-shares"]
+    "skills": [
+      "ratio-shares",
+      "alternating-sign",
+      "times-as-many"
+    ]
   },
   {
     "id": "algebra",
     "name": "Algebra",
-    "skills": ["missing-addend"]
+    "skills": [
+      "missing-addend",
+      "one-step-equation",
+      "one-step-difference"
+    ]
   },
   {
     "id": "functions-and-graphs",
     "name": "Functions and graphs",
-    "skills": ["line-from-the-origin"]
+    "skills": [
+      "line-from-the-origin",
+      "quadratic-value",
+      "double-the-run"
+    ]
   },
   {
     "id": "statistics",
     "name": "Statistics",
-    "skills": ["mean-of-three"]
+    "skills": [
+      "mean-of-three",
+      "range-of-three",
+      "larger-of-two"
+    ]
   },
   {
     "id": "trigonometry",
     "name": "Trigonometry",
-    "skills": ["right-triangle-hypotenuse"]
+    "skills": [
+      "right-triangle-hypotenuse",
+      "scaled-hypotenuse",
+      "leg-difference"
+    ]
   }
 ]

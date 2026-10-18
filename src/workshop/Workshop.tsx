@@ -3,17 +3,18 @@ import { skills, strands } from "../data/load-skills";
 import { answersMatch } from "../engine/answers";
 import { generateProblem } from "../engine/generate";
 import type { DesignPart, ModelReport, SimFrame } from "../engine/model";
-import { nextDrivePhase, type DrivePhase } from "../engine/bridge/place";
+import type { DrivePhase } from "../engine/bridge/place";
 import type { LearnerMap } from "../engine/placement";
 import { createRng } from "../engine/rng";
 import { emptyScribble, type Scribble } from "../engine/scribble";
 import type { Problem } from "../engine/types";
 import { hintFor } from "../curriculum/hints";
-import { emptyMastery, queueRecall, recallReady, skillsMet, strandSummary } from "../curriculum/mastery";
+import { challengeOpen, emptyMastery, queueRecall, recallReady, strandSummary } from "../curriculum/mastery";
 import { machines, models } from "../machines";
 import { craftStars, numbersMatch, piecesFor, predictsChecked, returnFailed, specFromAnswer } from "../machines/loop";
 import type { Challenge } from "../machines/types";
 import { exportProgress, importProgress } from "../progress/transfer";
+import { paintMachine, resultAllowed, sceneIdFor, subjectsFor, type ScenePainter } from "./scenes";
 import type { SavedProgress, WorkshopSave } from "../storage/progress";
 import { AnswerPanel } from "../ui/AnswerPanel";
 import { ProblemBoard } from "../ui/ProblemBoard";
@@ -49,7 +50,6 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   const [theme, setTheme] = useState(save.theme);
   const [settings, setSettings] = useState(false);
   const [modeled, setModeled] = useState(false);
-  const [machineId, setMachineId] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [step, setStep] = useState<Step>("measure");
   const [index, setIndex] = useState(0);
@@ -66,6 +66,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   const [phase, setPhase] = useState<DrivePhase>("playing");
   const [dragId, setDragId] = useState<string | null>(null);
   const [frame, setFrame] = useState(0);
+  const [replay, setReplay] = useState(0);
   const [frames, setFrames] = useState<SimFrame[]>([]);
   const [gate, setGate] = useState<Challenge | null>(null);
   const [check, setCheck] = useState<Problem | null>(null);
@@ -80,7 +81,7 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("challenge");
     const found = id ? challengeById(id) : undefined;
-    if (found && skillsMet(found.skills, map, progress.age)) {
+    if (found && challengeOpen(familyChallenges(found), found.id, save.completed, map)) {
       openChallenge(found);
     }
     const due = Object.entries(save.mastery).find(([, record]) => recallReady(record, Date.now()));
@@ -100,7 +101,6 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
 
   function openChallenge(next: Challenge) {
     setChallenge(next);
-    setMachineId(next.machine);
     setStep("measure");
     setIndex(0);
     setAnswers({});
@@ -215,33 +215,39 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
     setFrame(0);
     setPhase("playing");
     setStep("test");
-    setNote("Watch the test.");
+    setNote("");
   }
 
   useEffect(() => {
-    if (step !== "test" || frames.length === 0 || !report) {
+    if (step !== "test" || frames.length === 0) {
       return;
     }
     let cursor = 0;
-    let current: DrivePhase = "playing";
-    let handle = 0;
+    let paints = 0;
+    let timer = 0;
     const tick = () => {
+      paints += 1;
       cursor += 1;
-      const ended = cursor >= frames.length - 1;
-      const status = ended ? (report.ok ? "crossed" : "collapsed") : "driving";
-      current = nextDrivePhase(current, status);
-      setFrame(Math.min(cursor, frames.length - 1));
-      setPhase(current);
-      if (current === "result") {
-        setStep("diagnose");
-        setNote("");
+      const at = Math.min(cursor, frames.length - 1);
+      setFrame(at);
+      if (cursor >= frames.length - 1) {
+        if (!resultAllowed(paints)) {
+          return;
+        }
+        setPhase("holding");
+        timer = window.setTimeout(() => {
+          setPhase("result");
+          setStep("diagnose");
+        }, 280);
         return;
       }
-      handle = window.requestAnimationFrame(tick);
+      const slow = Math.abs(cursor - frames.length / 2) < 2;
+      setPhase("playing");
+      timer = window.setTimeout(tick, slow ? 420 : 80);
     };
-    handle = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(handle);
-  }, [step, frames, report]);
+    timer = window.setTimeout(tick, 70);
+    return () => window.clearTimeout(timer);
+  }, [step, frames, replay]);
 
   function finishSuccess() {
     if (!challenge) {
@@ -352,14 +358,20 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
           {models[challenge.machine].assumptions.map((item) => (
             <p key={item.text}>{item.text}</p>
           ))}
+          {limitLines(challenge).map((line) => (
+            <p key={line}>{line}</p>
+          ))}
           <button type="button" onPointerUp={() => setModeled(false)}>Close</button>
         </div>
       ) : null}
       {!challenge ? (
         <div className="workshop-home">
-          <div className="strand-line">
+          <div className="strand-bars">
             {summary.map((strand) => (
-              <span key={strand.id}>{strand.name}: {strand.mastered}/{strand.skills}</span>
+              <button key={strand.id} type="button" className="strand-bar" title={`${strand.name}: ${strand.mastered} of ${strand.skills}`}>
+                <span style={{ width: `${Math.round((strand.mastered / Math.max(1, strand.skills)) * 100)}%` }} />
+                <span className="strand-tip">{strand.name}: {strand.mastered}/{strand.skills}</span>
+              </button>
             ))}
           </div>
           {recall && gate == null ? (
@@ -373,57 +385,105 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
               }} />
             </div>
           ) : null}
-          <div className="machine-pick">
+          <div className="family-grid">
             {machines.map((machine) => (
-              <section key={machine.id} className={machineId === machine.id ? "machine-card on" : "machine-card"}>
-                <button type="button" onPointerUp={() => setMachineId(machine.id)}>
-                  <h2>{machine.name}</h2>
-                  <p>{machine.summary}</p>
-                </button>
-                {machineId === machine.id ? (
-                  <div className="family-list">
-                    {families(machine.challenges).map((family) => (
-                      <div key={family} className="family-row">
-                        <span>{family}</span>
-                        {machine.challenges.filter((item) => item.family === family).map((item) => {
-                          const open = skillsMet(item.skills, map, progress.age);
-                          return (
-                            <button key={item.id} type="button" className="challenge-link" onPointerUp={() => (open ? openChallenge(item) : setGate(item))}>
-                              {item.title}{save.completed.includes(item.id) ? " done" : ""}{open ? "" : " locked"}
+              families(machine.challenges).map((family) => {
+                const list = machine.challenges.filter((item) => item.family === family);
+                return (
+                  <section key={family} className="family-card">
+                    <FamilyThumb family={family} />
+                    <h2>{family}</h2>
+                    <div className="tile-row">
+                      {list.map((item, tileIndex) => {
+                        const open = challengeOpen(list, item.id, save.completed, map);
+                        const done = save.completed.includes(item.id);
+                        const state = done ? "done" : open ? "current" : "locked";
+                        const current = !done && open && list.slice(0, tileIndex).every((earlier) => save.completed.includes(earlier.id));
+                        return (
+                          <div key={item.id} className="tile-wrap">
+                            <button
+                              type="button"
+                              className={`challenge-tile ${state}${current ? " now" : ""}`}
+                              aria-label={item.title}
+                              onPointerUp={() => (open ? openChallenge(item) : setGate(gate?.id === item.id ? null : item))}
+                            >
+                              <TileMark state={state} />
                             </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
+                            {gate?.id === item.id ? (
+                              <div className="lock-pop" role="dialog">
+                                <p>Opens with {skillName(item)}, level {item.skills[0]?.level}.</p>
+                                <button type="button" className="check" onPointerUp={() => onPractice(item.skills[0].skillId)}>Practice</button>
+                                <button type="button" className="check" onPointerUp={() => {
+                                  const skill = skills.find((entry) => entry.id === item.skills[0].skillId);
+                                  if (!skill) {
+                                    return;
+                                  }
+                                  setCheck(generateProblem(skill, createRng(Date.now() % 100000), Math.max(1, item.skills[0].level)));
+                                }}>Test me on this</button>
+                                {check ? (
+                                  <>
+                                    <p>{check.prompt}</p>
+                                    <AnswerPanel problem={check} locked={false} onSkip={() => setCheck(null)} onSubmit={(answer) => {
+                                      if (answersMatch(answer, check.answer)) {
+                                        onSkillPass(item.skills[0].skillId, item.skills[0].level);
+                                        setCheck(null);
+                                        openChallenge(item);
+                                      }
+                                    }} />
+                                  </>
+                                ) : null}
+                                <button type="button" onPointerUp={() => setGate(null)}>Close</button>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })
             ))}
           </div>
         </div>
       ) : (
-        <div className="workshop-play">
-          {step === "measure" || step === "calculate" ? (
-            <div className="workshop-ask">
-              <p className="ask">{current?.prompt}</p>
-              <div className="workshop-split">
-                <Scene challenge={challenge} placed={placed} extra={extra} colors={colors} tray={piecesFor(challenge, answers)} dragId={dragId} onDrop={drop} />
-                <div>
+        <div className="workshop-play" data-step={step}>
+          <div className="workshop-split">
+            <div className="scene-wrap">
+              <SceneCanvas
+                challenge={challenge}
+                progress={step === "test" || step === "diagnose" ? frame / Math.max(1, frames.length - 1) : 0}
+                angle={frames[frame]?.bodies.find((body) => body.id === "plank" || body.id === "driver")?.angle ?? 0}
+                placed={placed?.spec ?? 0}
+                slow={phase === "holding"}
+              />
+              {step === "build" || step === "sandbox" ? (
+                <DropLayer
+                  tray={piecesFor(challenge, answers)}
+                  dragId={dragId}
+                  onDrop={drop}
+                  allowExtra={stage >= challenge.stages.length - 1 || step === "sandbox"}
+                />
+              ) : null}
+            </div>
+            {step === "measure" || step === "calculate" ? (
+              <div className="calc-column" data-calc-column>
+                <p className="ask">{current?.prompt}</p>
+                <div className="calc-pad" data-pad>
                   <ProblemBoard problem={{ prompt: current?.prompt ?? "", answer: "" }} scribble={scribble} onScribble={setScribble} />
+                </div>
+                <div data-keypad>
                   <DecimalPad value={typed} onChange={setTyped} onSubmit={() => submit(typed)} />
+                </div>
+                <div className="calc-actions">
                   {current && current.kind !== "measure" && typed.length > 0 ? (
                     <button type="button" className="check" onPointerUp={keep}>Keep this part</button>
                   ) : null}
                 </div>
               </div>
-              {hint ? <p className="hint-line">{hint}</p> : null}
-            </div>
-          ) : null}
-          {step === "build" || step === "sandbox" ? (
-            <div className="workshop-build">
-              <p className="ask">{step === "sandbox" ? "Sandbox. Every earned piece is in the tray." : `${challenge.stages[Math.min(stage, challenge.stages.length - 1)]}. Drag a piece into place.`}</p>
-              <Scene challenge={challenge} placed={placed} extra={extra} colors={colors} tray={piecesFor(challenge, answers)} dragId={dragId} onDrop={drop} allowExtra={stage >= challenge.stages.length - 1 || step === "sandbox"} />
+            ) : null}
+            {step === "build" || step === "sandbox" ? (
               <div className="tray">
+                <p className="ask">{step === "sandbox" ? "Sandbox. Every earned piece is in the tray." : `${challenge.stages[Math.min(stage, challenge.stages.length - 1)]}. Drag a piece into place.`}</p>
                 {piecesFor(challenge, answers).map((part) => (
                   <div
                     key={part.id}
@@ -445,27 +505,29 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
                   <button type="button" className="check" onPointerUp={runTest}>Test</button>
                 )}
               </div>
-            </div>
-          ) : null}
-          {step === "test" || step === "diagnose" ? (
-            <div className="workshop-build">
-              <p className="ask">{step === "test" ? (phase === "holding" ? "Holding the last frame." : "Watch the test.") : report?.ok ? "The design met these numbers." : report?.failures[0]?.text}</p>
-              <FrameView frame={frames[frame]} colors={colors} />
-              {step === "diagnose" && report ? (
-                <div className="build-footer">
-                  {report.numbers.map((item) => (
-                    <p key={item.label}>{item.label}: {item.value}</p>
-                  ))}
-                  {report.ok ? <p>{craftStars(Boolean(extra), true).join(". ")}</p> : <p>{report.failures[0]?.followUp}</p>}
-                  {report.ok ? (
-                    <button type="button" className="check" onPointerUp={finishSuccess}>Sandbox</button>
-                  ) : (
-                    <button type="button" className="check" onPointerUp={fix}>Try again</button>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+            ) : null}
+            {step === "test" || step === "diagnose" ? (
+              <div className="test-side">
+                <p className="ask">{step === "test" ? (phase === "holding" ? "Holding the last frame." : "Watch the test.") : report?.ok ? "The design met these numbers." : report?.failures[0]?.text}</p>
+                {step === "diagnose" && report ? (
+                  <div className="build-footer">
+                    {report.numbers.map((item) => (
+                      <p key={item.label}>{item.label}: {item.value}</p>
+                    ))}
+                    {report.ok ? <p>{craftStars(Boolean(extra), true).join(". ")}</p> : <p>{report.failures[0]?.followUp}</p>}
+                    {report.ok ? (
+                      <button type="button" className="check" onPointerUp={finishSuccess}>Next</button>
+                    ) : (
+                      <button type="button" className="check" onPointerUp={fix}>Try again</button>
+                    )}
+                  </div>
+                ) : (
+                  <button type="button" className="check" onPointerUp={() => { setFrame(0); setPhase("playing"); setReplay((count) => count + 1); }}>Replay</button>
+                )}
+              </div>
+            ) : null}
+          </div>
+          {hint ? <p className="hint-line">{hint}</p> : null}
           {note ? <p className="hint-line">{note}</p> : null}
           {transfer ? (
             <div className="ask-block">
@@ -480,39 +542,32 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
           ) : null}
         </div>
       )}
-      {gate ? (
-        <div className="skill-gate">
-          <p className="ask">Opens with {skillName(gate)}, level {gate.skills[0]?.level}.</p>
-          <button type="button" className="check" onPointerUp={() => onPractice(gate.skills[0].skillId)}>Practice</button>
-          <button type="button" className="check" onPointerUp={() => {
-            const skill = skills.find((item) => item.id === gate.skills[0].skillId);
-            if (!skill) {
-              return;
-            }
-            setCheck(generateProblem(skill, createRng(Date.now() % 100000), Math.max(1, gate.skills[0].level)));
-          }}>Test me on this</button>
-          {check ? (
-            <>
-              <p className="ask">{check.prompt}</p>
-              <ProblemBoard problem={check} scribble={scribble} onScribble={setScribble} />
-              <AnswerPanel problem={check} locked={false} onSkip={() => setCheck(null)} onSubmit={(answer) => {
-                if (answersMatch(answer, check.answer)) {
-                  onSkillPass(gate.skills[0].skillId, gate.skills[0].level);
-                  setCheck(null);
-                  openChallenge(gate);
-                }
-              }} />
-            </>
-          ) : null}
-          <button type="button" onPointerUp={() => setGate(null)}>Close</button>
-        </div>
-      ) : null}
     </div>
   );
 }
 
 function families(challenges: Challenge[]): string[] {
   return [...new Set(challenges.map((item) => item.family))];
+}
+
+function familyChallenges(challenge: Challenge): Challenge[] {
+  const machine = machines.find((item) => item.id === challenge.machine);
+  return machine?.challenges.filter((item) => item.family === challenge.family) ?? [challenge];
+}
+
+function limitLines(challenge: Challenge): string[] {
+  if (challenge.machine === "bridge") {
+    return [`Sag limit: ${challenge.scene.sagCap}.`, `Stress limit: ${challenge.scene.stressLimit}.`];
+  }
+  if (challenge.machine === "lever") {
+    return [`Plank torque limit: ${challenge.scene.torqueLimit} N m.`];
+  }
+  const lines = [`Output turns per input turn: ${challenge.scene.goal}.`];
+  if (challenge.scene.hourDriven > 0) {
+    lines.push("Minute train: 60 to 1.");
+    lines.push("Hour hand: 12 to 1.");
+  }
+  return lines;
 }
 
 function skillName(challenge: Challenge): string {
@@ -577,24 +632,81 @@ function Piece({ kind, spec, colors }: { kind: string; spec: number; colors: (ty
   );
 }
 
-function Scene({
+function sceneSpan(challenge: Challenge): number {
+  const scene = challenge.scene;
+  return scene.gap || scene.plank || scene.driver || scene.driven || 8;
+}
+
+export function SceneCanvas({
   challenge,
+  progress,
+  angle,
   placed,
-  extra,
-  colors,
+  slow,
+}: {
+  challenge: Challenge;
+  progress: number;
+  angle: number;
+  placed: number;
+  slow: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const sceneId = sceneIdFor(challenge);
+  useEffect(() => {
+    const canvas = ref.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) {
+      return;
+    }
+    paintMachine(context as unknown as ScenePainter, { sceneId, span: sceneSpan(challenge), progress, angle, placed, slow });
+  }, [sceneId, challenge, progress, angle, placed, slow]);
+  return (
+    <canvas
+      ref={ref}
+      className="workshop-canvas"
+      width={640}
+      height={280}
+      data-scene={sceneId}
+      data-subjects={subjectsFor(sceneId).join(" ")}
+      data-progress={String(progress)}
+    />
+  );
+}
+
+function FamilyThumb({ family }: { family: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) {
+      return;
+    }
+    const sceneId = sceneIdFor({ family });
+    paintMachine(context as unknown as ScenePainter, { sceneId, span: 8, progress: 0.15, angle: 0.2, placed: 6, slow: false });
+  }, [family]);
+  return <canvas ref={ref} className="family-thumb" width={640} height={280} data-scene={sceneIdFor({ family })} />;
+}
+
+function TileMark({ state }: { state: "done" | "current" | "locked" }) {
+  if (state === "done") {
+    return <span className="tile-mark done" aria-hidden="true" />;
+  }
+  if (state === "locked") {
+    return <span className="tile-mark locked" aria-hidden="true" />;
+  }
+  return <span className="tile-mark current" aria-hidden="true" />;
+}
+
+function DropLayer({
   tray,
   dragId,
   onDrop,
-  allowExtra = true,
+  allowExtra,
 }: {
-  challenge: Challenge;
-  placed: DesignPart | null;
-  extra: DesignPart | null;
-  colors: (typeof THEME)["candy"];
   tray: DesignPart[];
   dragId: string | null;
   onDrop: (part: DesignPart, slot: "main" | "extra") => void;
-  allowExtra?: boolean;
+  allowExtra: boolean;
 }) {
   function take(id: string, slot: "main" | "extra") {
     const part = tray.find((item) => item.id === id);
@@ -607,73 +719,11 @@ function Scene({
     take(event.dataTransfer.getData("text/plain") || dragId || "", slot);
   }
   return (
-    <svg className="workshop-scene" viewBox="0 0 640 280" preserveAspectRatio="xMidYMid meet">
-      <rect x="0" y="0" width="640" height="280" fill="#24143f" />
-      <rect x="40" y="168" width="120" height="72" fill={colors.ground} />
-      <rect x="480" y="168" width="120" height="72" fill={colors.ground} />
-      <rect x="160" y="214" width="320" height="26" fill={colors.water} />
-      <text x="164" y="36" fill="#f6f1ff" fontSize="16">0</text>
-      <text x="470" y="36" fill="#f6f1ff" fontSize="16">{challenge.scene.gap}</text>
-      <line x1="170" y1="44" x2="470" y2="44" stroke="#f6f1ff" />
-      {Array.from({ length: Math.min(12, Math.round(challenge.scene.gap)) }, (_, mark) => (
-        <line key={mark} x1={170 + (mark * 290) / Math.max(1, challenge.scene.gap)} y1="48" x2={170 + (mark * 290) / Math.max(1, challenge.scene.gap)} y2="58" stroke="#f6f1ff" />
-      ))}
-      <rect
-        x="160"
-        y="150"
-        width="320"
-        height="40"
-        fill="transparent"
-        stroke={placed ? colors.beam : "#9ae6b4"}
-        strokeDasharray="6 4"
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => fromEvent(event, "main")}
-        onPointerUp={() => dragId && take(dragId, "main")}
-      />
-      {placed ? (
-        <rect
-          x="160"
-          y="156"
-          width={Math.max(12, (placed.spec / Math.max(challenge.scene.gap, 0.5)) * 320)}
-          height="22"
-          rx="4"
-          fill={colors.beam}
-        />
-      ) : null}
+    <div className="drop-layer">
+      <div className="drop-main" onDragOver={(event) => event.preventDefault()} onDrop={(event) => fromEvent(event, "main")} onPointerUp={() => dragId && take(dragId, "main")} />
       {allowExtra ? (
-        <rect x="300" y="180" width="70" height="28" fill="transparent" stroke={extra ? colors.accent : "#f6ad55"} strokeDasharray="4 3" onDragOver={(event) => event.preventDefault()} onDrop={(event) => fromEvent(event, "extra")} onPointerUp={() => dragId && take(dragId, "extra")} />
+        <div className="drop-extra" onDragOver={(event) => event.preventDefault()} onDrop={(event) => fromEvent(event, "extra")} onPointerUp={() => dragId && take(dragId, "extra")} />
       ) : null}
-    </svg>
+    </div>
   );
-}
-
-function FrameView({ frame, colors }: { frame: SimFrame | undefined; colors: (typeof THEME)["candy"] }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) {
-      return;
-    }
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-    const width = canvas.width;
-    const height = canvas.height;
-    context.clearRect(0, 0, width, height);
-    context.fillStyle = "#24143f";
-    context.fillRect(0, 0, width, height);
-    if (!frame) {
-      return;
-    }
-    for (const body of frame.bodies) {
-      context.save();
-      context.translate(80 + body.x * 28, height - 40 - body.y * 28);
-      context.rotate(-body.angle);
-      context.fillStyle = body.id === "water" ? colors.water : body.fill;
-      context.fillRect((-body.w * 28) / 2, (-body.h * 28) / 2, body.w * 28, body.h * 28);
-      context.restore();
-    }
-  }, [frame, colors]);
-  return <canvas ref={ref} className="workshop-canvas" width={640} height={280} />;
 }

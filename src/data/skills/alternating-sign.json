@@ -1,0 +1,28 @@
+{
+  "id": "alternating-sign",
+  "strand": "ratios-and-proportion",
+  "name": "Alternating direction",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "ratio-shares"
+  ],
+  "generator": "alternating-sign",
+  "description": "Each step flips the sign. An even count matches the start.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

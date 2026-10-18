@@ -7,7 +7,7 @@ function row(seed: Omit<Seed, "machine" | "stages">): Seed {
   return { ...seed, machine: "lever", stages };
 }
 
-const base = { plank: 8, load: 0, loadArm: 1, effortArm: 1, secondMa: 1, rightDistance: 1, rightMass: 1 };
+const base = { plank: 8, load: 0, loadArm: 1, effortArm: 1, secondMa: 1, rightDistance: 1, rightMass: 1, torqueLimit: 120 };
 
 const seeds: Seed[] = [
   row({
@@ -122,7 +122,7 @@ const seeds: Seed[] = [
     id: "lever-mass-1",
     family: "Unknown mass",
     title: "Balance 3 kg at 2 meters",
-    skillId: "missing-addend",
+    skillId: "one-step-equation",
     level: 0,
     scene: { ...base, ask: 2, leftMass: 3, leftDistance: 2, rightDistance: 1 },
     measure: "How many meters from the pivot is the known 3 kg load?",
@@ -140,7 +140,7 @@ const seeds: Seed[] = [
     id: "lever-mass-2",
     family: "Unknown mass",
     title: "Balance 4 kg at 2 meters",
-    skillId: "missing-addend",
+    skillId: "one-step-equation",
     level: 1,
     scene: { ...base, ask: 2, leftMass: 4, leftDistance: 2, rightDistance: 1 },
     measure: "How many meters from the pivot is the known 4 kg load?",
@@ -158,7 +158,7 @@ const seeds: Seed[] = [
     id: "lever-mass-3",
     family: "Unknown mass",
     title: "Balance 5 kg at 2 meters",
-    skillId: "missing-addend",
+    skillId: "one-step-equation",
     level: 1,
     scene: { ...base, ask: 2, leftMass: 5, leftDistance: 2, rightDistance: 2 },
     measure: "How many meters from the pivot is the known load?",

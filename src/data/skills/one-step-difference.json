@@ -1,0 +1,28 @@
+{
+  "id": "one-step-difference",
+  "strand": "algebra",
+  "name": "One-step difference",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "missing-addend"
+  ],
+  "generator": "one-step-difference",
+  "description": "Subtract the amount removed from the starting quantity.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

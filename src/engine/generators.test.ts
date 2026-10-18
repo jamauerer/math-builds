@@ -24,6 +24,9 @@ function independentAnswer(problem: Problem): string {
     if (visual.operator === "x") {
       return String(visual.left * visual.right);
     }
+    if (visual.operator === "/") {
+      return String(visual.left / visual.right);
+    }
     return String(visual.left - visual.right);
   }
   if (visual.kind === "stacked") {
@@ -198,7 +201,7 @@ describe("skill catalog", () => {
     const original = new Set(["place-value", "addition-subtraction", "multiplication"]);
     for (const strand of strands) {
       const ordered = skillsInStrand(strand.id);
-      expect(ordered.length).toBeGreaterThanOrEqual(original.has(strand.id) ? 5 : 1);
+      expect(ordered.length).toBeGreaterThanOrEqual(original.has(strand.id) ? 5 : 3);
       expect(new Set(ordered.map((skill) => skill.strand))).toEqual(new Set([strand.id]));
     }
   });

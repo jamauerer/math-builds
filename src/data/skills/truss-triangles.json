@@ -1,0 +1,28 @@
+{
+  "id": "truss-triangles",
+  "strand": "geometry",
+  "name": "Triangles in a truss panel",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "rectangle-area"
+  ],
+  "generator": "truss-triangles",
+  "description": "One diagonal makes two triangles. Several diagonals multiply that count.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

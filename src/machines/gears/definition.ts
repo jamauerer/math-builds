@@ -5,7 +5,13 @@ import { gearRadius } from "./model";
 const stages = ["Axles", "Gears", "Drive", "Output", "Creative"];
 
 function row(seed: Omit<Seed, "machine" | "stages">): Seed {
-  return { ...seed, machine: "gears", stages };
+  const clock = seed.family === "Clock hands";
+  return {
+    ...seed,
+    machine: "gears",
+    stages,
+    scene: clock ? { ...seed.scene, hourDriver: 10, hourDriven: 120 } : seed.scene,
+  };
 }
 
 function pairDistance(a: number, b: number): number {
@@ -125,7 +131,7 @@ const seeds: Seed[] = [
     id: "gear-way-1",
     family: "Direction and idlers",
     title: "Same way with one idler",
-    skillId: "compare-numbers",
+    skillId: "alternating-sign",
     level: 0,
     scene: { ask: 2, same: 1, driver: 12, driven: 12 },
     measure: "Two gears alone reverse the turn. How many meshes is that?",
@@ -143,7 +149,7 @@ const seeds: Seed[] = [
     id: "gear-way-2",
     family: "Direction and idlers",
     title: "Opposite, no idler",
-    skillId: "compare-numbers",
+    skillId: "alternating-sign",
     level: 1,
     scene: { ask: 2, same: 0, driver: 16, driven: 16 },
     measure: "How many meshes do two gears make?",
@@ -161,7 +167,7 @@ const seeds: Seed[] = [
     id: "gear-way-3",
     family: "Direction and idlers",
     title: "Same way again",
-    skillId: "compare-numbers",
+    skillId: "alternating-sign",
     level: 1,
     scene: { ask: 2, same: 1, driver: 20, driven: 10 },
     measure: "How many meshes reverse the direction once?",

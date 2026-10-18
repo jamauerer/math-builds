@@ -1,0 +1,28 @@
+{
+  "id": "larger-of-two",
+  "strand": "statistics",
+  "name": "Larger of two numbers",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "mean-of-three"
+  ],
+  "generator": "larger-number",
+  "description": "Choose the greater of two different numbers.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

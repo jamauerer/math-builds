@@ -1,0 +1,28 @@
+{
+  "id": "times-as-many",
+  "strand": "ratios-and-proportion",
+  "name": "Times as many",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "ratio-shares"
+  ],
+  "generator": "times-as-many",
+  "description": "Multiply one share by how many shares there are.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

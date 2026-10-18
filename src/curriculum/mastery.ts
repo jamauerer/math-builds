@@ -20,6 +20,24 @@ export function skillsMet(needs: readonly SkillNeed[], map: LearnerMap, _age: nu
   return needs.every((need) => (map[need.skillId]?.level ?? 0) >= need.level);
 }
 
+/** The next challenge in a family opens as soon as the previous one is practiced. Mastery is not required. */
+export function challengeOpen(
+  family: readonly { id: string; skills: readonly SkillNeed[] }[],
+  challengeId: string,
+  completed: readonly string[],
+  map: LearnerMap,
+): boolean {
+  const index = family.findIndex((item) => item.id === challengeId);
+  const challenge = family[index];
+  if (!challenge) {
+    return false;
+  }
+  if (index > 0 && completed.includes(family[index - 1].id)) {
+    return true;
+  }
+  return skillsMet(challenge.skills, map);
+}
+
 export function masteryMet(record: MasteryRecord): boolean {
   return record.challengeDone && record.transferPassed && record.recallPassed;
 }

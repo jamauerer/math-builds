@@ -1,0 +1,28 @@
+{
+  "id": "triangle-angle-sum",
+  "strand": "geometry",
+  "name": "Third angle of a triangle",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "rectangle-area"
+  ],
+  "generator": "triangle-angle",
+  "description": "The angles of a triangle add to 180 degrees.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

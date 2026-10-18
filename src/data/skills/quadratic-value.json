@@ -1,0 +1,28 @@
+{
+  "id": "quadratic-value",
+  "strand": "functions-and-graphs",
+  "name": "Value on a square curve",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "line-from-the-origin"
+  ],
+  "generator": "quadratic-value",
+  "description": "On y equals x times x, the value is the input multiplied by itself.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

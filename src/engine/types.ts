@@ -37,7 +37,7 @@ export type StackedVisual = {
 export type ExpressionVisual = {
   kind: "expression";
   left: number;
-  operator: "+" | "-" | "x";
+  operator: "+" | "-" | "x" | "/";
   right: number;
 };
 

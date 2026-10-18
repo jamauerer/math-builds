@@ -1,0 +1,28 @@
+{
+  "id": "range-of-three",
+  "strand": "statistics",
+  "name": "Range of three numbers",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "mean-of-three"
+  ],
+  "generator": "range-of-three",
+  "description": "The range is the highest number minus the lowest.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

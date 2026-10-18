@@ -1,0 +1,28 @@
+{
+  "id": "scaled-hypotenuse",
+  "strand": "trigonometry",
+  "name": "Scaled 3-4-5 hypotenuse",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "right-triangle-hypotenuse"
+  ],
+  "generator": "scaled-hypotenuse",
+  "description": "Scaling a 3-4-5 triangle multiplies the hypotenuse by the same factor.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "double-the-run",
+  "strand": "functions-and-graphs",
+  "name": "Double the run",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "line-from-the-origin"
+  ],
+  "generator": "double-run",
+  "description": "Twice a run is the run multiplied by 2.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

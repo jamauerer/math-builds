@@ -64,12 +64,23 @@ export const leverModel: EngineeringModel = {
       const rightMass = ask === 2 ? part.spec : scene.rightMass;
       const rightDistance = ask === 1 ? part.spec : scene.rightDistance;
       const right = moment(rightMass, rightDistance);
+      const leftTorque = torque(scene.leftMass, scene.leftDistance);
+      const rightTorque = torque(rightMass, rightDistance);
       const numbers = [
         { label: "Left moment", value: `${num(left)} kg m` },
         { label: "Right moment", value: `${num(right)} kg m` },
-        { label: "Left torque", value: `${num(torque(scene.leftMass, scene.leftDistance))} N m` },
-        { label: "Right torque", value: `${num(torque(rightMass, rightDistance))} N m` },
+        { label: "Left torque", value: `${num(leftTorque)} N m` },
+        { label: "Right torque", value: `${num(rightTorque)} N m` },
+        { label: "Plank torque limit", value: `${num(scene.torqueLimit)} N m` },
       ];
+      if (scene.torqueLimit > 0 && Math.max(leftTorque, rightTorque) > scene.torqueLimit + 0.001) {
+        return finish(
+          false,
+          part.id,
+          `The plank torque is ${num(Math.max(leftTorque, rightTorque))} N m. The limit is ${num(scene.torqueLimit)} N m.`,
+          numbers,
+        );
+      }
       if (Math.abs(left - right) > 0.001) {
         const side = left > right ? "left" : "right";
         return finish(false, part.id, `The ${side} moment is larger (${num(Math.max(left, right))} against ${num(Math.min(left, right))}).`, numbers);
@@ -84,6 +95,7 @@ export const leverModel: EngineeringModel = {
       { label: "Mechanical advantage", value: num(scene.load / effort) },
       { label: "Effort", value: `${num(effort)}` },
       { label: "Load", value: num(scene.load) },
+      { label: "Plank torque limit", value: `${num(scene.torqueLimit)} N m` },
     ];
     if (Math.abs(part.spec - effort) > 0.001) {
       return finish(

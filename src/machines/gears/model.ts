@@ -121,6 +121,14 @@ export const gearModel: EngineeringModel = {
     if (scene.goal > 0 && Math.abs(ratio - scene.goal) > 0.001) {
       return finish(false, part.id, `The output turns ${num(ratio)} times for each input turn. This challenge needs ${num(scene.goal)}.`, numbers);
     }
+    if (scene.hourDriver > 0 && scene.hourDriven > 0) {
+      const hour = speedRatio(scene.hourDriver, scene.hourDriven);
+      numbers.push({ label: "Minute train", value: num(1 / ratio) });
+      numbers.push({ label: "Hour hand turns per minute turn", value: num(hour) });
+      if (Math.abs(hour - 1 / 12) > 0.001) {
+        return finish(false, part.id, `The hour hand turns ${num(hour)} times per minute-hand turn. It needs 12 to 1.`, numbers);
+      }
+    }
     return finish(true, part.id, "", numbers);
   },
   settle(design, scene) {
@@ -177,12 +185,22 @@ export const gearModel: EngineeringModel = {
     const frames = [];
     for (let index = 0; index < 16; index += 1) {
       stepWorld(world, 4);
-      frames.push({
-        bodies: [
-          { id: "driver", x: 0, y: 0, angle: driver.getAngle(), w: gearRadius(driverTeeth), h: gearRadius(driverTeeth), fill: "#e85d4c" },
-          { id: "driven", x: 2, y: 0, angle: follower.getAngle(), w: gearRadius(drivenTeeth), h: gearRadius(drivenTeeth), fill: "#3d6ea8" },
-        ],
-      });
+      const bodies = [
+        { id: "driver", x: 0, y: 0, angle: driver.getAngle(), w: gearRadius(driverTeeth), h: gearRadius(driverTeeth), fill: "#e85d4c" },
+        { id: "driven", x: 2, y: 0, angle: follower.getAngle(), w: gearRadius(drivenTeeth), h: gearRadius(drivenTeeth), fill: "#3d6ea8" },
+      ];
+      if (scene.hourDriven > 0) {
+        bodies.push({
+          id: "hour",
+          x: 4,
+          y: 0,
+          angle: follower.getAngle() * (scene.hourDriver / scene.hourDriven),
+          w: 1,
+          h: 1,
+          fill: "#f0d090",
+        });
+      }
+      frames.push({ bodies });
     }
     return frames;
   },

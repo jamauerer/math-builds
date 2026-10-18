@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createLearnerMap, recordLevelPass } from "../engine/placement";
 import { skills } from "../data/load-skills";
 import { hintFor } from "./hints";
-import { emptyMastery, masteryMet, queueRecall, recallReady, skillsMet } from "./mastery";
+import { challengeOpen, emptyMastery, masteryMet, queueRecall, recallReady, skillsMet } from "./mastery";
 
 describe("curriculum gates", () => {
   it("opens a challenge from skills only, at any age", () => {
@@ -13,6 +13,17 @@ describe("curriculum gates", () => {
     const passed = recordLevelPass(map, "multiply-facts-2-to-5", 2);
     expect(skillsMet(need, passed, 6)).toBe(true);
     expect(skillsMet(need, passed, 17)).toBe(true);
+  });
+
+  it("unlocks the next challenge when the previous one is practiced", () => {
+    const map = createLearnerMap(skills);
+    const family = [
+      { id: "one", skills: [{ skillId: "tens-and-ones", level: 0 }] },
+      { id: "two", skills: [{ skillId: "tens-and-ones", level: 1 }] },
+    ];
+    expect(challengeOpen(family, "one", [], map)).toBe(true);
+    expect(challengeOpen(family, "two", [], map)).toBe(false);
+    expect(challengeOpen(family, "two", ["one"], map)).toBe(true);
   });
 
   it("does not grant mastery without the transfer problem", () => {

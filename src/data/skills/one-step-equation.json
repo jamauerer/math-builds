@@ -1,0 +1,28 @@
+{
+  "id": "one-step-equation",
+  "strand": "algebra",
+  "name": "One-step equation",
+  "gradeBand": "6-8",
+  "prerequisites": [
+    "missing-addend"
+  ],
+  "generator": "one-step-equation",
+  "description": "Divide the product by the known factor to find the unknown number.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

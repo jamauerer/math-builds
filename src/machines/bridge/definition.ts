@@ -4,7 +4,13 @@ import type { MachineDefinition } from "../types";
 const stages = ["Beams", "Road", "Superstructure"];
 
 function row(seed: Omit<Seed, "machine" | "stages">): Seed {
-  return { ...seed, machine: "bridge", stages };
+  const gap = seed.scene.gap ?? 1;
+  return {
+    ...seed,
+    machine: "bridge",
+    stages,
+    scene: { ...seed.scene, stressLimit: seed.scene.stressLimit ?? 100, sagCap: seed.scene.sagCap ?? gap / 20 },
+  };
 }
 
 const seeds: Seed[] = [
@@ -282,7 +288,7 @@ const seeds: Seed[] = [
     id: "bridge-truss-1",
     family: "Truss members",
     title: "One triangle, load 12",
-    skillId: "rectangle-area",
+    skillId: "truss-triangles",
     level: 0,
     scene: { ask: 5, gap: 6, bearing: 0, load: 12, stick: 20, stiffness: 0, depth: 1, rise: 2, unit: 1 },
     measure: "How many meters is the gap?",
@@ -300,7 +306,7 @@ const seeds: Seed[] = [
     id: "bridge-truss-2",
     family: "Truss members",
     title: "One triangle, load 8",
-    skillId: "rectangle-area",
+    skillId: "truss-triangles",
     level: 1,
     scene: { ask: 5, gap: 8, bearing: 0, load: 8, stick: 20, stiffness: 0, depth: 1, rise: 2, unit: 1 },
     measure: "How many meters is the gap?",
@@ -318,7 +324,7 @@ const seeds: Seed[] = [
     id: "bridge-truss-3",
     family: "Truss members",
     title: "One triangle, load 16",
-    skillId: "rectangle-area",
+    skillId: "truss-triangles",
     level: 1,
     scene: { ask: 5, gap: 4, bearing: 0, load: 16, stick: 20, stiffness: 0, depth: 1, rise: 2, unit: 1 },
     measure: "How many meters is the gap?",
@@ -390,7 +396,7 @@ const seeds: Seed[] = [
     id: "bridge-cable-1",
     family: "Suspension hangers",
     title: "Hanger at a quarter of 8 meters",
-    skillId: "line-from-the-origin",
+    skillId: "quadratic-value",
     level: 0,
     scene: { ask: 7, gap: 8, bearing: 0, load: 10, stick: 20, stiffness: 0, depth: 1, sag: 4, hang: 2, unit: 1 },
     measure: "How many meters is the gap?",
@@ -408,7 +414,7 @@ const seeds: Seed[] = [
     id: "bridge-cable-2",
     family: "Suspension hangers",
     title: "A shallower cable",
-    skillId: "line-from-the-origin",
+    skillId: "quadratic-value",
     level: 1,
     scene: { ask: 7, gap: 8, bearing: 0, load: 10, stick: 20, stiffness: 0, depth: 1, sag: 2, hang: 2, unit: 1 },
     measure: "How many meters is the gap?",
@@ -426,7 +432,7 @@ const seeds: Seed[] = [
     id: "bridge-cable-3",
     family: "Suspension hangers",
     title: "Hanger at midspan",
-    skillId: "line-from-the-origin",
+    skillId: "quadratic-value",
     level: 1,
     scene: { ask: 7, gap: 8, bearing: 0, load: 10, stick: 20, stiffness: 0, depth: 1, sag: 4, hang: 4, unit: 1 },
     measure: "How many meters is the gap?",

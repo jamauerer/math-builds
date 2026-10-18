@@ -1,0 +1,28 @@
+{
+  "id": "centimeters-in-meters",
+  "strand": "measurement-and-units",
+  "name": "Centimeters in meters",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "gap-between-marks"
+  ],
+  "generator": "centimeters",
+  "description": "Convert a small number of meters into centimeters.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

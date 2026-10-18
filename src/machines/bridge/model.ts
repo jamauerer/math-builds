@@ -1,5 +1,5 @@
 import { BoxShape, Vec2, WeldJoint } from "planck";
-import type { DesignPart, EngineeringModel, ModelReport, SimFrame } from "../../engine/model";
+import type { DesignPart, EngineeringModel, ModelReport, SceneNumbers, SimFrame } from "../../engine/model";
 import { createWorld, stepWorld } from "../../engine/physics";
 
 export const BRIDGE_ASSUMPTIONS = [
@@ -69,6 +69,36 @@ function mainPart(design: readonly DesignPart[]): DesignPart | undefined {
   return design.find((part) => part.slot === "main");
 }
 
+function beamLimits(
+  scene: SceneNumbers,
+  span: number,
+  depth: number,
+  load: number,
+  partId: string,
+  names: ModelReport["numbers"],
+): ModelReport | null {
+  if (!(scene.stiffness > 0) || !(depth > 0) || !(span > 0)) {
+    return null;
+  }
+  const bend = sag(load, span, depth, scene.stiffness);
+  const sagCap = scene.sagCap > 0 ? scene.sagCap : sagLimit(span);
+  const stress = beamStress(load, span, depth);
+  const stressCap = scene.stressLimit;
+  names.push({ label: "Sag", value: num(bend) });
+  names.push({ label: "Sag limit", value: num(sagCap) });
+  names.push({ label: "Bending stress", value: num(stress) });
+  names.push({ label: "Stress limit", value: num(stressCap) });
+  const sagRatio = bend / sagCap;
+  const stressRatio = stressCap > 0 ? stress / stressCap : 0;
+  if (sagRatio > 1.001 || stressRatio > 1.001) {
+    if (stressRatio >= sagRatio) {
+      return report(false, `The bending stress is ${num(stress)}. The stress limit is ${num(stressCap)}.`, partId, names);
+    }
+    return report(false, `The sag is ${num(bend)}. The sag limit is ${num(sagCap)}.`, partId, names);
+  }
+  return null;
+}
+
 export const bridgeModel: EngineeringModel = {
   id: "bridge",
   assumptions: BRIDGE_ASSUMPTIONS,
@@ -95,6 +125,12 @@ export const bridgeModel: EngineeringModel = {
           names,
         );
       }
+      if (scene.stiffness > 0) {
+        const limited = beamLimits(scene, gap, scene.depth, load, part.id, names);
+        if (limited) {
+          return limited;
+        }
+      }
     }
     if (ask === 2) {
       const beams = part.spec + (extra?.kind === "beam" ? extra.spec : 0);
@@ -115,27 +151,9 @@ export const bridgeModel: EngineeringModel = {
       }
       const depth = ask === 3 ? part.spec : scene.depth;
       const shared = extra?.kind === "beam" ? load / (1 + extra.spec) : load;
-      const bend = sag(shared, span, depth, scene.stiffness);
-      const limit = sagLimit(span);
-      const stress = beamStress(shared, span, depth);
-      names.push({ label: "Sag", value: num(bend) });
-      names.push({ label: "Sag limit", value: num(limit) });
-      names.push({ label: "Bending stress", value: num(stress) });
-      if (scene.stressLimit > 0 && stress > scene.stressLimit + 0.001) {
-        return report(
-          false,
-          `The bending stress is ${num(stress)}. The limit is ${num(scene.stressLimit)}.`,
-          part.id,
-          names,
-        );
-      }
-      if (bend > limit + 0.0001) {
-        return report(
-          false,
-          `The sag is ${num(bend)}. The limit for this span is ${num(limit)}.`,
-          part.id,
-          names,
-        );
+      const limited = beamLimits(scene, span, depth, shared, part.id, names);
+      if (limited) {
+        return limited;
       }
     }
     if (ask === 5) {
@@ -172,6 +190,10 @@ export const bridgeModel: EngineeringModel = {
     }
     if (extra) {
       names.push({ label: "Creative piece", value: `${extra.kind} ${num(extra.spec)}` });
+    }
+    if (!names.some((item) => item.label === "Sag limit")) {
+      names.push({ label: "Sag limit", value: num(scene.sagCap) });
+      names.push({ label: "Stress limit", value: num(scene.stressLimit) });
     }
     return report(true, "", part.id, names);
   },
@@ -221,15 +243,19 @@ export const bridgeModel: EngineeringModel = {
         }),
       );
     }
+    const car = world.createDynamicBody({ position: new Vec2(0.2, 3.1), linearVelocity: new Vec2(reaches ? 1.4 : 0.2, 0) });
+    car.createFixture(new BoxShape(0.35, 0.18), { density: 0.4, friction: 0.4 });
     const frames: SimFrame[] = [];
     for (let index = 0; index < 24; index += 1) {
       stepWorld(world, 4);
       const at = beam.getPosition();
+      const carAt = car.getPosition();
       frames.push({
         bodies: [
           { id: "left", x: -0.8, y: 1, angle: 0, w: 1.6, h: 2, fill: "#6b3a1f" },
           { id: "right", x: scene.gap + 0.8, y: 1, angle: 0, w: 1.6, h: 2, fill: "#6b3a1f" },
           { id: "beam", x: at.x, y: at.y, angle: beam.getAngle(), w: length, h: 0.4, fill: "#c47b3a" },
+          { id: "car", x: carAt.x, y: carAt.y, angle: car.getAngle(), w: 0.7, h: 0.36, fill: "#e85d4c" },
           { id: "water", x: scene.gap / 2, y: -0.2, angle: 0, w: scene.gap, h: 0.4, fill: "#3ec6e0" },
         ],
       });

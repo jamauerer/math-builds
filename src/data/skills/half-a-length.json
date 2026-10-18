@@ -1,0 +1,28 @@
+{
+  "id": "half-a-length",
+  "strand": "measurement-and-units",
+  "name": "Half a length",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "gap-between-marks"
+  ],
+  "generator": "half-length",
+  "description": "Find half of an even length.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

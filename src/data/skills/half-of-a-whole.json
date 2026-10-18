@@ -1,0 +1,28 @@
+{
+  "id": "half-of-a-whole",
+  "strand": "fractions-and-decimals",
+  "name": "Half of a whole",
+  "gradeBand": "3-5",
+  "prerequisites": [
+    "unit-fraction-of-a-whole"
+  ],
+  "generator": "half-of",
+  "description": "Find one half of an even whole number.",
+  "levels": [
+    {
+      "max": 5
+    },
+    {
+      "max": 8
+    },
+    {
+      "max": 12
+    },
+    {
+      "max": 20
+    },
+    {
+      "max": 30
+    }
+  ]
+}

@@ -1257,12 +1257,193 @@ button {
   overflow: hidden;
 }
 
-.strand-line {
+.strand-bars {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  font-size: 13px;
-  line-height: 1.2;
+  gap: 4px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.strand-bar {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  background: #3a3158;
+  border-radius: 6px;
+  overflow: visible;
+}
+
+.strand-bar > span:first-child {
+  display: block;
+  height: 100%;
+  background: #b6e34a;
+  border-radius: 6px;
+}
+
+.strand-tip {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 22px;
+  z-index: 4;
+  width: max-content;
+  max-width: 180px;
+  padding: 4px 6px;
+  background: #1c1433;
+  color: #f6f1ff;
+  font-size: 12px;
+}
+
+.strand-bar:hover .strand-tip,
+.strand-bar:focus .strand-tip {
+  display: block;
+}
+
+.family-grid {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.family-card {
+  background: #2c1d55;
+  border: 3px solid #6e56b8;
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.family-card h2 {
+  margin: 4px 0;
+  font-size: 15px;
+}
+
+.family-thumb {
+  width: 100%;
+  height: 120px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 8px;
+  display: block;
+  background: #1a1033;
+}
+
+.tile-row,
+.tile-wrap {
+  display: flex;
+  gap: 6px;
+}
+
+.tile-wrap {
+  position: relative;
+}
+
+.challenge-tile {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 2px solid #8b74d6;
+  background: #6e56b8;
+  padding: 0;
+}
+
+.challenge-tile.done {
+  background: #2f6b3a;
+}
+
+.challenge-tile.locked {
+  background: #3a3158;
+}
+
+.tile-mark {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  border: 2px solid #f6f1ff;
+  border-radius: 4px;
+}
+
+.tile-mark.done {
+  background: #b6e34a;
+}
+
+.tile-mark.locked {
+  border-radius: 50%;
+}
+
+.lock-pop {
+  position: absolute;
+  z-index: 5;
+  top: 48px;
+  left: 0;
+  width: 240px;
+  padding: 8px;
+  background: #1c1433;
+  border: 2px solid #8b74d6;
+  border-radius: 10px;
+}
+
+.scene-wrap {
+  position: relative;
+  min-height: 0;
+}
+
+.drop-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.drop-main,
+.drop-extra {
+  position: absolute;
+}
+
+.drop-main {
+  left: 18%;
+  right: 18%;
+  top: 40%;
+  height: 30%;
+}
+
+.drop-extra {
+  left: 42%;
+  width: 16%;
+  top: 72%;
+  height: 16%;
+}
+
+.calc-column,
+.test-side,
+.workshop-play .tray {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.calc-column {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(64px, 1fr) auto auto;
+  gap: 8px;
+}
+
+.calc-pad {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.calc-column .problem-row,
+.calc-column .problem-face {
+  min-height: 0;
+  height: 100%;
 }
 
 .machine-pick {
@@ -1327,9 +1508,11 @@ button {
 .workshop-scene,
 .workshop-canvas {
   width: 100%;
-  height: min(320px, 42vh);
+  height: auto;
+  max-height: min(240px, 32vh);
+  object-fit: contain;
   border-radius: 16px;
-  background: #24143f;
+  background: #1a1033;
 }
 
 .workshop .problem-face,
@@ -1378,8 +1561,9 @@ button {
 }
 
 .workshop .problem-stage {
-  min-height: 96px;
-  max-height: 140px;
+  min-height: 64px;
+  max-height: none;
+  height: 100%;
 }
 
 .hint-line {
