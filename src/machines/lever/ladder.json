@@ -937,7 +937,7 @@
       "challenges": [
         {
           "id": "lever-l10-a",
-          "title": "At least 10 kg",
+          "title": "At least 6 kg",
           "skillId": "one-step-equation",
           "level": 1,
           "scene": {
@@ -950,22 +950,22 @@
             "rightDistance": 2,
             "rightMass": 1,
             "torqueLimit": 120,
-            "leftMass": 10,
+            "leftMass": 6,
             "leftDistance": 2,
-            "safeMin": 10
+            "safeMin": 6
           },
           "measure": "How many meters is the right arm?",
           "measureAnswer": 2,
-          "part": "The leaf is 10 kg at 2 meters. The counterweight sits at 2 meters and must be at least 10 kg. What mass balances it?",
-          "partAnswer": 10,
-          "predict": "The safe counterweight is at least 10 kg. Type 10.",
-          "predictAnswer": 10,
-          "decoy": 6,
+          "part": "The leaf is 6 kg at 2 meters. The counterweight sits at 2 meters and must be at least 6 kg. What mass balances it?",
+          "partAnswer": 6,
+          "predict": "The safe counterweight is at least 6 kg. Type 6.",
+          "predictAnswer": 6,
+          "decoy": 3,
           "output": "leaf"
         },
         {
           "id": "lever-l10-b",
-          "title": "At least 8 kg",
+          "title": "At least 4 kg",
           "skillId": "one-step-equation",
           "level": 1,
           "scene": {
@@ -978,17 +978,17 @@
             "rightDistance": 2,
             "rightMass": 1,
             "torqueLimit": 120,
-            "leftMass": 8,
+            "leftMass": 4,
             "leftDistance": 2,
-            "safeMin": 8
+            "safeMin": 4
           },
           "measure": "How many meters is the right arm?",
           "measureAnswer": 2,
-          "part": "The leaf is 8 kg at 2 meters. The counterweight sits at 2 meters and must be at least 8 kg. What mass balances it?",
-          "partAnswer": 8,
-          "predict": "The safe counterweight is at least 8 kg. Type 8.",
-          "predictAnswer": 8,
-          "decoy": 4,
+          "part": "The leaf is 4 kg at 2 meters. The counterweight sits at 2 meters and must be at least 4 kg. What mass balances it?",
+          "partAnswer": 4,
+          "predict": "The safe counterweight is at least 4 kg. Type 4.",
+          "predictAnswer": 4,
+          "decoy": 2,
           "output": "leaf"
         },
         {

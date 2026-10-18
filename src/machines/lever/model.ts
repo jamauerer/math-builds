@@ -73,6 +73,14 @@ export const leverModel: EngineeringModel = {
         { label: "Right torque", value: `${num(rightTorque)} N m` },
         { label: "Plank torque limit", value: `${num(scene.torqueLimit)} N m` },
       ];
+      if (scene.safeMin > 0 && rightMass + 0.001 < scene.safeMin) {
+        return finish(
+          false,
+          part.id,
+          `The counterweight is ${num(rightMass)}. The drawbridge needs at least ${num(scene.safeMin)}.`,
+          numbers,
+        );
+      }
       if (scene.torqueLimit > 0 && Math.max(leftTorque, rightTorque) > scene.torqueLimit + 0.001) {
         return finish(
           false,

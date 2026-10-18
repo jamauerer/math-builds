@@ -1,3 +1,5 @@
+import ladder from "./ladder.json";
+import { challengesFromLadder, type LadderFile } from "../from-ladder";
 import { makeChallenge, type Seed } from "../make";
 import type { MachineDefinition } from "../types";
 
@@ -286,5 +288,5 @@ export const leverMachine: MachineDefinition = {
   id: "lever",
   name: "Lever and seesaw",
   summary: "Balance, unknown mass, and the three lever classes.",
-  challenges: seeds.map(makeChallenge),
+  challenges: [...seeds.map(makeChallenge), ...challengesFromLadder(ladder as LadderFile, "mass", stages)],
 };

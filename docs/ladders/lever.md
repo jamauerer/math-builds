@@ -116,8 +116,8 @@ The counterweight must be at least the safe mass, and the moments must match, or
 
 Dials: numbers 5, representation 3, given 4, freedom 3, precision 4.
 
-- At least 10 kg. Measure 2. Part 10. Predict 10. Output leaf.
-- At least 8 kg. Measure 2. Part 8. Predict 8. Output leaf.
+- At least 6 kg. Measure 2. Part 6. Predict 6. Output leaf.
+- At least 4 kg. Measure 2. Part 4. Predict 4. Output leaf.
 - At least 12 kg. Measure 1. Part 12. Predict 12. Output leaf.
 
 ## Level 11: Tilt torque
