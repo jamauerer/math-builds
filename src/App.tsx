@@ -11,12 +11,13 @@ import {
 import { browserProgressStore, type SavedProgress } from "./storage/progress";
 import { LearnerMap as LearnerMapScreen } from "./ui/LearnerMap";
 import { PlacementQuiz, PracticeQuiz } from "./ui/PlacementQuiz";
-import { AgePrompt, BridgeBuild } from "./ui/BridgeBuild";
+import { AgePrompt } from "./ui/BridgeBuild";
+import { Workshop } from "./workshop/Workshop";
 
 type Screen =
   | { name: "map" }
   | { name: "placement" }
-  | { name: "bridge" }
+  | { name: "workshop" }
   | { name: "practice"; skillId: string };
 
 export function App() {
@@ -32,11 +33,14 @@ export function App() {
         ageAsked: false,
         bridgeCompleted: [],
         bridgeEarned: {},
+        workshop: { completed: [], mastery: {}, sandbox: [], theme: "candy" },
       },
   );
-  const [screen, setScreen] = useState<Screen>({ name: "map" });
+  const [screen, setScreen] = useState<Screen>(() =>
+    new URLSearchParams(window.location.search).get("challenge") ? { name: "workshop" } : { name: "map" },
+  );
   const [placementRunning, setPlacementRunning] = useState(false);
-  const [practiceReturn, setPracticeReturn] = useState<"map" | "bridge">("map");
+  const [practiceReturn, setPracticeReturn] = useState<"map" | "workshop">("map");
 
   function save(next: SavedProgress) {
     setProgress(next);
@@ -53,10 +57,11 @@ export function App() {
       ageAsked: progress.ageAsked,
       bridgeCompleted: progress.bridgeCompleted,
       bridgeEarned: progress.bridgeEarned,
+      workshop: progress.workshop,
     });
   }
 
-  function openPractice(skillId: string, returnTo: "map" | "bridge" = "map") {
+  function openPractice(skillId: string, returnTo: "map" | "workshop" = "map") {
     setPracticeReturn(returnTo);
     setPlacementRunning(false);
     setScreen({ name: "practice", skillId });
@@ -82,7 +87,7 @@ export function App() {
 
   return (
     <div className="app">
-      {placementRunning || screen.name === "bridge" ? null : (
+      {placementRunning || screen.name === "workshop" ? null : (
         <nav className="nav">
           <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "map" })}>
             Map
@@ -99,7 +104,7 @@ export function App() {
           >
             Placement
           </button>
-          <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "bridge" })}>
+          <button type="button" className="nav-button" onPointerUp={() => setScreen({ name: "workshop" })}>
             Worlds
           </button>
         </nav>
@@ -128,31 +133,13 @@ export function App() {
           onPractice={openPractice}
         />
       ) : null}
-      {screen.name === "bridge" ? (
-        <BridgeBuild
-          age={progress.age}
+      {screen.name === "workshop" ? (
+        <Workshop
           map={progress.map}
-          completed={progress.bridgeCompleted}
-          earned={progress.bridgeEarned}
-          onAge={chooseAge}
+          progress={progress}
+          onProgress={save}
           onSkillPass={raiseSkill}
-          onPractice={(skillId) => openPractice(skillId, "bridge")}
-          onComplete={(levelId) => {
-            if (progress.bridgeCompleted.includes(levelId)) {
-              return;
-            }
-            save({ ...progress, bridgeCompleted: [...progress.bridgeCompleted, levelId] });
-          }}
-          onEarn={(levelId, partId, count) => {
-            const current = progress.bridgeEarned[levelId] ?? {};
-            save({
-              ...progress,
-              bridgeEarned: {
-                ...progress.bridgeEarned,
-                [levelId]: { ...current, [partId]: Math.max(current[partId] ?? 0, count) },
-              },
-            });
-          }}
+          onPractice={(skillId) => openPractice(skillId, "workshop")}
         />
       ) : null}
       {screen.name === "practice" ? (
@@ -175,9 +162,10 @@ export function App() {
               ageAsked: progress.ageAsked,
               bridgeCompleted: progress.bridgeCompleted,
               bridgeEarned: progress.bridgeEarned,
+              workshop: progress.workshop,
             });
           }}
-          onClose={() => setScreen(practiceReturn === "bridge" ? { name: "bridge" } : { name: "map" })}
+          onClose={() => setScreen(practiceReturn === "workshop" ? { name: "workshop" } : { name: "map" })}
         />
       ) : null}
     </div>

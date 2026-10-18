@@ -8,6 +8,7 @@ import {
   type QuizPhase,
 } from "../engine/placement";
 import { emptyScribble, type Scribble, type ScribbleStroke } from "../engine/scribble";
+import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -26,6 +27,14 @@ export type SavedProgress = {
   ageAsked: boolean;
   bridgeCompleted: string[];
   bridgeEarned: Record<string, Record<string, number>>;
+  workshop?: WorkshopSave;
+};
+
+export type WorkshopSave = {
+  completed: string[];
+  mastery: Record<string, MasteryRecord>;
+  sandbox: string[];
+  theme: "candy" | "wood" | "steel";
 };
 
 export type ProgressStore = {
@@ -44,7 +53,7 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {} };
+    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {}, workshop: sanitizeWorkshop(undefined) };
   }
   const record = raw as {
     map?: unknown;
@@ -55,6 +64,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     ageAsked?: unknown;
     bridgeCompleted?: unknown;
     bridgeEarned?: unknown;
+    workshop?: unknown;
   };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
@@ -89,6 +99,36 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     ageAsked: record.ageAsked === true || (typeof age === "number" && Number.isInteger(age)),
     bridgeCompleted,
     bridgeEarned: sanitizeEarned(record.bridgeEarned),
+    workshop: sanitizeWorkshop(record.workshop),
+  };
+}
+
+function sanitizeWorkshop(raw: unknown): WorkshopSave {
+  const blank: WorkshopSave = { completed: [], mastery: {}, sandbox: [], theme: "candy" };
+  if (!raw || typeof raw !== "object") {
+    return blank;
+  }
+  const record = raw as Partial<WorkshopSave>;
+  const theme = record.theme === "wood" || record.theme === "steel" ? record.theme : "candy";
+  const mastery: Record<string, MasteryRecord> = {};
+  if (record.mastery && typeof record.mastery === "object") {
+    for (const [id, entry] of Object.entries(record.mastery)) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      mastery[id] = {
+        challengeDone: entry.challengeDone === true,
+        transferPassed: entry.transferPassed === true,
+        recallAt: typeof entry.recallAt === "number" ? entry.recallAt : null,
+        recallPassed: entry.recallPassed === true,
+      };
+    }
+  }
+  return {
+    completed: Array.isArray(record.completed) ? record.completed.filter((item): item is string => typeof item === "string") : [],
+    mastery,
+    sandbox: Array.isArray(record.sandbox) ? record.sandbox.filter((item): item is string => typeof item === "string") : [],
+    theme,
   };
 }
 
