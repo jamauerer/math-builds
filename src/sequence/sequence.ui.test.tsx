@@ -19,10 +19,11 @@ describe("first minutes and notebook", () => {
       root.render(<App />);
     });
     const text = container.textContent ?? "";
-    expect(text).toContain("Welcome, inventor");
+    expect(text).toContain("What will you build?");
+    expect(text).toContain("The Goat Bridge");
     expect(text).not.toContain("How old are you");
     expect(text).not.toContain("Placement");
-    expect(container.querySelector('[data-phase="welcome"]')).toBeTruthy();
+    expect(container.querySelector(".goat-kit")).toBeTruthy();
     root.unmount();
   });
 

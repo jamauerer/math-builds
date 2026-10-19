@@ -8,7 +8,7 @@ import {
 } from "./engine/placement";
 import { blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
 import { blankSequence } from "./sequence/logic";
-import { BridgeApp } from "./sequence/BridgeApp";
+import { GoatKit } from "./machines/bridge/kit/GoatKit";
 import { PracticeQuiz } from "./ui/PlacementQuiz";
 import { Workshop } from "./workshop/Workshop";
 
@@ -66,11 +66,10 @@ export function App() {
           onPractice={(skillId) => openPractice(skillId, "workshop")}
         />
       ) : (
-        <BridgeApp
+        <GoatKit
           map={progress.map}
-          sequence={progress.sequence ?? blankSequence()}
-          onSequence={(sequence) => save({ ...progress, sequence })}
-          onSkillPass={raiseSkill}
+          marks={progress.sequence?.marks ?? 0}
+          onMarks={(marks) => save({ ...progress, sequence: { ...(progress.sequence ?? blankSequence()), marks } })}
         />
       )}
       {screen.name === "practice" ? (

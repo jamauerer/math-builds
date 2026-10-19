@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     watch: {
-      ignored: ["**/docs/design/**"],
+      ignored: ["**/docs/**", "**/node_modules/**"],
     },
   },
   test: {

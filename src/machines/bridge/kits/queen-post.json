@@ -1,0 +1,235 @@
+{
+  "id": "queen-post",
+  "name": "The Goat Bridge",
+  "kind": "queen-post truss",
+  "span": 8,
+  "marks": 12,
+  "pxPerMetre": 50,
+  "scene": { "width": 1000, "height": 620, "originX": 292, "deckY": 355 },
+  "nodes": [
+    { "id": "n0", "m": 0, "h": 0 },
+    { "id": "n2", "m": 2, "h": 0 },
+    { "id": "n4", "m": 4, "h": 0 },
+    { "id": "n6", "m": 6, "h": 0 },
+    { "id": "n8", "m": 8, "h": 0 },
+    { "id": "p2", "m": 2, "h": 2 },
+    { "id": "p6", "m": 6, "h": 2 }
+  ],
+  "groups": [
+    {
+      "id": "bottom",
+      "name": "Bottom beam",
+      "count": 2,
+      "sprite": "beam-side.png",
+      "blurb": "the bridge rests on these",
+      "lengthLabel": "4 m"
+    },
+    {
+      "id": "posts",
+      "name": "Post",
+      "count": 2,
+      "sprite": "post.png",
+      "blurb": "hold the top beam up",
+      "lengthLabel": "2 m"
+    },
+    {
+      "id": "gussets",
+      "name": "Gusset plate",
+      "count": 5,
+      "sprite": "gusset-small.png",
+      "blurb": "joins pieces at the corners",
+      "lengthLabel": ""
+    },
+    {
+      "id": "top",
+      "name": "Top beam",
+      "count": 1,
+      "sprite": "beam-side.png",
+      "blurb": "ties the two posts",
+      "lengthLabel": "4 m"
+    },
+    {
+      "id": "braces",
+      "name": "Brace",
+      "count": 2,
+      "sprite": "beam-half.png",
+      "blurb": "stop the posts folding",
+      "lengthLabel": "2.83 m"
+    },
+    {
+      "id": "bolts",
+      "name": "Bolts",
+      "count": 10,
+      "sprite": "bolt.png",
+      "blurb": "two at every gusset",
+      "lengthLabel": "",
+      "bonus": true
+    },
+    {
+      "id": "railing",
+      "name": "Railing",
+      "count": 2,
+      "sprite": "railing.png",
+      "blurb": "both sides of the deck",
+      "lengthLabel": "",
+      "bonus": true
+    }
+  ],
+  "slots": [
+    {
+      "id": "bottom-a",
+      "group": "bottom",
+      "name": "Bottom beam",
+      "kind": "beam",
+      "sprite": "beam-side.png",
+      "from": "n0",
+      "to": "n4",
+      "length": 4,
+      "structural": true
+    },
+    {
+      "id": "bottom-b",
+      "group": "bottom",
+      "name": "Bottom beam",
+      "kind": "beam",
+      "sprite": "beam-side.png",
+      "from": "n4",
+      "to": "n8",
+      "length": 4,
+      "structural": true
+    },
+    {
+      "id": "post-a",
+      "group": "posts",
+      "name": "Post",
+      "kind": "post",
+      "sprite": "post.png",
+      "from": "n2",
+      "to": "p2",
+      "length": 2,
+      "structural": true
+    },
+    {
+      "id": "post-b",
+      "group": "posts",
+      "name": "Right post",
+      "kind": "post",
+      "sprite": "post.png",
+      "from": "n6",
+      "to": "p6",
+      "length": 2,
+      "structural": true
+    },
+    {
+      "id": "gusset-n4",
+      "group": "gussets",
+      "name": "Gusset plate",
+      "kind": "gusset",
+      "sprite": "gusset-small.png",
+      "at": "n4",
+      "length": null
+    },
+    {
+      "id": "gusset-n2",
+      "group": "gussets",
+      "name": "Gusset plate",
+      "kind": "gusset",
+      "sprite": "gusset-small.png",
+      "at": "n2",
+      "length": null
+    },
+    {
+      "id": "gusset-n6",
+      "group": "gussets",
+      "name": "Gusset plate",
+      "kind": "gusset",
+      "sprite": "gusset-small.png",
+      "at": "n6",
+      "length": null
+    },
+    {
+      "id": "gusset-p2",
+      "group": "gussets",
+      "name": "Gusset plate",
+      "kind": "gusset",
+      "sprite": "gusset-small.png",
+      "at": "p2",
+      "length": null
+    },
+    {
+      "id": "gusset-p6",
+      "group": "gussets",
+      "name": "Gusset plate",
+      "kind": "gusset",
+      "sprite": "gusset-small.png",
+      "at": "p6",
+      "length": null
+    },
+    {
+      "id": "top",
+      "group": "top",
+      "name": "Top beam",
+      "kind": "beam",
+      "sprite": "beam-side.png",
+      "from": "p2",
+      "to": "p6",
+      "length": 4,
+      "structural": true,
+      "need": "6 - 2 = 4"
+    },
+    {
+      "id": "brace-a",
+      "group": "braces",
+      "name": "Brace",
+      "kind": "brace",
+      "sprite": "beam-half.png",
+      "from": "n0",
+      "to": "p2",
+      "length": 2.83,
+      "structural": true
+    },
+    {
+      "id": "brace-b",
+      "group": "braces",
+      "name": "Brace",
+      "kind": "brace",
+      "sprite": "beam-half.png",
+      "from": "n8",
+      "to": "p6",
+      "length": 2.83,
+      "structural": true
+    },
+    {
+      "id": "bolts",
+      "group": "bolts",
+      "name": "Bolts",
+      "kind": "bolt",
+      "sprite": "bolt.png",
+      "at": "n4",
+      "length": null,
+      "bonus": true
+    },
+    {
+      "id": "rail-a",
+      "group": "railing",
+      "name": "Railing",
+      "kind": "rail",
+      "sprite": "railing.png",
+      "from": "n0",
+      "to": "n8",
+      "length": 8,
+      "bonus": true
+    },
+    {
+      "id": "rail-b",
+      "group": "railing",
+      "name": "Railing",
+      "kind": "rail",
+      "sprite": "railing.png",
+      "from": "n0",
+      "to": "n8",
+      "length": 8,
+      "bonus": true
+    }
+  ]
+}
