@@ -96,6 +96,7 @@ export function BridgeScene({
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
   return (
+    <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
       <img className="banks" src={art("banks.png")} alt="" />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
@@ -143,6 +144,7 @@ export function BridgeScene({
         <img src={art(goat.src)} alt="" style={{ position: "absolute", left: goat.left, top: goat.top, width: goat.width, height: goat.height }} />
       )}
       <Ruler />
+    </div>
     </div>
   );
 }
@@ -234,6 +236,7 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
   const left = queenPost.scene.originX + queenPost.pxPerMetre * frame.goatX - goat.width / 2;
   const top = queenPost.scene.deckY - queenPost.pxPerMetre * frame.goatY - goat.height;
   return (
+    <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode}>
       <img className="banks" src={art("banks.png")} alt="" />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
@@ -249,37 +252,23 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
       })}
       <img src={art(goat.src)} alt="" style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
     </div>
+    </div>
   );
 }
 
 export function TrussThumb() {
-  const scale = 0.42;
+  const pieces = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset");
   return (
     <div className="gk-thumb" aria-hidden="true">
-      <img src={art("banks.png")} alt="" style={{ position: "absolute", left: 40, top: 48, width: 1158 * scale, height: 386 * scale }} />
-      {queenPost.slots
-        .filter((slot) => slot.structural || slot.kind === "gusset")
-        .map((slot) => {
-          const style = memberStyle(slot, slot.length ?? 1);
-          const left = Number(style.left ?? 0) * scale + 70;
-          const top = Number(style.top ?? 0) * scale - 40;
-          return (
-            <img
-              key={slot.id}
-              alt=""
-              src={art(slot.sprite)}
-              style={{
-                position: "absolute",
-                left,
-                top,
-                width: Number(style.width ?? 0) * scale,
-                height: Number(style.height ?? 0) * scale,
-                transform: style.transform,
-                transformOrigin: style.transformOrigin,
-              }}
-            />
-          );
-        })}
+      <div className="gk-scene">
+        <img className="banks" src={art("banks.png")} alt="" />
+        <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
+        <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
+        <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
+        {pieces.map((slot) => (
+          <img key={slot.id} className="gk-piece" alt="" src={art(slot.sprite)} style={memberStyle(slot, slot.length ?? 1)} />
+        ))}
+      </div>
     </div>
   );
 }

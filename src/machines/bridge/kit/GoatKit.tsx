@@ -274,7 +274,7 @@ function Pick({ marks, onOpen }: { marks: number; onOpen: () => void }) {
       </header>
       <div className="gk-pick">
         <h1>What will you build?</h1>
-        <p className="gk-sub">Pick one. Prove the math it needs, earn marks, buy materials, build it, test it.</p>
+        <p className="gk-sub">Pick one. Earn the pieces, give each one a number, build it, send the goat.</p>
         <div className="gk-strands">
           <span className="gk-strand" style={{ background: "#E8F3EA", color: "#1F6B3A" }}>
             Measuring 7

@@ -1,13 +1,11 @@
 .goat-kit {
-  width: 1440px;
-  height: 900px;
+  width: 100%;
+  min-height: 100vh;
   background: #fff;
   color: #22201c;
   font-family: Figtree, "Segoe UI", sans-serif;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  flex: none;
 }
 
 .goat-kit button,
@@ -18,20 +16,21 @@
 }
 
 .app:has(.goat-kit) {
-  min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
   background: #fff;
-  align-items: center;
+  align-items: stretch;
 }
 
 .gk-header {
-  height: 72px;
+  min-height: 72px;
   flex: none;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 32px;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 12px 32px;
   border-bottom: 1px solid #e6e2da;
   background: #fff;
 }
@@ -63,6 +62,7 @@
 
 .gk-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-left: 8px;
 }
@@ -126,9 +126,10 @@
 }
 
 .gk-body {
-  flex: 1;
   display: flex;
-  min-height: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  width: 100%;
 }
 
 .gk-main {
@@ -139,8 +140,9 @@
 }
 
 .gk-panel {
-  width: 440px;
-  flex: none;
+  flex: 1 1 400px;
+  max-width: min(440px, 100%);
+  min-width: min(100%, 280px);
   border-left: 1px solid #e6e2da;
   padding: 22px 24px;
   display: flex;
@@ -223,11 +225,13 @@
 }
 
 .gk-earn {
+  flex: 1 1 640px;
+  max-width: 100%;
+  min-width: min(100%, 560px);
   padding: 26px 40px 26px 36px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 0;
 }
 
 .gk-card {
@@ -357,10 +361,27 @@
 }
 
 .gk-scene-col {
-  width: 1000px;
-  flex: none;
+  flex: 0 1 1000px;
+  max-width: 100%;
+  min-width: min(100%, 1000px);
   display: flex;
   flex-direction: column;
+}
+
+.gk-scene-scale {
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 1000 / 620;
+  position: relative;
+  container-type: inline-size;
+}
+
+.gk-scene-scale > .gk-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: scale(calc(100cqw / 1000px));
+  transform-origin: top left;
 }
 
 .gk-scene {
@@ -393,8 +414,9 @@
 }
 
 .gk-strip {
-  height: 136px;
-  padding: 6px 36px 0;
+  min-height: 136px;
+  height: auto;
+  padding: 6px 36px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -507,11 +529,10 @@
 }
 
 .gk-pick {
-  padding: 8px 32px 0;
+  padding: 8px 32px 32px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 0;
 }
 
 .gk-pick h1 {
@@ -524,6 +545,7 @@
 
 .gk-strands {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
@@ -537,9 +559,21 @@
 
 .gk-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
   padding: 12px 0 28px;
+}
+
+@media (min-width: 720px) {
+  .gk-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1100px) {
+  .gk-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .gk-card-btn {
@@ -567,6 +601,14 @@
   position: relative;
   overflow: hidden;
   background: #e7f2fa;
+}
+
+.gk-thumb .gk-scene {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -58%) scale(0.4);
+  transform-origin: center center;
 }
 
 .gk-thumb svg {
