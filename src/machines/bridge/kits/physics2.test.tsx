@@ -52,6 +52,42 @@ describe("physics 2", () => {
     }
   });
 
+  it("seats beam bottoms on abutment tops within 2 px in the scene", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const drops = Object.fromEntries(Object.entries(truss()).map(([id, value]) => [id, String(value)]));
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={5}
+          guideMode="off"
+          drops={drops}
+          kitProfile={{ ...profile, built: true }}
+        />,
+      );
+    });
+    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
+    const beamA = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
+    const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
+    expect(left).toBeTruthy();
+    expect(beamA).toBeTruthy();
+    expect(beamB).toBeTruthy();
+    const abutmentTop = parseFloat(left.style.top);
+    for (const beam of [beamA, beamB]) {
+      const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
+      expect(Math.abs(beamBottom - abutmentTop)).toBeLessThanOrEqual(2);
+    }
+    root.unmount();
+    container.remove();
+  });
+
   it("redraws both bottom beams when their lengths change", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);

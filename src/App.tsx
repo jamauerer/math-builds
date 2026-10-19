@@ -169,6 +169,8 @@ export function App() {
           beam={new URLSearchParams(window.location.search).get("beam")}
           heavy={new URLSearchParams(window.location.search).get("heavy") === "1"}
           seedCountry={new URLSearchParams(window.location.search).get("country")}
+          focusSlot={new URLSearchParams(window.location.search).get("focus")}
+          flyGusset={new URLSearchParams(window.location.search).get("fly")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

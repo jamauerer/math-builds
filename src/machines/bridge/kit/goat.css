@@ -1168,6 +1168,48 @@
   background: transparent;
 }
 
+.gk-hit.focus,
+.gk-row.focus {
+  outline: 2px solid #e0661a;
+  outline-offset: 2px;
+}
+
+.gk-corner-pulse {
+  animation: gk-corner-pulse 1s ease-in-out infinite;
+}
+
+@keyframes gk-corner-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    r: 8;
+  }
+  50% {
+    opacity: 0.85;
+    r: 12;
+  }
+}
+
+.gk-fly-gusset {
+  position: absolute;
+  width: 30px;
+  height: 27px;
+  pointer-events: none;
+  z-index: 8;
+  animation: gk-fly-gusset 0.45s ease-out forwards;
+}
+
+@keyframes gk-fly-gusset {
+  from {
+    opacity: 0.2;
+    transform: scale(1.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .gk-strip {
   flex: none;
   min-height: 0;

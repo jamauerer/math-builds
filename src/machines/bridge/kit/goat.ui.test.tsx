@@ -197,7 +197,7 @@ describe("goat bridge screens", () => {
     container.remove();
   });
 
-  it("hides slot digits until a length is typed and adds one strip line per length", async () => {
+  it("labels empty slots by where they run, not by length, and adds one strip line per length", async () => {
     setUnitSystem("us");
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -219,7 +219,8 @@ describe("goat bridge screens", () => {
     });
     const labels = [...container.querySelectorAll(".gk-slot-label")].map((label) => label.textContent ?? "");
     expect(labels.length).toBeGreaterThan(0);
-    expect(labels.every((label) => !/\d/.test(label))).toBe(true);
+    expect(labels.some((label) => label.includes("0 ft") || label.includes("at 2 ft"))).toBe(true);
+    expect(labels.every((label) => !label.includes("How long"))).toBe(true);
     expect(container.querySelectorAll(".gk-work")).toHaveLength(0);
     const inputs = [...container.querySelectorAll("input.gk-len")] as HTMLInputElement[];
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -247,7 +248,7 @@ describe("goat bridge screens", () => {
       );
     });
     expect(low.querySelectorAll("input.gk-len")).toHaveLength(0);
-    expect(low.textContent).toContain("The bottom beams are the sides of the bridge. The planks are the floor. No planks, no floor.");
+    expect(low.textContent).toContain("The stone blocks are the abutments. They are already there. The beams rest on them.");
     lowRoot.unmount();
     low.remove();
 
@@ -335,7 +336,7 @@ describe("goat bridge screens", () => {
     const tray = assemble.querySelector("[data-drag]")?.textContent ?? "";
     expect(tray).toContain("Bottom beam");
     expect(tray).toContain("Gusset");
-    expect(tray).toContain("Plank");
+    expect(tray).toContain("8 planks");
     expect(tray).toContain("Coming in round 2: posts, top beam, braces");
     expect(tray).not.toContain("Post");
     assembleRoot.unmount();
@@ -381,6 +382,75 @@ describe("goat bridge screens", () => {
     });
     expect(row.textContent).toContain("on the bridge");
     expect(container.textContent).toContain("Bottom beam: 4 ft");
+    root.unmount();
+    container.remove();
+  });
+
+  it("writes slot facts from kit coordinates when a slot is focused", async () => {
+    setUnitSystem("us");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={5}
+          guideMode="off"
+          focusSlot="bottom-a"
+          kitProfile={{ ...placedProfile, built: true }}
+        />,
+      );
+    });
+    expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("This beam runs from 0 ft to 4 ft on the tape");
+    expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("How long?");
+    expect(container.querySelector("[data-tape-hi]")).toBeTruthy();
+    root.unmount();
+    container.remove();
+  });
+
+  it("lays planks one after another from the Lay planks button", async () => {
+    setUnitSystem("us");
+    vi.useFakeTimers();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          round={1}
+          guideMode="off"
+          kitProfile={{ ...placedProfile, built: true, levels: { ...placedProfile.levels, measuring: 2 } }}
+        />,
+      );
+    });
+    expect(container.textContent).toContain("8 planks");
+    expect(container.textContent).toContain("Lay planks");
+    const lay = [...container.querySelectorAll("button")].find((button) => button.textContent === "Lay planks") as HTMLButtonElement;
+    await act(async () => {
+      lay.click();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(150 * 4);
+    });
+    expect(container.querySelectorAll('[data-piece^="plank-"]').length).toBeGreaterThanOrEqual(4);
+    await act(async () => {
+      vi.advanceTimersByTime(150 * 8);
+    });
+    expect(container.querySelectorAll('[data-piece^="plank-"]').length).toBe(8);
+    vi.useRealTimers();
     root.unmount();
     container.remove();
   });

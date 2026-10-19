@@ -128,22 +128,15 @@
     }
   ],
   "guide": [
-    { "piece": "bottom-a", "say": "The bottom beams are the sides of the bridge. The planks are the floor. No planks, no floor." },
-    { "piece": "bottom-b", "say": "Bottom beams: the goat walks on these. They rest on both banks." },
+    { "piece": "bottom-a", "say": "The stone blocks are the abutments. They are already there. The beams rest on them." },
+    { "piece": "bottom-b", "say": "The bottom beams rest on the abutments. They are the sides of the bridge." },
     { "piece": "post-a", "say": "Left post: it stands on the bottom beams and holds the top beam up." },
     { "piece": "post-b", "say": "Right post: it stands on the bottom beams and holds the top beam up." },
     { "piece": "top", "say": "Top beam: it ties the two posts together." },
     { "piece": "brace-a", "say": "Braces: they stop the posts from folding over." },
     { "piece": "brace-b", "say": "Braces: they stop the posts from folding over." },
-    { "piece": "gussets", "say": "Gussets: metal corners that hold the joint." },
-    { "piece": "plank-1", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-2", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-3", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-4", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-5", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-6", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-7", "say": "Planks: the path. No planks, no bridge." },
-    { "piece": "plank-8", "say": "Planks: the path. No planks, no bridge." }
+    { "piece": "gussets", "say": "Gussets hold the corners. Tap to put one on each." },
+    { "piece": "planks", "say": "Planks are the floor. 8 ft of bridge, 1 ft each, so 8 planks." }
   ],
   "dunks": [
     { "line": "Nobody was hurt. Mostly.", "cause": "general" },

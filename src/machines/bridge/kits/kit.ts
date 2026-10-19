@@ -96,7 +96,7 @@ const TRAY_WORDS: Record<string, [string, string]> = {
 };
 
 export function pieceGroup(id: string): string {
-  if (id.startsWith("plank")) {
+  if (id === "planks" || id.startsWith("plank")) {
     return "planks";
   }
   if (id.startsWith("brace")) {
@@ -399,6 +399,79 @@ export function knownLine(): string {
     .sort((a, b) => a - b);
   const stands = posts.filter((metre) => metre === 2 || metre === 6).map((metre) => formatLength(metre));
   return `The gap is ${formatLength(queenPost.span)}. The posts stand at ${stands[0]} and ${stands[1]}.`;
+}
+
+/** Pixel sizes for the deck stack: plank on beam on abutment. */
+export const BEAM_THICK_PX = 22;
+export const PLANK_THICK_PX = 16;
+
+/** CSS top of the abutment (meets the beam bottom). Sunk so plank tops sit on the deck line. */
+export function abutmentTopPx(): number {
+  return queenPost.scene.deckY + PLANK_THICK_PX + BEAM_THICK_PX;
+}
+
+/** Dotted-slot label: where the piece runs, never how long it is. */
+export function slotRunLabel(slot: KitSlot): string {
+  if (slot.kind === "post" && slot.from) {
+    const at = kitNode(slot.from);
+    return `at ${formatLength(at.m)}`;
+  }
+  const nodes = slotNodes(slot);
+  if (!nodes) {
+    return slot.name;
+  }
+  if (slot.kind === "brace") {
+    return `${formatLength(nodes.from.m)} → ${formatLength(nodes.to.m)}`;
+  }
+  if (Math.abs(nodes.from.h - nodes.to.h) < 0.02) {
+    const left = Math.min(nodes.from.m, nodes.to.m);
+    const right = Math.max(nodes.from.m, nodes.to.m);
+    return `${formatLength(left)}–${formatLength(right)}`;
+  }
+  return `${formatLength(nodes.from.m)} to ${formatLength(nodes.to.m)}`;
+}
+
+/**
+ * Handwriting strip facts for a focused slot. Positions come from kit nodes.
+ * Never states the length the learner must find.
+ */
+export function slotFact(slot: KitSlot, printed = false): string {
+  const nodes = slotNodes(slot);
+  if (slot.kind === "post" && slot.from && slot.to) {
+    const foot = kitNode(slot.from);
+    const top = kitNode(slot.to);
+    const tall = Math.abs(top.h - foot.h);
+    const base = `This post stands at ${formatLength(foot.m)} and is ${formatLength(tall)} tall.`;
+    return printed ? `${base} The number is on the piece.` : `${base}`;
+  }
+  if (slot.kind === "brace" && nodes) {
+    const deck = nodes.from.h <= nodes.to.h ? nodes.from : nodes.to;
+    const peak = nodes.from.h > nodes.to.h ? nodes.from : nodes.to;
+    return `This brace goes from ${formatLength(deck.m)} on the deck up to the top of the post at ${formatLength(peak.m)}.${printed ? " The number is on the piece." : " How long?"}`;
+  }
+  if (slot.id === "top" && nodes) {
+    return `The top beam runs from the left post to the right post, ${formatLength(nodes.from.m)} to ${formatLength(nodes.to.m)}.${printed ? " The number is on the piece." : " How long?"}`;
+  }
+  if (slot.kind === "beam" && nodes) {
+    const left = Math.min(nodes.from.m, nodes.to.m);
+    const right = Math.max(nodes.from.m, nodes.to.m);
+    return `This beam runs from ${formatLength(left)} to ${formatLength(right)} on the tape.${printed ? " The number is on the piece." : " How long?"}`;
+  }
+  if (slot.kind === "plank") {
+    return `Planks are the floor. ${formatLength(queenPost.span)} of bridge, ${formatLength(1)} each, so ${plankSlots().length} planks.`;
+  }
+  if (slot.kind === "gusset") {
+    return "Gussets hold the corners. Tap to put one on each.";
+  }
+  return knownLine();
+}
+
+export function gussetSlots(): KitSlot[] {
+  return queenPost.slots.filter((slot) => slot.kind === "gusset");
+}
+
+export function nextGusset(placed: Record<string, boolean>): KitSlot | null {
+  return gussetSlots().find((slot) => !placed[slot.id]) ?? null;
 }
 
 /** One handwriting line for a length the learner typed, right or wrong. */

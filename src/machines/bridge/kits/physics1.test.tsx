@@ -31,10 +31,36 @@ describe("physics 1", () => {
     });
     const splash = container.querySelector("[data-splash]") as HTMLElement;
     const belly = Number(container.querySelector("[data-belly]")?.getAttribute("data-belly"));
+    expect(splash).toBeTruthy();
     expect(Math.abs(parseFloat(splash.style.top) + 8 - waterPixel())).toBeLessThanOrEqual(10);
     expect(Math.abs(belly - waterPixel())).toBeLessThanOrEqual(10);
     root.unmount();
     container.remove();
+  });
+
+  it("clears the splash sprite 2 s after the last water entry", async () => {
+    const result = simulateCrossing({ ...correctLengths(), top: 3 });
+    const lastAt = Math.max(0, ...result.frames.flatMap((frame) => frame.splashes.map((mark) => mark.at)));
+    expect(lastAt).toBeGreaterThan(0);
+    const late = [...result.frames].reverse().find((frame) => frame.t >= lastAt + 2);
+    expect(late).toBeTruthy();
+    expect(late!.splashes.every((mark) => late!.t - mark.at > 0.6)).toBe(true);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<CrossingPicture frame={late!} />);
+    });
+    expect(container.querySelector("[data-splash]")).toBeNull();
+    root.unmount();
+    container.remove();
+  });
+
+  it("drifts the goat to the open gap center before swim frames", () => {
+    const result = simulateCrossing({ ...correctLengths(), top: 3 });
+    const firstSwim = result.frames.find((frame) => frame.mode === "swim");
+    expect(firstSwim).toBeTruthy();
+    expect(Math.abs(firstSwim!.goatX - 4)).toBeLessThanOrEqual(0.35);
   });
 
   it("names missing planks as the cause and a long top beam as not the cause", () => {

@@ -1,6 +1,20 @@
 import type { CSSProperties } from "react";
 import { formatLength, lengthAbbrev } from "../../../units";
-import { kitNode, nodePixel, plankSlots, plankStart, queenPost, slotNodes, waterPixel, waterWorld, type KitSlot } from "../kits/kit";
+import {
+  abutmentTopPx,
+  BEAM_THICK_PX,
+  kitNode,
+  nodePixel,
+  PLANK_THICK_PX,
+  plankSlots,
+  plankStart,
+  queenPost,
+  slotNodes,
+  slotRunLabel,
+  waterPixel,
+  waterWorld,
+  type KitSlot,
+} from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
 const ART = "/art";
@@ -26,9 +40,9 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
     return {
       position: "absolute",
       left: queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre,
-      top: queenPost.scene.deckY - 36,
+      top: queenPost.scene.deckY,
       width,
-      height: 16,
+      height: PLANK_THICK_PX,
     };
   }
   if (slot.kind === "bolt") {
@@ -50,15 +64,17 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
   const height = slot.kind === "brace" ? 15 : slot.kind === "rail" ? 28 : 22;
   const width = Math.max(8, typed * queenPost.pxPerMetre);
   const alongDeck = slot.kind === "beam" && fromNode.h === 0 && Math.abs(angle) < 0.2;
-  const top = alongDeck ? from.y - height : from.y - (slot.kind === "brace" ? 11 : height / 2);
+  const top = alongDeck
+    ? queenPost.scene.deckY + PLANK_THICK_PX
+    : from.y - (slot.kind === "brace" ? 11 : height / 2);
   return {
     position: "absolute",
     left: from.x,
     top,
     width,
-    height,
+    height: alongDeck ? BEAM_THICK_PX : height,
     transform: `rotate(${angle}rad)`,
-    transformOrigin: alongDeck ? "0 100%" : "0 50%",
+    transformOrigin: alongDeck ? "0 0%" : "0 50%",
   };
 }
 
@@ -99,12 +115,12 @@ function Blueprint({ missing, hot }: { missing: KitSlot[]; hot?: string | null }
           />
         );
       })}
-      {hot?.startsWith("plank")
+      {hot === "planks" || hot?.startsWith("plank")
         ? queenPost.slots
-            .filter((slot) => slot.id === hot)
+            .filter((slot) => slot.kind === "plank" && (hot === "planks" || slot.id === hot))
             .map((slot) => {
               const x = queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre;
-              return <rect key={slot.id} x={x} y={queenPost.scene.deckY - 18} width={queenPost.pxPerMetre} height={18} fill="none" stroke="#E0661A" strokeWidth="4" strokeDasharray="6 4" />;
+              return <rect key={slot.id} x={x} y={queenPost.scene.deckY} width={queenPost.pxPerMetre} height={PLANK_THICK_PX} fill="none" stroke="#E0661A" strokeWidth="4" strokeDasharray="6 4" />;
             })
         : null}
     </svg>
@@ -134,9 +150,12 @@ function SlotLabels({
         const span = Math.hypot(dx, dy) || 1;
         const midX = (from.x + to.x) / 2 + (-dy / span) * 26;
         const midY = (from.y + to.y) / 2 + (dx / span) * 26;
-        const label = slotLabelText(slot, Boolean(placed[slot.id]), lengths[slot.id], geometryLevel);
+        const placedNow = Boolean(placed[slot.id]);
+        const label = placedNow
+          ? slotLabelText(slot, true, lengths[slot.id], geometryLevel)
+          : { text: slotRunLabel(slot), given: false };
         return (
-          <span key={slot.id} className={label.given ? "gk-given" : "gk-slot-label"} style={{ left: midX - 36, top: midY - 14 }}>
+          <span key={slot.id} className={label.given ? "gk-given" : "gk-slot-label"} data-slot-label={slot.id} style={{ left: midX - 40, top: midY - 14 }}>
             {label.text}
           </span>
         );
@@ -152,8 +171,12 @@ export function BridgeScene({
   drops,
   geometryLevel = 4,
   hot = null,
+  focus = null,
+  corners = false,
+  flyGusset = null,
   preview = false,
   holes = false,
+  onFocus,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
@@ -161,11 +184,16 @@ export function BridgeScene({
   drops?: boolean;
   geometryLevel?: number;
   hot?: string | null;
+  focus?: string | null;
+  corners?: boolean;
+  flyGusset?: { id: string; at: string } | null;
   preview?: boolean;
   holes?: boolean;
+  onFocus?: (id: string) => void;
 }) {
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
+  const lit = focus ?? hot;
   return (
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
@@ -174,15 +202,40 @@ export function BridgeScene({
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
-      <Blueprint missing={missing} hot={hot} />
+      <Blueprint missing={missing} hot={lit} />
       {holes ? <PlankHoles placed={placed} /> : null}
       <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} />
+      {corners ? <CornerPulses placed={placed} /> : null}
+      {flyGusset?.at ? (
+        <img
+          className="gk-fly-gusset"
+          data-fly-gusset={flyGusset.id}
+          alt=""
+          src={art("gusset-small.png")}
+          style={{
+            left: nodePixel(kitNode(flyGusset.at)).x - 15,
+            top: nodePixel(kitNode(flyGusset.at)).y - 13,
+          }}
+        />
+      ) : null}
       {drops
         ? queenPost.slots
             .filter((slot) => slot.structural && !placed[slot.id])
             .map((slot) => {
               const style = memberStyle(slot, slot.length ?? 1);
-              return <div key={slot.id} className="gk-hit" data-drop={slot.id} style={{ ...style, height: 36, pointerEvents: "auto" }} />;
+              return (
+                <div
+                  key={slot.id}
+                  className="gk-hit"
+                  data-drop={slot.id}
+                  data-slot={slot.id}
+                  style={{ ...style, height: 36, pointerEvents: "auto" }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    onFocus?.(slot.id);
+                  }}
+                />
+              );
             })
         : null}
       {drops
@@ -192,6 +245,7 @@ export function BridgeScene({
               <div
                 key={node.id}
                 data-drop={`node-${node.id}`}
+                data-corner={node.id}
                 style={{ position: "absolute", left: point.x - 18, top: point.y - 18, width: 36, height: 36 }}
               />
             );
@@ -217,17 +271,45 @@ export function BridgeScene({
       ) : (
         <img src={art(goat.src)} alt="" style={{ position: "absolute", left: goat.left, top: goat.top, width: goat.width, height: goat.height }} />
       )}
-      <Ruler />
+      <Ruler focus={lit} />
     </div>
     </div>
   );
 }
 
-function Ruler() {
+function CornerPulses({ placed }: { placed: Record<string, boolean> }) {
+  return (
+    <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      {queenPost.slots
+        .filter((slot) => slot.kind === "gusset" && slot.at && !placed[slot.id])
+        .map((slot) => {
+          const point = nodePixel(kitNode(slot.at!));
+          return <circle key={slot.id} className="gk-corner-pulse" data-corner-pulse={slot.at} cx={point.x} cy={point.y} r="10" fill="#E0661A" opacity="0.55" />;
+        })}
+    </svg>
+  );
+}
+
+function Ruler({ focus }: { focus?: string | null }) {
+  const slot = focus ? queenPost.slots.find((item) => item.id === focus) : null;
+  const nodes = slot ? slotNodes(slot) : null;
+  const markM = (m: number) => queenPost.scene.originX + m * queenPost.pxPerMetre;
+  let hi: { x1: number; x2: number } | null = null;
+  if (nodes && Math.abs(nodes.from.h) < 0.02 && Math.abs(nodes.to.h) < 0.02) {
+    hi = { x1: markM(Math.min(nodes.from.m, nodes.to.m)), x2: markM(Math.max(nodes.from.m, nodes.to.m)) };
+  } else if (slot?.kind === "post" && slot.from) {
+    const x = markM(kitNode(slot.from).m);
+    hi = { x1: x - 6, x2: x + 6 };
+  } else if (nodes) {
+    const deck = nodes.from.h <= nodes.to.h ? nodes.from.m : nodes.to.m;
+    const x = markM(deck);
+    hi = { x1: x - 6, x2: x + 6 };
+  }
   return (
     <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
       <rect x="268" y="403" width="448" height="44" rx="10" fill="#fff" opacity="0.88" />
       <line x1="292" y1="415" x2="692" y2="415" stroke="#22201C" strokeWidth="2" />
+      {hi ? <line x1={hi.x1} y1="415" x2={hi.x2} y2="415" stroke="#E0661A" strokeWidth="6" strokeLinecap="round" data-tape-hi="1" /> : null}
       {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((mark) => (
         <line key={mark} x1={292 + mark * 50} y1="415" x2={292 + mark * 50} y2={mark % 2 === 0 ? 428 : 422} stroke="#22201C" strokeWidth="1.5" />
       ))}
@@ -252,9 +334,9 @@ function PlankHoles({ placed }: { placed: Record<string, boolean> }) {
               key={slot.id}
               data-hole={slot.id}
               x={x}
-              y={queenPost.scene.deckY - 16}
+              y={queenPost.scene.deckY}
               width={queenPost.pxPerMetre}
-              height={16}
+              height={PLANK_THICK_PX}
               fill="none"
               stroke="#9a9388"
               strokeWidth="2"
@@ -379,14 +461,14 @@ export function frameNear(frames: CrossingFrame[], metres: number): CrossingFram
 }
 
 function Abutments() {
-  const deck = queenPost.scene.deckY;
+  const top = abutmentTopPx();
   const span = queenPost.scene.originX + 8 * queenPost.pxPerMetre;
   const width = 110;
-  const height = 58;
+  const height = 70;
   const style = (left: number): CSSProperties => ({
     position: "absolute",
     left,
-    top: deck - height,
+    top,
     width,
     height,
   });
@@ -456,11 +538,23 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
       {frame.pieces.map((pose) => (
         <img key={pose.id} className="gk-piece" alt="" src={art(spriteFor(pose))} style={poseStyle(pose)} />
       ))}
-      {frame.splashes.map((splash) => {
-        const x = queenPost.scene.originX + queenPost.pxPerMetre * splash.x - 160;
-        const y = waterPixel() - 8;
-        return <img key={`${splash.x.toFixed(2)}`} className="gk-piece" data-splash="1" alt="" src={art("splash.png")} style={{ left: x, top: y, width: 320, height: 130, opacity: 0.9 }} />;
-      })}
+      {frame.splashes
+        .filter((splash) => frame.t - splash.at <= 0.6)
+        .map((splash) => {
+          const age = frame.t - splash.at;
+          const x = queenPost.scene.originX + queenPost.pxPerMetre * splash.x - 160;
+          const y = waterPixel() - 8;
+          return (
+            <img
+              key={`${splash.x.toFixed(2)}-${splash.at.toFixed(2)}`}
+              className="gk-piece"
+              data-splash="1"
+              alt=""
+              src={art("splash.png")}
+              style={{ left: x, top: y, width: 320, height: 130, opacity: Math.max(0, 0.95 - age * 1.2) }}
+            />
+          );
+        })}
       <img src={art(goat.src)} alt="" data-goat="lead" data-belly={wet ? waterPixel() : undefined} style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
       {frame.follower
         ? (() => {

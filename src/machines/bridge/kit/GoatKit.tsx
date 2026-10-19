@@ -61,7 +61,24 @@ import {
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import { causeHint, causeText, knownLine, pieceGroup, pieceRows, plankSlots, preCut, queenPost, rowLabel, stareLine, testedRound, trayNote, typedLine } from "../kits/kit";
+import {
+  causeHint,
+  causeText,
+  gussetSlots,
+  knownLine,
+  nextGusset,
+  pieceGroup,
+  pieceRows,
+  plankSlots,
+  preCut,
+  queenPost,
+  rowLabel,
+  slotFact,
+  stareLine,
+  testedRound,
+  trayNote,
+  typedLine,
+} from "../kits/kit";
 import type { ExplainStep } from "../kits/explain";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { skillLearnLine } from "../../../skills/generate";
@@ -128,6 +145,8 @@ export function GoatKit({
   beam = null,
   heavy = false,
   seedCountry = null,
+  focusSlot = null,
+  flyGusset: flyGussetId = null,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -155,6 +174,8 @@ export function GoatKit({
   beam?: string | null;
   heavy?: boolean;
   seedCountry?: string | null;
+  focusSlot?: string | null;
+  flyGusset?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -272,6 +293,15 @@ export function GoatKit({
       : { ...(kitProfile?.build?.placed ?? {}) },
   );
   const [drag, setDrag] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(focusSlot);
+  const [flyGusset, setFlyGusset] = useState<{ id: string; at: string } | null>(() => {
+    if (!flyGussetId) {
+      return null;
+    }
+    const slot = gussetSlots().find((item) => item.id === flyGussetId || item.at === flyGussetId);
+    return slot?.at ? { id: slot.id, at: slot.at } : null;
+  });
+  const layingRef = useRef(false);
   const [result, setResult] = useState<CrossingResult | null>(() => {
     const fromDrops = Object.keys(drops).length > 0 ? numericLengths(drops) : null;
     const startMass = heavy ? 80 : 40;
@@ -518,15 +548,42 @@ export function GoatKit({
     setRun(stepped.run);
   }
 
+  function placeGusset(slotId: string) {
+    const slot = gussetSlots().find((item) => item.id === slotId);
+    if (!slot || placed[slot.id]) {
+      return;
+    }
+    if (slot.at) {
+      setFlyGusset({ id: slot.id, at: slot.at });
+      window.setTimeout(() => setFlyGusset(null), 450);
+    }
+    setPlaced((current) => {
+      const next = { ...current, [slot.id]: true };
+      if (gussetSlots().every((item) => item.id === slot.id || next[item.id])) {
+        next.gussets = true;
+      }
+      return next;
+    });
+    setFocus(slot.id);
+  }
+
   function place(id: string, drop: string | null) {
     if (!drop) {
       return;
     }
-    if (id === "gussets" && drop.startsWith("node-")) {
-      for (const slot of queenPost.slots.filter((item) => item.kind === "gusset")) {
-        setPlaced((current) => ({ ...current, [slot.id]: true }));
+    if (id === "gussets") {
+      if (drop.startsWith("node-")) {
+        const nodeId = drop.slice(5);
+        const slot = gussetSlots().find((item) => item.at === nodeId && !placed[item.id]);
+        if (slot) {
+          placeGusset(slot.id);
+        }
+        return;
       }
-      setPlaced((current) => ({ ...current, gussets: true }));
+      const next = nextGusset(placed);
+      if (next) {
+        placeGusset(next.id);
+      }
       return;
     }
     if (id === "bolts" && (drop === "bolts" || drop.startsWith("node-"))) {
@@ -540,34 +597,63 @@ export function GoatKit({
     const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
     if (!preCut(measuring) && drop === id) {
       setPlaced((current) => ({ ...current, [id]: true }));
+      setFocus(id);
       return;
     }
     if (preCut(measuring) && drop) {
       const home = slotById(id);
       const pieceLength = home?.length;
       setPlaced((current) => ({ ...current, [id]: true, [drop]: true }));
+      setFocus(drop);
       if (pieceLength != null) {
         setLengths((current) => ({ ...current, [drop]: String(pieceLength) }));
       }
     }
   }
 
+  function layAllPlanks() {
+    if (layingRef.current) {
+      return;
+    }
+    const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+    const cutting = !preCut(measuring);
+    if (cutting && !Number(lengths.planks)) {
+      return;
+    }
+    const pending = plankSlots().filter((slot) => !placed[slot.id]);
+    if (pending.length === 0) {
+      return;
+    }
+    layingRef.current = true;
+    setFocus("planks");
+    pending.forEach((slot, index) => {
+      window.setTimeout(() => {
+        layPlank(slot.id);
+        if (index === pending.length - 1) {
+          layingRef.current = false;
+        }
+      }, index * 150);
+    });
+  }
+
   function tapPlace(id: string) {
+    if (id === "planks") {
+      layAllPlanks();
+      return;
+    }
+    if (id === "gussets") {
+      const next = nextGusset(placed);
+      if (next) {
+        placeGusset(next.id);
+      }
+      return;
+    }
+    setFocus(id);
     if (placed[id]) {
       return;
     }
     const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
     const cutting = !preCut(measuring);
-    if (id === "planks") {
-      if (cutting && !Number(lengths.planks)) {
-        return;
-      }
-      const next = plankSlots().find((slot) => !placed[slot.id]);
-      if (next) {
-        layPlank(next);
-      }
-      return;
-    }
     if (cutting && needsLength(id) && !Number(lengths[id])) {
       return;
     }
@@ -669,7 +755,12 @@ export function GoatKit({
     if (!step) {
       return;
     }
-    const done = step.piece === "gussets" ? Boolean(placed.gussets) : Boolean(placed[step.piece]);
+    const done =
+      step.piece === "gussets"
+        ? gussetSlots().every((slot) => placed[slot.id]) || Boolean(placed.gussets)
+        : step.piece === "planks"
+          ? plankSlots().every((slot) => placed[slot.id])
+          : Boolean(placed[step.piece]);
     if (!done) {
       return;
     }
@@ -874,6 +965,8 @@ export function GoatKit({
               leftNote={trayNote(leftIds)}
               cut={cut}
               guide={guide}
+              focus={focus}
+              flyGusset={flyGusset}
               showCheck={showCheck}
               unfinished={unfinished}
               round={earn.round}
@@ -882,7 +975,8 @@ export function GoatKit({
               onDrag={setDrag}
               onUp={onTrayUp}
               onTap={tapPlace}
-              onLay={layPlank}
+              onFocus={setFocus}
+              onLay={layAllPlanks}
               onSend={() => setShowCheck(true)}
               onSendNow={() => {
                 setShowCheck(false);
@@ -1835,6 +1929,8 @@ function AssembleView({
   leftNote,
   cut,
   guide,
+  focus,
+  flyGusset,
   showCheck,
   unfinished,
   round,
@@ -1843,6 +1939,7 @@ function AssembleView({
   onDrag,
   onUp,
   onTap,
+  onFocus,
   onLay,
   onSend,
   onSendNow,
@@ -1857,6 +1954,8 @@ function AssembleView({
   leftNote: string | null;
   cut: boolean;
   guide: { piece: string; say: string } | null;
+  focus: string | null;
+  flyGusset: { id: string; at: string } | null;
   showCheck: boolean;
   unfinished: boolean;
   round: number;
@@ -1865,7 +1964,8 @@ function AssembleView({
   onDrag: (id: string | null) => void;
   onUp: (event: ReactPointerEvent<HTMLElement>, id: string) => void;
   onTap: (id: string) => void;
-  onLay: (id: string) => void;
+  onFocus: (id: string) => void;
+  onLay: () => void;
   onSend: () => void;
   onSendNow: () => void;
   onLook: () => void;
@@ -1881,9 +1981,20 @@ function AssembleView({
   const groups = new Set(queenPost.rounds[round]?.groups ?? []);
   const trayRows = [...TRAY, "planks"].filter((id) => groups.has(pieceGroup(id)));
   const rows = guide
-    ? trayRows.filter((id) => id === guide.piece || (guide.piece.startsWith("plank") && id === "planks") || (guide.piece === "gussets" && id === "gussets"))
+    ? trayRows.filter(
+        (id) =>
+          id === guide.piece ||
+          (guide.piece === "planks" && id === "planks") ||
+          (guide.piece.startsWith("plank") && id === "planks") ||
+          (guide.piece === "gussets" && id === "gussets"),
+      )
     : trayRows;
-  const rowDone = (id: string) => (id === "planks" ? plankSlots().every((slot) => placed[slot.id]) : Boolean(placed[id]));
+  const rowDone = (id: string) =>
+    id === "planks"
+      ? plankSlots().every((slot) => placed[slot.id])
+      : id === "gussets"
+        ? gussetSlots().every((slot) => placed[slot.id]) || Boolean(placed.gussets)
+        : Boolean(placed[id]);
   const canPlace = (id: string) => {
     if (rowDone(id)) {
       return false;
@@ -1899,6 +2010,16 @@ function AssembleView({
   const ordered = [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b)));
   const pulseId = ordered.find((id) => canPlace(id)) ?? null;
   const laid = plankSlots().filter((slot) => placed[slot.id]).length;
+  const focused = focus ? slotById(focus) ?? (focus === "planks" ? plankSlots()[0] : focus.startsWith("gusset") ? gussetSlots().find((slot) => slot.id === focus) : null) : null;
+  const fact =
+    focus === "planks"
+      ? slotFact(plankSlots()[0], !cut)
+      : focus === "gussets" || focused?.kind === "gusset"
+        ? slotFact(focused ?? gussetSlots()[0], !cut)
+        : focused
+          ? slotFact(focused, !cut)
+          : null;
+  const showCorners = groups.has("gussets") && !rowDone("gussets");
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -1909,11 +2030,22 @@ function AssembleView({
           preview={cut}
           holes={(queenPost.rounds[round]?.groups ?? []).includes("planks")}
           hot={guide?.piece ?? null}
+          focus={focus}
+          corners={showCorners}
+          flyGusset={flyGusset}
+          onFocus={onFocus}
           geometryLevel={geometryLevel}
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
         />
         <div className="gk-strip">
-          {guide ? <p className="gk-say">{guide.say}</p> : <p className="gk-known">{knownLine()}</p>}
+          {guide ? <p className="gk-say">{guide.say}</p> : null}
+          {fact ? (
+            <p className="gk-say" data-slot-fact={focus ?? ""}>
+              {fact}
+            </p>
+          ) : guide ? null : (
+            <p className="gk-known">{knownLine()}</p>
+          )}
           {lines.map((item) => (
             <p className="gk-work" key={item.id}>
               {item.line}
@@ -1964,12 +2096,15 @@ function AssembleView({
             return (
               <div
                 key="planks"
-                className={pulseId === "planks" ? "gk-row pulse" : "gk-row"}
-                onPointerUp={() => onTap("planks")}
+                className={`gk-row ${pulseId === "planks" ? "pulse" : ""} ${focus === "planks" ? "focus" : ""}`}
+                onPointerUp={() => {
+                  onFocus("planks");
+                  onTap("planks");
+                }}
               >
                 <img src={art("plank-side.png")} alt="" />
                 <div>
-                  <b>Plank ×8</b>
+                  <b>8 planks, {formatLength(1)} each</b>
                   <span>{laid === 8 ? "on the bridge" : "in the tray"}</span>
                 </div>
                 {cut ? (
@@ -1981,7 +2116,7 @@ function AssembleView({
                     onPointerDown={(event) => event.stopPropagation()}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
-                        onTap("planks");
+                        onLay();
                       }
                     }}
                     onChange={(event) => onLength("planks", event.target.value)}
@@ -1990,8 +2125,8 @@ function AssembleView({
                   <span className="gk-printed">{formatLength(1)}</span>
                 )}
                 {canPlace("planks") ? (
-                  <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap("planks")}>
-                    Place
+                  <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onLay()}>
+                    Lay planks
                   </button>
                 ) : null}
               </div>
@@ -2001,13 +2136,22 @@ function AssembleView({
           const group = queenPost.groups.find((item) => item.id === (slot?.group ?? id));
           const sprite = slot?.sprite ?? group?.sprite ?? "beam-side.png";
           const name = id === "gussets" ? "Gusset plate ×5" : id === "bolts" ? "Bolts ×10" : id === "rails" ? "Railing ×2" : slot?.name;
+          const rowFocus = focus === id || (id === "gussets" && focus?.startsWith("gusset"));
           return (
             <div
               key={id}
-              className={`gk-row ${placed[id] ? "earned" : ""} ${pulseId === id ? "pulse" : ""}`}
+              className={`gk-row ${placed[id] || (id === "gussets" && rowDone("gussets")) ? "earned" : ""} ${pulseId === id ? "pulse" : ""} ${rowFocus ? "focus" : ""}`}
               draggable={false}
               onPointerDown={(event) => {
-                if (placed[id]) {
+                if (id !== "gussets" && id !== "bolts" && id !== "rails") {
+                  onFocus(id);
+                } else if (id === "gussets") {
+                  onFocus("gussets");
+                }
+                if (placed[id] && id !== "gussets") {
+                  return;
+                }
+                if (id === "gussets" && rowDone("gussets")) {
                   return;
                 }
                 onDrag(id);
@@ -2030,7 +2174,7 @@ function AssembleView({
               <img src={art(sprite)} alt="" />
               <div>
                 <b>{name}</b>
-                <span>{placed[id] ? "on the bridge" : "in the tray"}</span>
+                <span>{rowDone(id) ? "on the bridge" : "in the tray"}</span>
               </div>
               {cut && slot && slot.length != null && !slot.bonus ? (
                 <input

@@ -26,7 +26,7 @@ export type PiecePose = {
   broken: "left" | "right" | null;
 };
 
-export type SplashMark = { x: number; y: number };
+export type SplashMark = { x: number; y: number; at: number };
 
 export type GoatMode = "idle" | "walk" | "arrived" | "slip" | "flail" | "fall" | "tumble" | "splash" | "swim" | "drip" | "shake" | "glare";
 
@@ -50,7 +50,15 @@ export function framePose(frames: CrossingFrame[], pose: string): CrossingFrame 
     return frames.find((frame) => frame.mode === "tumble") ?? frames.find((frame) => frame.mode === "fall") ?? null;
   }
   if (pose === "swim") {
-    return frames.find((frame) => frame.mode === "swim") ?? null;
+    const open =
+      frames.find(
+        (frame) =>
+          frame.mode === "swim" &&
+          frame.goatX >= 3.2 &&
+          frame.goatX <= 5.2 &&
+          frame.splashes.every((mark) => frame.t - mark.at > 0.6),
+      ) ?? null;
+    return open ?? frames.find((frame) => frame.mode === "swim" && frame.goatX >= 3 && frame.goatX <= 5) ?? frames.find((frame) => frame.mode === "swim") ?? null;
   }
   if (pose === "glare") {
     return [...frames].reverse().find((frame) => frame.mode === "glare") ?? null;
@@ -355,6 +363,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let swimTime = 0;
   let glareTime = 0;
   let splashHold = 0;
+  let entryX = 4;
+  let driftLeft = 0;
   let climbing = false;
   let celebrate = 0;
   let followX = -2.7;
@@ -508,7 +518,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       const pos = piece.body.getPosition();
       if (pos.y < waterY && !soaked.has(piece.id)) {
         soaked.add(piece.id);
-        splashes.push({ x: pos.x, y: waterY });
+        splashes.push({ x: pos.x, y: waterY, at: t });
         piece.body.setLinearDamping(16);
         piece.body.setAngularDamping(16);
         failed = true;
@@ -533,8 +543,10 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       if (inWater && !soaked.has("goat")) {
         soaked.add("goat");
         wetX = goatX;
-        splashes.push({ x: goatX, y: waterY });
-        splashHold = 0.12;
+        entryX = goatX;
+        driftLeft = 0.5;
+        splashHold = 0.5;
+        splashes.push({ x: goatX, y: waterY, at: t });
         goat.setLinearDamping(12);
         goat.setAngularDamping(12);
       }
@@ -543,12 +555,17 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
       if (sinceWet >= 1.5) {
         climbing = true;
-      } else if (splashHold > 0) {
+      } else if (driftLeft > 0) {
         mode = "splash";
-        splashHold -= TIME_STEP;
+        const spent = 0.5 - driftLeft;
+        const u = Math.min(1, spent / 0.5);
+        goatX = entryX + (4 - entryX) * u;
+        driftLeft -= TIME_STEP;
+        splashHold = Math.max(0, splashHold - TIME_STEP);
         feetY = waterY;
         goat.setPosition(new Vec2(goatX, waterY));
-        goat.setLinearVelocity(new Vec2(DRIFT, 0));
+        goat.setLinearVelocity(new Vec2(0, 0));
+        goat.setAngularVelocity(0);
       } else if (inWater) {
         mode = "swim";
         swimTime += TIME_STEP;
