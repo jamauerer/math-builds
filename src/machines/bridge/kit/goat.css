@@ -543,6 +543,12 @@
   margin: 0;
 }
 
+.gk-speed {
+  margin: 8px 0 18px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
 .gk-goat-line {
   display: flex;
   align-items: center;

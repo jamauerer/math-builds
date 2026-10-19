@@ -26,6 +26,7 @@ export type KitProfile = {
   levels: Record<string, number>;
   history: KitAttempt[];
   notes: string[];
+  lastRunMs?: number;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -203,6 +204,7 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     levels,
     history,
     notes: Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [],
+    lastRunMs: typeof record.lastRunMs === "number" && record.lastRunMs >= 0 ? record.lastRunMs : undefined,
   };
 }
 

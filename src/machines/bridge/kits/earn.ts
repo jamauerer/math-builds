@@ -1,5 +1,6 @@
-import type { LearnerMap } from "../../../engine/placement";
+﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthName } from "../../../units";
+import { plainQuestion } from "./plain";
 import { queenPost, type KitGroup } from "./kit";
 
 export type EarnFact =
@@ -18,7 +19,8 @@ export type EarnFact =
   | { kind: "rail-both"; side: number }
   | { kind: "split-gap"; gap: number; beams: number }
   | { kind: "add-parts"; left: number; right: number }
-  | { kind: "brace-hyp"; across: number; up: number };
+  | { kind: "brace-hyp"; across: number; up: number }
+  | { kind: "plain"; prompt: string; steps: string[]; why: string };
 
 export type EarnBit = {
   sprite: string;
@@ -50,18 +52,24 @@ export type EarnQuestion = {
   level: number;
   answer: string;
   fact: EarnFact;
+  word?: string;
 };
 
 export type EarnState = {
-  queue: EarnQuestion[];
-  index: number;
+  groupIndex: number;
   earned: string[];
-  phase: "ask" | "explain" | "practice";
+  runGot: number;
+  phase: "plain" | "word" | "explain" | "practice" | "done";
+  returnPhase: "plain" | "word";
+  current: EarnQuestion;
   practice: EarnQuestion[];
   practiceIndex: number;
   streak: number;
   roundsFailed: number;
-  salt: number;
+  seed: number;
+  seen: string[];
+  timesMs: number[];
+  speedLine: string | null;
 };
 
 const BRIDGE_SKILLS = [
@@ -98,7 +106,13 @@ export function earnMeasure(question: EarnQuestion): EarnMeasure {
 }
 
 export function earnPrompt(question: EarnQuestion): string {
+  if (question.word) {
+    return question.word;
+  }
   const fact = question.fact;
+  if (fact.kind === "plain") {
+    return fact.prompt;
+  }
   switch (fact.kind) {
     case "count-planks":
       return "How many planks reach across?";
@@ -154,13 +168,18 @@ export function earnHint(question: EarnQuestion): string {
       return "Hint: share the gap across the beams.";
     case "brace-hyp":
       return "Hint: square both sides, add, then take the square root.";
+    case "plain":
+      return "";
     default:
       return "Hint: count what is drawn.";
   }
 }
 
-export function earnPicture(question: EarnQuestion): EarnPicture {
+export function earnPicture(question: EarnQuestion): EarnPicture | null {
   const fact = question.fact;
+  if (fact.kind === "plain") {
+    return null;
+  }
   switch (fact.kind) {
     case "count-planks":
       return {
@@ -257,8 +276,11 @@ export function earnPicture(question: EarnQuestion): EarnPicture {
     case "between-posts":
       return {
         banks: true,
-        ruler: true,
-        labels: [],
+        ruler: false,
+        labels: [
+          { text: String(fact.left), x: rulerX(fact.left) - 8, y: 8 },
+          { text: String(fact.right), x: rulerX(fact.right) - 8, y: 8 },
+        ],
         bits: [fact.left, fact.right].map((mark) => ({
           sprite: "post.png",
           x: rulerX(mark) - 16,
@@ -499,32 +521,185 @@ function questionFor(group: KitGroup, level: number, salt = 0): EarnQuestion {
   return { groupId: group.id, level: rung, answer: answerFor(fact), fact, strandId: group.strand };
 }
 
-export function buildEarnQueue(levels: Record<string, number> | null, _seed = 1): EarnQuestion[] {
-  return queenPost.groups.map((group) => questionFor(group, levels?.[group.strand] ?? 1, 0));
+export function runLength(groupId: string): number {
+  return groupId === "braces" || groupId === "railing" ? 8 : 5;
 }
 
-function freshLoop(): Pick<EarnState, "phase" | "practice" | "practiceIndex" | "streak" | "roundsFailed" | "salt"> {
-  return { phase: "ask", practice: [], practiceIndex: 0, streak: 0, roundsFailed: 0, salt: 1 };
+export function speedLine(totalMs: number, previousMs: number | null): string | null {
+  if (previousMs == null) {
+    return "fastest run yet";
+  }
+  const delta = Math.round(previousMs / 1000) - Math.round(totalMs / 1000);
+  if (delta > 0) {
+    return `${delta} s faster than last time`;
+  }
+  return null;
+}
+
+function wordFor(group: KitGroup, level: number): EarnQuestion {
+  const strandId = group.strand;
+  if (group.id === "top") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "4",
+      word: "The posts stand at 2 and 6. How long is the top beam?",
+      fact: { kind: "between-posts", left: 2, right: 6 },
+    };
+  }
+  if (group.id === "bolts") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "10",
+      word: "Two bolts for each of 5 gussets, how many bolts?",
+      fact: { kind: "bolts-combine", plates: 5, each: 2 },
+    };
+  }
+  if (group.id === "bottom") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "4",
+      word: "The gap is 8. Two bottom beams share it. How long is each beam?",
+      fact: { kind: "split-gap", gap: 8, beams: 2 },
+    };
+  }
+  if (group.id === "posts") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "2",
+      word: "How many posts hold up the top beam?",
+      fact: { kind: "count-posts", count: 2 },
+    };
+  }
+  if (group.id === "gussets") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "5",
+      word: "How many gusset plates join the corners?",
+      fact: { kind: "count-gussets", count: 5 },
+    };
+  }
+  if (group.id === "braces") {
+    return {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: "2",
+      word: "How many braces stop the posts from folding?",
+      fact: { kind: "count-braces", count: 2 },
+    };
+  }
+  return {
+    groupId: group.id,
+    strandId,
+    level,
+    answer: "16",
+    word: "The railing runs both sides of a deck that is 8 long. How long is the railing?",
+    fact: { kind: "rail-both", side: 8 },
+  };
+}
+
+function plainFor(group: KitGroup, level: number, seed: number): EarnQuestion {
+  const item = plainQuestion(group.strand, level, seed);
+  return {
+    groupId: group.id,
+    strandId: group.strand,
+    level,
+    answer: item.answer,
+    fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why },
+  };
+}
+
+function nextPlain(group: KitGroup, level: number, seed: number, seen: string[]): { question: EarnQuestion; seed: number; seen: string[] } {
+  let cursor = seed;
+  let question = plainFor(group, level, cursor);
+  const prompts = new Set(seen);
+  while (prompts.has(earnPrompt(question)) && cursor < seed + 30) {
+    cursor += 1;
+    question = plainFor(group, level, cursor);
+  }
+  return { question, seed: cursor + 1, seen: [...seen, earnPrompt(question)] };
+}
+
+function groupAt(index: number): KitGroup {
+  return queenPost.groups[index] ?? queenPost.groups[0];
 }
 
 export function blankEarn(levels: Record<string, number> | null, seed = 1): EarnState {
-  return { queue: buildEarnQueue(levels, seed), index: 0, earned: [], ...freshLoop() };
+  const group = groupAt(0);
+  const level = levels?.[group.strand] ?? 1;
+  const first = nextPlain(group, level, seed, []);
+  return {
+    groupIndex: 0,
+    earned: [],
+    runGot: 0,
+    phase: "plain",
+    returnPhase: "plain",
+    current: first.question,
+    practice: [],
+    practiceIndex: 0,
+    streak: 0,
+    roundsFailed: 0,
+    seed: first.seed,
+    seen: first.seen,
+    timesMs: [],
+    speedLine: null,
+  };
+}
+
+export function earnAtWord(levels: Record<string, number> | null, groupId: string): EarnState {
+  const index = Math.max(0, queenPost.groups.findIndex((group) => group.id === groupId));
+  const group = groupAt(index);
+  const level = levels?.[group.strand] ?? 1;
+  return {
+    ...blankEarn(levels, 1),
+    groupIndex: index,
+    runGot: runLength(group.id),
+    phase: "word",
+    returnPhase: "word",
+    current: wordFor(group, level),
+  };
+}
+
+export function finishedEarn(line: string): EarnState {
+  const base = blankEarn(null, 1);
+  return {
+    ...base,
+    phase: "done",
+    earned: queenPost.groups.map((group) => group.id),
+    speedLine: line,
+  };
 }
 
 export function earnDone(state: EarnState): boolean {
-  return state.index >= state.queue.length;
+  return state.phase === "done";
 }
 
 export function currentQuestion(state: EarnState): EarnQuestion | null {
+  if (state.phase === "done") {
+    return null;
+  }
   if (state.phase === "practice") {
     return state.practice[state.practiceIndex] ?? null;
   }
-  return state.queue[state.index] ?? null;
+  return state.current;
 }
 
 export function explainQuestion(question: EarnQuestion): { steps: string[]; why: string } {
-  const answer = question.answer;
   const fact = question.fact;
+  if (fact.kind === "plain") {
+    return { steps: fact.steps, why: fact.why };
+  }
+  const answer = question.answer;
   if (fact.kind === "brace-hyp") {
     return {
       steps: ["Square the across side.", "Square the up side and add those squares.", `The square root is ${answer}.`],
@@ -556,20 +731,20 @@ export function explainQuestion(question: EarnQuestion): { steps: string[]; why:
 }
 
 export function startPractice(state: EarnState): EarnState {
-  const current = state.queue[state.index];
-  if (!current || state.phase !== "explain") {
+  if (state.phase !== "explain") {
     return state;
   }
-  const salt = state.salt;
-  const practice = [1, 2, 3].map((offset) => questionForStrand(current.strandId, current.level, salt + offset));
-  return {
-    ...state,
-    phase: "practice",
-    practice,
-    practiceIndex: 0,
-    streak: 0,
-    salt: salt + 3,
-  };
+  const practice: EarnQuestion[] = [];
+  let seed = state.seed;
+  let seen = state.seen.slice();
+  const group = groupAt(state.groupIndex);
+  for (let index = 0; index < 3; index += 1) {
+    const next = nextPlain(group, state.current.level, seed, seen);
+    practice.push(next.question);
+    seed = next.seed;
+    seen = next.seen;
+  }
+  return { ...state, phase: "practice", practice, practiceIndex: 0, streak: 0, seed, seen };
 }
 
 export type EarnResult = {
@@ -577,77 +752,152 @@ export type EarnResult = {
   correct: boolean;
   levels: Record<string, number>;
   note: string | null;
+  marksDelta: number;
 };
 
-function advance(state: EarnState, earned: string[]): EarnState {
+function resume(state: EarnState, levels: Record<string, number>): EarnState {
+  const group = groupAt(state.groupIndex);
+  const level = levels[group.strand] ?? state.current.level;
+  if (state.returnPhase === "word") {
+    return { ...state, phase: "word", returnPhase: "word", current: wordFor(group, level), roundsFailed: 0, streak: 0 };
+  }
+  const next = nextPlain(group, level, state.seed, state.seen);
   return {
     ...state,
-    index: state.index + 1,
-    earned,
-    ...freshLoop(),
+    phase: "plain",
+    returnPhase: "plain",
+    current: next.question,
+    seed: next.seed,
+    seen: next.seen,
+    roundsFailed: 0,
+    streak: 0,
   };
 }
 
 /**
- * A right answer on the kit question earns the piece.
- * A wrong answer stays put, explains the skill, then runs 3 practice questions.
- * Three right in a row earns the piece. A miss restarts those 3.
- * Two failed practice rounds drop the strand one level and move on.
+ * Five or eight plain questions, then one word problem, earn the piece.
+ * A miss explains the skill and runs three practice questions, then the run continues at the same count.
  */
-export function answerEarn(state: EarnState, given: string, levels: Record<string, number> = {}): EarnResult {
+export function answerEarn(
+  state: EarnState,
+  given: string,
+  levels: Record<string, number> = {},
+  elapsedMs = 0,
+  previousMs: number | null = null,
+): EarnResult {
   const current = currentQuestion(state);
-  if (!current || state.phase === "explain") {
-    return { state, correct: false, levels, note: null };
+  if (!current || state.phase === "explain" || state.phase === "done") {
+    return { state, correct: false, levels, note: null, marksDelta: 0 };
   }
   const correct = given.trim() === current.answer.trim();
-  if (state.phase === "ask") {
-    if (correct) {
+  if (state.phase === "practice") {
+    if (!correct) {
+      const roundsFailed = state.roundsFailed + 1;
+      if (roundsFailed >= 2) {
+        const nextLevel = Math.max(1, (levels[current.strandId] ?? current.level) - 1);
+        const nextLevels = { ...levels, [current.strandId]: nextLevel };
+        return {
+          correct: false,
+          levels: nextLevels,
+          note: `${current.strandId} dropped to level ${nextLevel} after two practice rounds.`,
+          marksDelta: 0,
+          state: resume({ ...state, roundsFailed, current: { ...state.current, level: nextLevel } }, nextLevels),
+        };
+      }
+      return {
+        correct: false,
+        levels,
+        note: null,
+        marksDelta: 0,
+        state: { ...state, phase: "explain", roundsFailed, streak: 0, practiceIndex: 0 },
+      };
+    }
+    const streak = state.streak + 1;
+    if (streak >= 3) {
+      return { correct: true, levels, note: null, marksDelta: 0, state: resume(state, levels) };
+    }
+    return { correct: true, levels, note: null, marksDelta: 0, state: { ...state, streak, practiceIndex: state.practiceIndex + 1 } };
+  }
+  if (!correct) {
+    return {
+      correct: false,
+      levels,
+      note: null,
+      marksDelta: 0,
+      state: { ...state, phase: "explain", returnPhase: state.phase === "word" ? "word" : "plain" },
+    };
+  }
+  if (state.phase === "word") {
+    const earned = [...state.earned, current.groupId];
+    const nextIndex = state.groupIndex + 1;
+    if (nextIndex >= queenPost.groups.length) {
+      const total = state.timesMs.reduce((sum, time) => sum + time, 0);
       return {
         correct: true,
         levels,
         note: null,
-        state: advance(state, [...state.earned, current.groupId]),
+        marksDelta: 3,
+        state: { ...state, earned, phase: "done", speedLine: speedLine(total, previousMs) },
       };
     }
-    return {
-      correct: false,
-      levels,
-      note: null,
-      state: { ...state, phase: "explain" },
-    };
-  }
-  if (!correct) {
-    const roundsFailed = state.roundsFailed + 1;
-    if (roundsFailed >= 2) {
-      const nextLevel = Math.max(1, (levels[current.strandId] ?? current.level) - 1);
-      const nextLevels = { ...levels, [current.strandId]: nextLevel };
-      return {
-        correct: false,
-        levels: nextLevels,
-        note: `${current.strandId} dropped to level ${nextLevel} after two practice rounds.`,
-        state: advance(state, state.earned.slice()),
-      };
-    }
-    return {
-      correct: false,
-      levels,
-      note: null,
-      state: { ...state, phase: "explain", roundsFailed, streak: 0, practiceIndex: 0 },
-    };
-  }
-  const streak = state.streak + 1;
-  if (streak >= 3) {
+    const group = groupAt(nextIndex);
+    const level = levels[group.strand] ?? 1;
+    const next = nextPlain(group, level, state.seed, state.seen);
     return {
       correct: true,
       levels,
       note: null,
-      state: advance(state, [...state.earned, state.queue[state.index]?.groupId ?? current.groupId]),
+      marksDelta: 3,
+      state: {
+        ...state,
+        groupIndex: nextIndex,
+        earned,
+        runGot: 0,
+        phase: "plain",
+        returnPhase: "plain",
+        current: next.question,
+        seed: next.seed,
+        seen: next.seen,
+        roundsFailed: 0,
+      },
     };
   }
+  const runGot = state.runGot + 1;
+  const timesMs = [...state.timesMs, elapsedMs];
+  const group = groupAt(state.groupIndex);
+  if (runGot >= runLength(group.id)) {
+    return {
+      correct: true,
+      levels,
+      note: null,
+      marksDelta: 1,
+      state: {
+        ...state,
+        runGot,
+        timesMs,
+        phase: "word",
+        returnPhase: "word",
+        current: wordFor(group, current.level),
+        roundsFailed: 0,
+      },
+    };
+  }
+  const next = nextPlain(group, current.level, state.seed, state.seen);
   return {
     correct: true,
     levels,
     note: null,
-    state: { ...state, streak, practiceIndex: state.practiceIndex + 1 },
+    marksDelta: 1,
+    state: {
+      ...state,
+      runGot,
+      timesMs,
+      phase: "plain",
+      returnPhase: "plain",
+      current: next.question,
+      seed: next.seed,
+      seen: next.seen,
+    },
   };
 }
+

@@ -46,7 +46,7 @@ function kitLevel(value: string | null): number | null {
   return parsed;
 }
 
-function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" {
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" {
   if (
     value === "earn" ||
     value === "assemble" ||
@@ -57,7 +57,8 @@ function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" 
     value === "place2" ||
     value === "explain" ||
     value === "practice" ||
-    value === "profile"
+    value === "profile" ||
+    value === "faster"
   ) {
     return value;
   }
@@ -131,6 +132,8 @@ export function App() {
           seek={seekMetre(new URLSearchParams(window.location.search).get("at"))}
           fault={kitFault(new URLSearchParams(window.location.search).get("fault"))}
           level={kitLevel(new URLSearchParams(window.location.search).get("level"))}
+          piece={new URLSearchParams(window.location.search).get("piece")}
+          word={new URLSearchParams(window.location.search).get("word") === "1"}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

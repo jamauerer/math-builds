@@ -1,43 +1,72 @@
 import { describe, expect, it } from "vitest";
 import { setUnitSystem } from "../../../units";
-import { answerEarn, blankEarn, earnHint, earnPrompt, startPractice } from "./earn";
+import { answerEarn, blankEarn, earnAtWord, earnPrompt, speedLine, startPractice } from "./earn";
 import { correctLengths, wreckLines } from "./kit";
 import { simulateCrossing } from "./simulate";
 
 describe("goat bridge kit", () => {
-  it("explains a miss, then earns the piece only after 3 practice answers in a row", () => {
-    const levels = { dividing: 1, measuring: 1, adding: 1, geometry: 1, counting: 1, multiplying: 1 };
-    const state0 = blankEarn(levels, 3);
-    const missed = answerEarn(state0, "nope", levels);
-    expect(missed.correct).toBe(false);
-    expect(missed.state.phase).toBe("explain");
-    expect(missed.state.earned).toEqual([]);
-    expect(missed.state.index).toBe(0);
-    const practice = startPractice(missed.state);
-    expect(practice.phase).toBe("practice");
-    expect(practice.practice).toHaveLength(3);
-    const restarted = answerEarn(practice, "nope", levels);
-    expect(restarted.state.phase).toBe("explain");
-    expect(restarted.state.roundsFailed).toBe(1);
-    expect(restarted.state.earned).toEqual([]);
-    let round = startPractice(restarted.state);
-    for (let index = 0; index < 3; index += 1) {
-      const answer = round.practice[round.practiceIndex]?.answer ?? "";
-      const step = answerEarn(round, answer, levels);
-      round = step.state;
+  it("asks five plain dividing questions, then one word problem, for the bottom beam", () => {
+    const levels = { dividing: 5 };
+    let state = blankEarn(levels, 3);
+    const prompts: string[] = [];
+    for (let index = 0; index < 5; index += 1) {
+      expect(state.phase).toBe("plain");
+      expect(state.runGot).toBe(index);
+      expect(state.current.groupId).toBe("bottom");
+      expect(state.current.strandId).toBe("dividing");
+      expect(state.current.fact.kind).toBe("plain");
+      const prompt = earnPrompt(state.current);
+      expect(prompt.toLowerCase()).not.toContain("level");
+      expect(prompt.split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(state.current.answer.replace(/^-/, ""));
+      prompts.push(prompt);
+      const step = answerEarn(state, state.current.answer, levels, 1000);
+      expect(step.marksDelta).toBe(1);
+      state = step.state;
     }
-    expect(round.earned).toEqual(["bottom"]);
-    expect(round.phase).toBe("ask");
-    expect(round.index).toBe(1);
+    expect(new Set(prompts).size).toBe(5);
+    expect(state.phase).toBe("word");
+    const word = earnPrompt(state.current);
+    expect(word.toLowerCase()).not.toContain("level");
+    expect(word.split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(state.current.answer);
+    const earned = answerEarn(state, state.current.answer, levels);
+    expect(earned.marksDelta).toBe(3);
+    expect(earned.state.earned).toEqual(["bottom"]);
+    expect(earned.state.phase).toBe("plain");
+    expect(earned.state.runGot).toBe(0);
+    const top = earnAtWord(levels, "top");
+    expect(earnPrompt(top.current)).toBe("The posts stand at 2 and 6. How long is the top beam?");
+    expect(top.current.answer).toBe("4");
+    expect(speedLine(10_000, 22_000)).toBe("12 s faster than last time");
+    expect(speedLine(22_000, 10_000)).toBeNull();
+    expect(speedLine(8_000, null)).toBe("fastest run yet");
   });
 
-  it("drops the strand after two failed practice rounds and never asks the brace length below level 9", () => {
-    const levels = { dividing: 4, measuring: 4, adding: 4, geometry: 4, counting: 4, multiplying: 4 };
+  it("resumes the run at the same count after the explain and practice loop", () => {
+    const levels = { dividing: 5, geometry: 4 };
+    let state = blankEarn(levels, 2);
+    state = answerEarn(state, state.current.answer, levels).state;
+    expect(state.runGot).toBe(1);
+    const missed = answerEarn(state, "nope", levels);
+    expect(missed.state.phase).toBe("explain");
+    expect(missed.state.runGot).toBe(1);
+    expect(missed.marksDelta).toBe(0);
+    let practice = startPractice(missed.state);
+    expect(practice.practice).toHaveLength(3);
+    for (let index = 0; index < 3; index += 1) {
+      const answer = practice.practice[practice.practiceIndex]?.answer ?? "";
+      practice = answerEarn(practice, answer, levels).state;
+    }
+    expect(practice.phase).toBe("plain");
+    expect(practice.runGot).toBe(1);
+    expect(practice.earned).toEqual([]);
+    const brace = earnAtWord(levels, "braces");
+    expect(`${earnPrompt(brace.current)}`).not.toContain("2.83");
+    expect(brace.current.answer).not.toBe("2.83");
+  });
+
+  it("drops the strand after two failed practice rounds and stays on the same count", () => {
+    const levels = { dividing: 4 };
     let state = blankEarn(levels, 1);
-    const brace = state.queue.find((item) => item.groupId === "braces");
-    expect(brace?.fact.kind).not.toBe("brace-hyp");
-    expect(`${earnPrompt(brace!)} ${earnHint(brace!)}`).not.toContain("2.83");
-    expect(earnHint(brace!)).not.toContain(brace?.answer ?? "missing");
     state = answerEarn(state, "nope", levels).state;
     state = startPractice(state);
     state = answerEarn(state, "nope", levels).state;
@@ -46,10 +75,10 @@ describe("goat bridge kit", () => {
     expect(dropped.levels.dividing).toBe(3);
     expect(dropped.note).toContain("dividing");
     expect(dropped.state.earned).toEqual([]);
-    expect(dropped.state.index).toBe(1);
-    const high = blankEarn({ ...levels, geometry: 9 }, 1).queue.find((item) => item.groupId === "braces");
-    expect(high?.fact.kind).toBe("brace-hyp");
-    expect(earnHint(high!)).not.toContain(high?.answer ?? "");
+    expect(dropped.state.phase).toBe("plain");
+    expect(dropped.state.runGot).toBe(0);
+    expect(dropped.state.groupIndex).toBe(0);
+    expect(dropped.state.current.level).toBe(3);
   });
 
   it("walks the goat to the far bank when every length is right", () => {

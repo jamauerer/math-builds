@@ -26,13 +26,15 @@ import {
   answerEarn,
   blankEarn,
   currentQuestion,
-  earnDone,
+  earnAtWord,
   earnHint,
   earnMeasure,
   earnPicture,
   earnPrompt,
   explainQuestion,
+  finishedEarn,
   questionForStrand,
+  runLength,
   startPractice,
   type EarnQuestion,
   type EarnState,
@@ -44,6 +46,7 @@ import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
 type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile";
+type Open = Stage | "faster";
 
 const TRAY = [
   "bottom-a",
@@ -77,26 +80,30 @@ export function GoatKit({
   units,
   onUnits,
   level = null,
+  piece = null,
+  word = false,
   kitProfile = null,
   onKitProfile,
 }: {
   map: LearnerMap;
   marks: number;
   onMarks: (marks: number) => void;
-  start?: Stage;
+  start?: Open;
   seek?: number | null;
   fault?: "top" | "post" | "bottom" | null;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   level?: number | null;
+  piece?: string | null;
+  word?: boolean;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
   setUnitSystem(units);
   void map;
   const savedLevels = strandLevels(level, kitProfile?.levels);
-  const [stage, setStage] = useState<Stage>(start === "place2" ? "place" : start);
-  const [earn, setEarn] = useState<EarnState>(() => openingEarn(savedLevels, start));
+  const [stage, setStage] = useState<Stage>(start === "place2" ? "place" : start === "faster" ? "earn" : start);
+  const [earn, setEarn] = useState<EarnState>(() => (word && piece ? earnAtWord(savedLevels, piece) : openingEarn(savedLevels, start)));
   const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
@@ -115,13 +122,19 @@ export function GoatKit({
   const [mass, setMass] = useState(40);
   const [badge, setBadge] = useState(start === "wreck");
   const awarded = useRef(start === "drive");
+  const askedAt = useRef(Date.now());
   const earnedGroups = earn.earned;
+  const promptKey = `${earn.phase}:${earn.groupIndex}:${earn.runGot}:${earn.practiceIndex}:${earn.current.answer}`;
+
+  useEffect(() => {
+    askedAt.current = Date.now();
+  }, [promptKey]);
 
   function openEarn() {
     setStage("earn");
   }
 
-  function remember(question: EarnQuestion, correct: boolean, levels = savedLevels ?? {}, note: string | null = null) {
+  function remember(question: EarnQuestion, correct: boolean, levels = savedLevels ?? {}, note: string | null = null, lastRunMs = kitProfile?.lastRunMs) {
     if (!onKitProfile) {
       return;
     }
@@ -135,19 +148,22 @@ export function GoatKit({
       levels,
       history,
       notes,
+      lastRunMs,
     });
   }
 
   function submitAnswer() {
     const question = currentQuestion(earn);
-    const next = answerEarn(earn, typed, savedLevels ?? {});
+    const elapsed = earn.phase === "plain" ? Math.max(0, Date.now() - askedAt.current) : 0;
+    const next = answerEarn(earn, typed, savedLevels ?? {}, elapsed, kitProfile?.lastRunMs ?? null);
     setEarn(next.state);
     setTyped("");
-    if (question) {
-      remember(question, next.correct, next.levels, next.note);
+    if (next.marksDelta > 0) {
+      onMarks(marks + next.marksDelta);
     }
-    if (earnDone(next.state)) {
-      setStage("assemble");
+    if (question) {
+      const lastRunMs = next.state.phase === "done" ? next.state.timesMs.reduce((sum, time) => sum + time, 0) : kitProfile?.lastRunMs;
+      remember(question, next.correct, next.levels, next.note, lastRunMs);
     }
   }
 
@@ -170,6 +186,7 @@ export function GoatKit({
         levels: stepped.levels,
         history,
         notes: kitProfile?.notes ?? [],
+        lastRunMs: kitProfile?.lastRunMs,
       });
       setEarn(blankEarn(stepped.levels));
       setStage("profile");
@@ -180,6 +197,7 @@ export function GoatKit({
       levels: kitProfile?.levels ?? {},
       history,
       notes: kitProfile?.notes ?? [],
+      lastRunMs: kitProfile?.lastRunMs,
     });
     setRun(stepped.run);
   }
@@ -322,6 +340,7 @@ export function GoatKit({
                 setEarn(startPractice(earn));
                 setTyped("");
               }}
+              onBuild={() => setStage("assemble")}
               earned={earnedGroups}
             />
           ) : null}
@@ -531,6 +550,7 @@ function EarnView({
   setTyped,
   onCheck,
   onPractice,
+  onBuild,
   earned,
 }: {
   earn: EarnState;
@@ -538,27 +558,47 @@ function EarnView({
   setTyped: (value: string) => void;
   onCheck: () => void;
   onPractice: () => void;
+  onBuild: () => void;
   earned: string[];
 }) {
-  const kitQuestion = earn.queue[earn.index];
-  const question = currentQuestion(earn);
-  if (!kitQuestion || !question) {
+  const question = earn.phase === "done" ? null : currentQuestion(earn);
+  const groupId = question?.groupId ?? earn.current.groupId;
+  const picture = question ? earnPicture(question) : null;
+  const hint = question ? earnHint(question) : "";
+  const keys = question ? keysFor(question.answer) : [];
+  if (earn.phase === "done") {
+    return (
+      <div className="gk-body">
+        <div className="gk-earn">
+          <div className="gk-card">
+            <h2 className="gk-prompt">The kit is earned.</h2>
+            {earn.speedLine ? <p className="gk-speed">{earn.speedLine}</p> : null}
+            <button className="gk-check" type="button" onClick={onBuild}>
+              Build it
+            </button>
+          </div>
+          <EarnedBar earned={earned} />
+          <GoatWait />
+        </div>
+        <KitPanel earned={earned} />
+      </div>
+    );
+  }
+  if (!question) {
     return null;
   }
-  const group = queenPost.groups.find((item) => item.id === kitQuestion.groupId);
-  const upcoming = earn.queue.slice(earn.index + 1, earn.index + 3);
   if (earn.phase === "explain") {
-    const explained = explainQuestion(kitQuestion);
+    const explained = explainQuestion(question);
     return (
       <div className="gk-body">
         <div className="gk-earn">
           <div className="gk-card">
             <div className="gk-kicker">
-              <span>{strandName(kitQuestion.strandId)} · level {kitQuestion.level}</span>
-              <span>one skill, then three practice questions</span>
+              <span>{strandName(question.strandId)}</span>
+              <span>then three practice questions</span>
             </div>
-            <h2 className="gk-prompt">{earnPrompt(kitQuestion)}</h2>
-            <EarnSketch question={kitQuestion} />
+            <h2 className="gk-prompt">{earnPrompt(question)}</h2>
+            {picture ? <EarnSketch question={question} /> : null}
             <div className="gk-steps">
               {explained.steps.map((step) => (
                 <p className="gk-note" key={step}>
@@ -572,25 +612,21 @@ function EarnView({
             </button>
           </div>
         </div>
-        <KitPanel earned={earned} current={kitQuestion.groupId} />
+        <KitPanel earned={earned} current={groupId} />
       </div>
     );
   }
+  const counter = earn.phase === "practice" ? `${earn.streak + 1} of 3` : earn.phase === "word" ? "Word problem" : `${earn.runGot + 1} of ${runLength(groupId)}`;
   return (
     <div className="gk-body">
       <div className="gk-earn">
         <div className="gk-card">
           <div className="gk-kicker">
-            <span>
-              {earn.phase === "practice"
-                ? `PRACTICE ${earn.streak + 1} OF 3 · LEVEL ${question.level}`
-                : `QUESTION ${earn.index + 1} OF ${earn.queue.length} · LEVEL ${question.level}`}
-            </span>
-            <span>{earn.phase === "practice" ? "3 in a row earns the piece" : `answer right = earn the ${group?.name.toLowerCase()}`}</span>
+            <span>{counter}</span>
           </div>
           <h2 className="gk-prompt">{earnPrompt(question)}</h2>
-          <EarnSketch question={question} />
-          <p className="gk-hint">{earnHint(question)}</p>
+          {picture ? <EarnSketch question={question} /> : null}
+          {hint ? <p className="gk-hint">{hint}</p> : null}
           <div className="gk-answer">
             <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
             <span className="gk-unit">{earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
@@ -599,51 +635,65 @@ function EarnView({
             </button>
           </div>
           <div className="gk-keys">
-            {(question.level <= 3 ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "←"] : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"]).map((key) => (
+            {keys.map((key) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : `${typed}${key}`)}
+                onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : key === "−" ? `${typed}-` : `${typed}${key}`)}
               >
                 {key}
               </button>
             ))}
           </div>
         </div>
-        <div>
-          <div className="gk-kicker">EARNED SO FAR</div>
-          <div className="gk-bar">
-            <i style={{ width: `${(earned.length / queenPost.groups.length) * 100}%` }} />
-          </div>
-          <p className="gk-muted">
-            {earned.length} of {queenPost.groups.length} pieces
-          </p>
-          <p className="gk-note">A miss stays on this piece. Three practice questions in a row earn it. Marks stay put.</p>
-        </div>
-        <div className="gk-goat-line">
-          <img src={art("goat-idle.png")} alt="" />
-          <p className="gk-note">I&apos;m not crossing anything until you&apos;ve earned the braces.</p>
-        </div>
-        <div className="gk-next">
-          {upcoming.map((item, index) => {
-            const nextGroup = queenPost.groups.find((groupItem) => groupItem.id === item.groupId);
-            return (
-              <div key={`${item.groupId}-${index}`}>
-                Up next · Q{earn.index + 2 + index}
-                <br />
-                {nextGroup?.name}
-              </div>
-            );
-          })}
-        </div>
+        <EarnedBar earned={earned} />
+        <GoatWait />
       </div>
-      <KitPanel earned={earned} current={question.groupId} />
+      <KitPanel earned={earned} current={groupId} />
     </div>
   );
 }
 
-function EarnSketch({ question }: { question: EarnState["queue"][number] }) {
+function keysFor(answer: string): string[] {
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+  if (answer.includes(".")) {
+    keys.push(".");
+  }
+  if (answer.startsWith("-")) {
+    keys.push("−");
+  }
+  keys.push("←");
+  return keys;
+}
+
+function EarnedBar({ earned }: { earned: string[] }) {
+  return (
+    <div>
+      <div className="gk-kicker">EARNED SO FAR</div>
+      <div className="gk-bar">
+        <i style={{ width: `${(earned.length / queenPost.groups.length) * 100}%` }} />
+      </div>
+      <p className="gk-muted">
+        {earned.length} of {queenPost.groups.length} pieces
+      </p>
+    </div>
+  );
+}
+
+function GoatWait() {
+  return (
+    <div className="gk-goat-line">
+      <img src={art("goat-idle.png")} alt="" />
+      <p className="gk-note">The goat waits on the bank.</p>
+    </div>
+  );
+}
+
+function EarnSketch({ question }: { question: EarnQuestion }) {
   const picture = earnPicture(question);
+  if (!picture) {
+    return null;
+  }
   return (
     <div className="gk-qpic" data-picture={question.fact.kind}>
       <div className="gk-qstage">
@@ -982,7 +1032,7 @@ function usePlayback(result: CrossingResult, held: CrossingFrame | null, onSettl
   return frame;
 }
 
-function faultLengths(start: Stage, fault: "top" | "post" | "bottom" | null): Record<string, string> {
+function faultLengths(start: Open, fault: "top" | "post" | "bottom" | null): Record<string, string> {
   if (fault === "post") {
     return { "post-a": "1" };
   }
@@ -995,7 +1045,7 @@ function faultLengths(start: Stage, fault: "top" | "post" | "bottom" | null): Re
   return {};
 }
 
-function scenarioLengths(start: Stage, fault: "top" | "post" | "bottom" | null): Record<string, number> {
+function scenarioLengths(start: Open, fault: "top" | "post" | "bottom" | null): Record<string, number> {
   return { ...numericLengths(filledLengths()), ...numericLengths(faultLengths(start, fault)) };
 }
 
@@ -1031,7 +1081,10 @@ function strandLevels(level: number | null, saved: Record<string, number> | unde
   return null;
 }
 
-function openingEarn(levels: Record<string, number> | null, start: Stage): EarnState {
+function openingEarn(levels: Record<string, number> | null, start: Open): EarnState {
+  if (start === "faster") {
+    return finishedEarn("12 s faster than last time");
+  }
   const base = blankEarn(levels);
   if (start === "explain") {
     return answerEarn(base, "nope", levels ?? {}).state;
@@ -1042,7 +1095,7 @@ function openingEarn(levels: Record<string, number> | null, start: Stage): EarnS
   return base;
 }
 
-function openingRun(start: Stage): AdaptiveRun | null {
+function openingRun(start: Open): AdaptiveRun | null {
   if (start !== "place" && start !== "place2") {
     return null;
   }
@@ -1053,7 +1106,7 @@ function openingRun(start: Stage): AdaptiveRun | null {
   return run;
 }
 
-function shownProfile(profile: KitProfile | null, start: Stage): KitProfile {
+function shownProfile(profile: KitProfile | null, start: Open): KitProfile {
   if (profile && Object.keys(profile.levels).length > 0) {
     return profile;
   }
@@ -1136,7 +1189,7 @@ function PlaceView({
 }) {
   const ask = adaptiveAsk(run);
   const question = questionForStrand(ask.strandId, ask.level, ask.number);
-  const keys = question.level <= 3 ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "←"] : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"];
+  const keys = keysFor(question.answer);
   return (
     <>
       <header className="gk-header">
@@ -1154,7 +1207,6 @@ function PlaceView({
           <div className="gk-card">
             <div className="gk-kicker">
               <span>QUESTION {ask.number}</span>
-              <span>level {ask.level}</span>
             </div>
             <h2 className="gk-prompt">{earnPrompt(question)}</h2>
             <EarnSketch question={question} />
