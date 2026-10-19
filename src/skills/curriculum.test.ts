@@ -50,6 +50,42 @@ describe("curriculum graph", () => {
     }
   });
 
+  it("gives every choice skill an option generator with 2 to 4 shuffled choices", () => {
+    const choiceIds = CURRICULUM_SKILLS.filter((skill) => skill.answer === "choice").map((skill) => skill.id);
+    expect(choiceIds.length).toBeGreaterThan(10);
+    for (const id of choiceIds) {
+      const question = skillQuestion(id, 3);
+      expect(question.choices, id).toBeTruthy();
+      expect(question.choices!.length, id).toBeGreaterThanOrEqual(2);
+      expect(question.choices!.length, id).toBeLessThanOrEqual(4);
+      expect(
+        question.choices!.some((option) => option.value === question.answer),
+        id,
+      ).toBe(true);
+    }
+  });
+
+  it("puts the right choice in every position across 100 renders", () => {
+    const choiceIds = CURRICULUM_SKILLS.filter((skill) => skill.answer === "choice").map((skill) => skill.id);
+    for (const id of choiceIds) {
+      const seen = new Set<number>();
+      let width = 0;
+      for (let seed = 1; seed <= 100; seed += 1) {
+        const question = skillQuestion(id, seed);
+        const options = question.choices ?? [];
+        expect(options.length, id).toBeGreaterThanOrEqual(2);
+        expect(options.length, id).toBeLessThanOrEqual(4);
+        width = Math.max(width, options.length);
+        const index = options.findIndex((option) => option.value === question.answer);
+        expect(index, `${id} seed ${seed}`).toBeGreaterThanOrEqual(0);
+        seen.add(index);
+      }
+      for (let slot = 0; slot < width; slot += 1) {
+        expect(seen.has(slot), `${id} never right at index ${slot}`).toBe(true);
+      }
+    }
+  });
+
   it("rejects skills in code that are not in the file", () => {
     const allowed = new Set(fileIds);
     for (const id of curriculumSkillIds()) {

@@ -171,6 +171,8 @@ export function App() {
           seedCountry={new URLSearchParams(window.location.search).get("country")}
           focusSlot={new URLSearchParams(window.location.search).get("focus")}
           flyGusset={new URLSearchParams(window.location.search).get("fly")}
+          skill={new URLSearchParams(window.location.search).get("skill")}
+          skillSeed={kitLevel(new URLSearchParams(window.location.search).get("seed"))}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

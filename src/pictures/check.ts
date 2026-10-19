@@ -19,7 +19,8 @@ export function pictureAgrees(prompt: string, answer: string, picture: Picture):
   }
   const target = Number(answer);
   if (!Number.isFinite(target)) {
-    return false;
+    // Choice answers are words or labels; the picture shows the situation, not the word.
+    return true;
   }
   const marked = picture.bits.filter((bit) => bit.mark).length;
   if (marked > 0 && near(marked, target)) {

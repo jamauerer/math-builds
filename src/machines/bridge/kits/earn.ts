@@ -1,7 +1,7 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
-import { skillExplain, skillQuestion } from "../../../skills/generate";
+import { skillExplain, skillQuestion, type ChoiceOption } from "../../../skills/generate";
 import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
@@ -72,6 +72,7 @@ export type EarnQuestion = {
   picture?: EarnPicture;
   pictureCaption?: string;
   truth?: number;
+  choices?: ChoiceOption[];
 };
 
 export type EarnState = {
@@ -481,6 +482,7 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     skillId: slot.skillId,
     mixed: slot.mixed === true,
     hint: hint ? fromSkill.steps[0] : undefined,
+    choices: "choices" in fromSkill ? fromSkill.choices : undefined,
     fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
   };
 }
@@ -560,6 +562,9 @@ function takePlan(
 function picturedStrand(question: EarnQuestion): boolean {
   if (question.fact.kind !== "plain") {
     return false;
+  }
+  if (question.choices && question.choices.length > 0) {
+    return question.fact.draw?.op === "angle" || question.fact.draw?.op === "hyp" || question.fact.draw?.op === "frac";
   }
   if (question.strandId === "fractions") {
     return question.fact.draw?.op === "frac";
@@ -1268,5 +1273,44 @@ export function lessonFrame(kind: "warmup" | "learn" | "guided" | "mixed", level
   const running = guided.phase === "guided" ? runState(guided, guided.groupIndex, levels ?? {}) : guided;
   const mixed = [running.current, ...running.upcoming].find((question) => question.mixed) ?? running.current;
   return { ...running, phase: "plain", returnPhase: "plain", current: mixed };
+}
+
+/** Hold one curriculum skill question on the earn card (for screenshots and choice UI tests). */
+export function skillHold(skillId: string, seed = 3): EarnState {
+  const skill = curriculumSkill(skillId);
+  if (!skill) {
+    throw new Error(`Unknown skill ${skillId}`);
+  }
+  const levels = fitLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, Math.max(skill.level, 4)])));
+  const base = blankEarn(levels, seed);
+  const item = skillQuestion(skillId, seed);
+  const groupIndex = Math.max(0, queenPost.groups.findIndex((group) => group.strand === skill.strandId));
+  const group = queenPost.groups[groupIndex] ?? queenPost.groups[0];
+  let question: EarnQuestion = {
+    groupId: group.id,
+    strandId: skill.strandId,
+    level: skill.level,
+    answer: item.answer,
+    truth: item.truth,
+    skillId,
+    choices: item.choices,
+    fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
+  };
+  question = withPicture(question);
+  if (!question.picture && item.draw && (item.draw.op === "angle" || item.draw.op === "hyp")) {
+    const drawn = drawPlain(skill.strandId, item.draw, item.answer);
+    if (drawn?.picture.bits.length) {
+      question = { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
+    }
+  }
+  return {
+    ...base,
+    groupIndex,
+    phase: "plain",
+    returnPhase: "plain",
+    current: question,
+    upcoming: [],
+    runGot: 1,
+  };
 }
 

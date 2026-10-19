@@ -940,6 +940,106 @@
   font-size: 18px;
 }
 
+.gk-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+
+.gk-choice {
+  min-height: 104px;
+  border: 2px solid #d7cfc2;
+  border-radius: 16px;
+  background: #fffaf2;
+  padding: 12px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: Figtree, sans-serif;
+}
+
+.gk-choice.is-right {
+  border-color: #3c7a2b;
+  background: #e7f3e1;
+  box-shadow: 0 0 0 3px rgba(60, 122, 43, 0.25);
+}
+
+.gk-choice.is-dim {
+  opacity: 0.45;
+}
+
+.gk-choice-num {
+  font-size: 42px;
+  font-weight: 800;
+  color: #22201c;
+  line-height: 1;
+}
+
+.gk-choice-label {
+  font-size: 22px;
+  font-weight: 700;
+  color: #22201c;
+}
+
+.gk-choice-pic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.gk-choice-pic[data-pic="bolts"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.gk-choice-pic[data-pic="bolts"] img {
+  width: 22px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.gk-choice-pic[data-pic="plank"],
+.gk-choice-pic[data-pic="beam"] {
+  position: relative;
+}
+
+.gk-choice-pic[data-pic="plank"] > img {
+  width: 120px;
+  height: 28px;
+  object-fit: fill;
+}
+
+.gk-choice-cuts {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 28px;
+  pointer-events: none;
+}
+
+.gk-choice-cuts i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1px;
+  background: #22201c;
+}
+
+.gk-choice-pic em {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a5348;
+}
+
 .gk-idk {
   align-self: flex-start;
   flex: none;

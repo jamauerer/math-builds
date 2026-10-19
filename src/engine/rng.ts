@@ -29,6 +29,18 @@ export function pick<T>(rng: Rng, items: readonly T[]): T {
   return items[intBetween(rng, 0, items.length - 1)];
 }
 
+/** Fisher-Yates shuffle. Same seed stream always yields the same order. */
+export function shuffle<T>(rng: Rng, items: readonly T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = intBetween(rng, 0, i);
+    const swap = copy[i];
+    copy[i] = copy[j];
+    copy[j] = swap;
+  }
+  return copy;
+}
+
 export function clampDifficulty(difficulty: number): number {
   if (!Number.isFinite(difficulty)) {
     return 3;

@@ -1,6 +1,13 @@
-import { createRng, intBetween, type Rng } from "../engine/rng";
+import { createRng, intBetween, pick, shuffle, type Rng } from "../engine/rng";
 import type { PlainDraw } from "../pictures/parts";
 import { curriculumSkill, type CurriculumSkill } from "./index";
+
+export type ChoiceOption = {
+  value: string;
+  kind: "number" | "label" | "picture";
+  label?: string;
+  draw?: PlainDraw;
+};
 
 export type SkillItem = {
   prompt: string;
@@ -9,7 +16,7 @@ export type SkillItem = {
   why: string;
   draw: PlainDraw;
   truth?: number;
-  choices?: string[];
+  choices?: ChoiceOption[];
 };
 
 /** One plain question in the curriculum notation form for this skill. */
@@ -26,7 +33,7 @@ function salt(id: string): number {
   return id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-function item(prompt: string, answer: number | string, steps: string[], why: string, draw: PlainDraw, choices?: string[]): SkillItem {
+function item(prompt: string, answer: number | string, steps: string[], why: string, draw: PlainDraw, choices?: ChoiceOption[]): SkillItem {
   const numeric = typeof answer === "number" ? answer : Number(answer);
   const whole = Number.isFinite(numeric) && Math.abs(numeric - Math.round(numeric)) < 1e-9;
   const shown = whole || !Number.isFinite(numeric) ? String(answer) : (Math.round(numeric * 10) / 10).toFixed(1);
@@ -41,7 +48,188 @@ function item(prompt: string, answer: number | string, steps: string[], why: str
   };
 }
 
+function choice(prompt: string, answer: string, steps: string[], why: string, draw: PlainDraw, options: ChoiceOption[], rng: Rng): SkillItem {
+  const unique = options.filter((option, index, list) => list.findIndex((item) => item.value === option.value) === index);
+  if (unique.length < 2 || unique.length > 4) {
+    throw new Error(`Choice needs 2 to 4 options, got ${unique.length} for ${prompt}`);
+  }
+  if (!unique.some((option) => option.value === answer)) {
+    throw new Error(`Choice answer ${answer} missing from options for ${prompt}`);
+  }
+  return item(prompt, answer, steps, why, draw, shuffle(rng, unique));
+}
+
+function numOpt(value: string | number): ChoiceOption {
+  return { value: String(value), kind: "number", label: String(value) };
+}
+
+function labelOpt(value: string, label = value): ChoiceOption {
+  return { value, kind: "label", label };
+}
+
+function picOpt(value: string, draw: PlainDraw, label?: string): ChoiceOption {
+  return { value, kind: "picture", draw, label };
+}
+
+function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
+  const id = skill.id;
+  const why = skill.learnPicture;
+
+  if (id.includes("compare") && id.includes("counting")) {
+    const a = intBetween(rng, 3, 9);
+    const b = intBetween(rng, 1, a - 1);
+    return choice(
+      "Which has more?",
+      String(a),
+      [`${a} is more than ${b}.`],
+      why,
+      { op: "compare", a, b },
+      [picOpt(String(a), { op: "groups", a, b: 1 }), picOpt(String(b), { op: "groups", a: b, b: 1 })],
+      rng,
+    );
+  }
+  if (id.includes("numerals")) {
+    const n = intBetween(rng, 0, 10);
+    const pool = shuffle(
+      rng,
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((value) => value !== n),
+    ).slice(0, 3);
+    return choice(`Tap ${n}`, String(n), [`Find ${n}.`], why, { op: "add", a: n, b: 0 }, [n, ...pool].map(numOpt), rng);
+  }
+  if (id.includes("to-1000") && skill.answer === "choice") {
+    const tens = intBetween(rng, 1, 8);
+    const onesA = intBetween(rng, 1, 8);
+    const onesB = intBetween(rng, onesA + 1, 9);
+    const left = 300 + tens * 10 + onesA;
+    const right = 300 + tens * 10 + onesB;
+    const bigger = Math.max(left, right);
+    return choice(
+      `Tap the bigger number: ${left} or ${right}`,
+      String(bigger),
+      [`${bigger} is bigger.`],
+      why,
+      { op: "compare", a: left, b: right },
+      [numOpt(left), numOpt(right)],
+      rng,
+    );
+  }
+  if (id.includes("even-odd")) {
+    const n = intBetween(rng, 10, 40);
+    const answer = n % 2 === 0 ? "even" : "odd";
+    return choice(`Is ${n} even or odd?`, answer, [`${n} is ${answer}.`], why, { op: "add", a: n, b: 0 }, [labelOpt("even"), labelOpt("odd")], rng);
+  }
+  if (id.includes("factors") && !id.includes("gcf")) {
+    return choice(`Is 24 a multiple of 6?`, "yes", [`24 ÷ 6 = 4.`], why, { op: "mul", a: 6, b: 4 }, [labelOpt("yes"), labelOpt("no")], rng);
+  }
+  if (id.includes("primes")) {
+    return choice(`Is 17 prime?`, "yes", [`17 has only 1 and itself.`], why, { op: "add", a: 17, b: 0 }, [labelOpt("yes"), labelOpt("no")], rng);
+  }
+  if (id.includes("negatives")) {
+    return choice(`Which is colder, -3 or -7?`, "-7", [`-7 is farther below zero.`], why, { op: "compare", a: -3, b: -7 }, [numOpt("-3"), numOpt("-7")], rng);
+  }
+  if (id.includes("estimate")) {
+    return choice(`About how much is 298 + 403?`, "700", [`Round first.`], why, { op: "add", a: 300, b: 400 }, [numOpt("500"), numOpt("700"), numOpt("900")], rng);
+  }
+  if (id.includes("halves")) {
+    return choice(
+      "Tap the plank cut in half",
+      "half",
+      ["Two equal parts."],
+      why,
+      { op: "frac", a: 1, b: 2, c: 2 },
+      [
+        picOpt("half", { op: "frac", a: 1, b: 2, c: 2 }, "2 equal"),
+        picOpt("third", { op: "frac", a: 1, b: 3, c: 3 }, "3 equal"),
+        picOpt("unequal", { op: "frac", a: 1, b: 2, c: -2 }, "2 unequal"),
+      ],
+      rng,
+    );
+  }
+  if (id.includes("fractions.4.unit") || (id.includes("unit") && id.includes("fractions"))) {
+    return choice(`Where is 1/4 on the tape?`, "1/4", [`One of four equal parts.`], why, { op: "frac", a: 1, b: 4, c: 4 }, [labelOpt("1/4"), labelOpt("1/2"), labelOpt("3/4")], rng);
+  }
+  if (id.includes("fractions.4.compare")) {
+    return choice(`Which is bigger, 2/3 or 3/5?`, "2/3", [`Compare carefully.`], why, { op: "frac", a: 2, b: 3, c: 5 }, [labelOpt("2/3"), labelOpt("3/5")], rng);
+  }
+  if (id.includes("decimal-compare")) {
+    return choice(`Order 0.6, 2/3, 0.65`, "2/3", [`2/3 is about 0.67.`], why, { op: "frac", a: 2, b: 3, c: 3 }, [labelOpt("0.6"), labelOpt("2/3"), labelOpt("0.65")], rng);
+  }
+  if (id.includes("longer") && id.includes("measuring")) {
+    const a = intBetween(rng, 4, 8);
+    const b = intBetween(rng, 2, a - 1);
+    return choice(
+      "Which beam is longer?",
+      String(a),
+      [`${a} is longer than ${b}.`],
+      why,
+      { op: "compare", a, b },
+      [picOpt(String(a), { op: "compare", a, b: 0 }, `${a}`), picOpt(String(b), { op: "compare", a: b, b: 0 }, `${b}`)],
+      rng,
+    );
+  }
+  if (id.includes("time") && id.includes("measuring")) {
+    return choice(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], why, { op: "add", a: 45, b: 35 }, [labelOpt("3:20"), labelOpt("3:15"), labelOpt("2:80")], rng);
+  }
+  if (id.includes("angles") && id.includes("measuring")) {
+    return choice(`What angle is the brace?`, "acute", [`Less than 90.`], why, { op: "angle", a: 45, b: 90 }, [labelOpt("acute"), labelOpt("right"), labelOpt("obtuse")], rng);
+  }
+  if (id.includes("shapes")) {
+    return choice(`Tap the triangle`, "triangle", [`Three sides.`], why, { op: "angle", a: 3, b: 3 }, [labelOpt("triangle"), labelOpt("square"), labelOpt("circle")], rng);
+  }
+  if (id.includes("angles-names")) {
+    const answer = pick(rng, ["right", "acute", "obtuse"] as const);
+    const deg = answer === "right" ? 90 : answer === "acute" ? intBetween(rng, 25, 70) : intBetween(rng, 100, 150);
+    return choice(
+      "Is this angle right, acute or obtuse?",
+      answer,
+      [`A ${answer} angle.`],
+      why,
+      { op: "angle", a: deg, b: 90 },
+      [labelOpt("right"), labelOpt("acute"), labelOpt("obtuse")],
+      rng,
+    );
+  }
+  if (id.includes("symmetry")) {
+    return choice(`Tap the line of symmetry`, "vertical", [`The fold line.`], why, { op: "line", a: 1, b: 0 }, [labelOpt("vertical"), labelOpt("horizontal"), labelOpt("none")], rng);
+  }
+  if (id.includes("longest-side")) {
+    return choice(
+      "Which is longer, the brace or the post?",
+      "brace",
+      ["The brace is the longest side."],
+      why,
+      { op: "hyp", a: 3, b: 2 },
+      [labelOpt("brace"), labelOpt("post"), labelOpt("beam")],
+      rng,
+    );
+  }
+  if (id.includes("coordinates")) {
+    return choice(`Which point is (3, 2)?`, "(3, 2)", [`Across 3, up 2.`], why, { op: "add", a: 3, b: 2 }, [labelOpt("(3, 2)"), labelOpt("(2, 3)"), labelOpt("(0, 0)")], rng);
+  }
+  if (id.includes("triangles") && skill.answer === "choice") {
+    return choice(
+      "Are these two braces the same triangle?",
+      "yes",
+      ["Matching sides."],
+      why,
+      { op: "hyp", a: 3, b: 4 },
+      [labelOpt("yes"), labelOpt("no")],
+      rng,
+    );
+  }
+  if (id.includes("proofs")) {
+    return choice(`Which fact proves the braces are equal?`, "SAS", [`Matching sides and angle.`], why, { op: "angle", a: 1, b: 1 }, [labelOpt("SAS"), labelOpt("AAA"), labelOpt("SSA")], rng);
+  }
+  if (id.includes("inequalities")) {
+    return choice(`Which x make 3x < 12?`, "x < 4", [`Divide by 3.`], why, { op: "mul", a: 3, b: 4 }, [labelOpt("x < 4"), labelOpt("x > 4"), labelOpt("x = 4")], rng);
+  }
+  throw new Error(`No choice generator for ${id}`);
+}
+
 function make(skill: CurriculumSkill, rng: Rng): SkillItem {
+  if (skill.answer === "choice") {
+    return makeChoice(skill, rng);
+  }
   const id = skill.id;
   if (id.startsWith("counting.1.to-10") || id.startsWith("counting.2.to-100")) {
     const n = intBetween(rng, 1, id.includes("100") ? 40 : 10);
@@ -50,11 +238,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   if (id.includes("compare") || id.includes("longer") || id.includes("colder") || id.includes("heavier")) {
     const a = intBetween(rng, 2, 9);
     const b = intBetween(rng, 1, a - 1);
-    return item(`Which has more?`, String(a), [`${a} is more than ${b}.`], skill.learnPicture, { op: "compare", a, b }, [String(a), String(b)]);
-  }
-  if (id.includes("numerals") || id.includes("tap") && skill.answer === "choice") {
-    const n = intBetween(rng, 0, 10);
-    return item(`Tap ${n}`, String(n), [`Find ${n}.`], skill.learnPicture, { op: "add", a: n, b: 0 }, ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"].filter((v) => Number(v) !== n).slice(0, 3).concat(String(n)));
+    return item(`Which has more?`, String(a), [`${a} is more than ${b}.`], skill.learnPicture, { op: "compare", a, b });
   }
   if (id.includes("skip-2")) {
     const start = intBetween(rng, 1, 3) * 2;
@@ -78,16 +262,16 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   if (id.includes("even-odd")) {
     const n = intBetween(rng, 10, 40);
     const answer = n % 2 === 0 ? "even" : "odd";
-    return item(`Is ${n} even or odd?`, answer, [`${n} is ${answer}.`], skill.learnPicture, { op: "add", a: n, b: 0 }, ["even", "odd"]);
+    return item(`Is ${n} even or odd?`, answer, [`${n} is ${answer}.`], skill.learnPicture, { op: "add", a: n, b: 0 });
   }
   if (id.includes("factors") && !id.includes("gcf")) {
-    return item(`Is 24 a multiple of 6?`, "yes", [`24 ÷ 6 = 4.`], skill.learnPicture, { op: "mul", a: 6, b: 4 }, ["yes", "no"]);
+    return item(`Is 24 a multiple of 6?`, "yes", [`24 ÷ 6 = 4.`], skill.learnPicture, { op: "mul", a: 6, b: 4 });
   }
   if (id.includes("primes")) {
-    return item(`Is 17 prime?`, "yes", [`17 has only 1 and itself.`], skill.learnPicture, { op: "add", a: 17, b: 0 }, ["yes", "no"]);
+    return item(`Is 17 prime?`, "yes", [`17 has only 1 and itself.`], skill.learnPicture, { op: "add", a: 17, b: 0 });
   }
   if (id.includes("negatives") && skill.answer === "choice") {
-    return item(`Which is colder, -3 or -7?`, "-7", [`-7 is farther below zero.`], skill.learnPicture, { op: "compare", a: -3, b: -7 }, ["-3", "-7"]);
+    return item(`Which is colder, -3 or -7?`, "-7", [`-7 is farther below zero.`], skill.learnPicture, { op: "compare", a: -3, b: -7 });
   }
   if (id.includes("integers-add")) {
     const a = -intBetween(rng, 1, 6);
@@ -150,7 +334,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`${a} + ${b} = ?`, a + b, [`Add by place.`], skill.learnPicture, { op: "add", a, b });
   }
   if (id.includes("estimate")) {
-    return item(`About how much is 298 + 403?`, "700", [`Round first.`], skill.learnPicture, { op: "add", a: 300, b: 400 }, ["500", "700", "900"]);
+    return item(`About how much is 298 + 403?`, "700", [`Round first.`], skill.learnPicture, { op: "add", a: 300, b: 400 });
   }
   if (id.includes("decimals-tenths") || id.includes("adding.5.decimals") || id.includes("adding.6.decimals") || id.includes("adding.8.integers-mixed")) {
     const a = intBetween(rng, 10, 40) / 10;
@@ -216,19 +400,19 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   }
 
   if (id.includes("halves")) {
-    return item(`Tap the plank cut in half`, "half", [`Two equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 }, ["half", "third", "whole"]);
+    return item(`Tap the plank cut in half`, "half", [`Two equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 });
   }
   if (id.includes("fractions.3.name") || id.includes("name") && id.includes("fractions")) {
     return item(`What part is colored?`, "2/3", [`2 of 3 parts.`], skill.learnPicture, { op: "frac", a: 2, b: 3, c: 3 });
   }
   if (id.includes("unit") && id.includes("fractions")) {
-    return item(`Where is 1/4 on the tape?`, "1/4", [`One of four equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 4, c: 4 }, ["1/4", "1/2", "3/4"]);
+    return item(`Where is 1/4 on the tape?`, "1/4", [`One of four equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 4, c: 4 });
   }
   if (id.includes("equivalent")) {
     return item(`2/4 = ?/8`, "4", [`Double top and bottom.`], skill.learnPicture, { op: "frac", a: 2, b: 4, c: 8 });
   }
   if (id.includes("fractions.4.compare") || id.includes("decimal-compare")) {
-    return item(`Which is bigger, 2/3 or 3/5?`, "2/3", [`Compare carefully.`], skill.learnPicture, { op: "frac", a: 2, b: 3, c: 5 }, ["2/3", "3/5"]);
+    return item(`Which is bigger, 2/3 or 3/5?`, "2/3", [`Compare carefully.`], skill.learnPicture, { op: "frac", a: 2, b: 3, c: 5 });
   }
   if (id.includes("of-a-number")) {
     const whole = intBetween(rng, 2, 5) * 4;
@@ -292,13 +476,13 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`2.8 ft on the tape`, "2.8", [`Read the tenths.`], skill.learnPicture, { op: "add", a: 28, b: 10 });
   }
   if (id.includes("time")) {
-    return item(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], skill.learnPicture, { op: "add", a: 45, b: 35 }, ["3:20", "3:15", "2:80"]);
+    return item(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], skill.learnPicture, { op: "add", a: 45, b: 35 });
   }
   if (id.includes("volume")) {
     return item(`3 × 4 × 2 = ? cubic ft`, "24", [`Multiply.`], skill.learnPicture, { op: "mul", a: 12, b: 2 });
   }
   if (id.includes("angles") && id.includes("measuring")) {
-    return item(`What angle is the brace?`, "acute", [`Less than 90.`], skill.learnPicture, { op: "angle", a: 45, b: 90 }, ["acute", "right", "obtuse"]);
+    return item(`What angle is the brace?`, "acute", [`Less than 90.`], skill.learnPicture, { op: "angle", a: 45, b: 90 });
   }
   if (id.includes("circles") && id.includes("measuring")) {
     return item(`Radius 2, circumference = ?`, "12.6", [`About 2 × 3.14 × 2.`], skill.learnPicture, { op: "mul", a: 2, b: 2 });
@@ -308,19 +492,19 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   }
 
   if (id.includes("shapes")) {
-    return item(`Tap the triangle`, "triangle", [`Three sides.`], skill.learnPicture, { op: "angle", a: 3, b: 3 }, ["triangle", "square", "circle"]);
+    return item(`Tap the triangle`, "triangle", [`Three sides.`], skill.learnPicture, { op: "angle", a: 3, b: 3 });
   }
   if (id.includes("sides") || id.includes("triangles-count")) {
     return item(`How many corners?`, "3", [`Count them.`], skill.learnPicture, { op: "add", a: 3, b: 0 });
   }
   if (id.includes("angles-names") || id.includes("symmetry") || id.includes("longest-side") || id.includes("triangles") && skill.answer === "choice") {
-    return item(`Is this angle right, acute or obtuse?`, "right", [`A square corner.`], skill.learnPicture, { op: "angle", a: 90, b: 90 }, ["right", "acute", "obtuse"]);
+    return item(`Is this angle right, acute or obtuse?`, "right", [`A square corner.`], skill.learnPicture, { op: "angle", a: 90, b: 90 });
   }
   if (id.includes("angle-sum")) {
     return item(`Two angles are 90 and 45. The third = ?`, "45", [`180 − 135.`], skill.learnPicture, { op: "angle", a: 90, b: 45 });
   }
   if (id.includes("coordinates")) {
-    return item(`Which point is (3, 2)?`, "(3, 2)", [`Across 3, up 2.`], skill.learnPicture, { op: "add", a: 3, b: 2 }, ["(3, 2)", "(2, 3)", "(0, 0)"]);
+    return item(`Which point is (3, 2)?`, "(3, 2)", [`Across 3, up 2.`], skill.learnPicture, { op: "add", a: 3, b: 2 });
   }
   if (id.includes("pythagoras") || id.includes("distance")) {
     return item(`Legs 3 and 4. Hypotenuse = ?`, "5", [`3² + 4² = 25.`], skill.learnPicture, { op: "hyp", a: 3, b: 4 });
@@ -332,7 +516,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`tan(45) = ?`, "1", [`Equal rise and run.`], skill.learnPicture, { op: "angle", a: 45, b: 45 });
   }
   if (id.includes("proofs")) {
-    return item(`Which fact proves the braces are equal?`, "SAS", [`Matching sides and angle.`], skill.learnPicture, { op: "angle", a: 1, b: 1 }, ["SAS", "AAA", "SSA"]);
+    return item(`Which fact proves the braces are equal?`, "SAS", [`Matching sides and angle.`], skill.learnPicture, { op: "angle", a: 1, b: 1 });
   }
   if (id.includes("geometry.12.circles")) {
     return item(`Angle 90 of radius 4, arc length = ?`, "6.3", [`Quarter of the circle.`], skill.learnPicture, { op: "mul", a: 4, b: 2 });
@@ -357,10 +541,10 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`2x + 3 when x = 5`, "13", [`2 × 5 + 3.`], skill.learnPicture, { op: "eq", a: 2, b: 3, c: 13 });
   }
   if (id.includes("inequalities")) {
-    return item(`Which x make 3x < 12?`, "x < 4", [`Divide by 3.`], skill.learnPicture, { op: "mul", a: 3, b: 4 }, ["x < 4", "x > 4", "x = 4"]);
+    return item(`Which x make 3x < 12?`, "x < 4", [`Divide by 3.`], skill.learnPicture, { op: "mul", a: 3, b: 4 });
   }
   if (id.includes("graph-line")) {
-    return item(`What is the slope of this line?`, "1/2", [`Rise over run.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 }, ["1/2", "2", "0"]);
+    return item(`What is the slope of this line?`, "1/2", [`Rise over run.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 });
   }
   if (id.includes("systems")) {
     return item(`x + y = 10, x − y = 2`, "6, 4", [`Add the equations.`], skill.learnPicture, { op: "add", a: 6, b: 4 });

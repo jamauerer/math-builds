@@ -56,11 +56,13 @@ import {
   questionForStrand,
   runLength,
   WARMUP_COUNT,
+  skillHold,
   startGuided,
   startPractice,
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
+import type { ChoiceOption } from "../../../skills/generate";
 import {
   causeHint,
   causeText,
@@ -147,6 +149,8 @@ export function GoatKit({
   seedCountry = null,
   focusSlot = null,
   flyGusset: flyGussetId = null,
+  skill = null,
+  skillSeed = null,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -176,6 +180,8 @@ export function GoatKit({
   seedCountry?: string | null;
   focusSlot?: string | null;
   flyGusset?: string | null;
+  skill?: string | null;
+  skillSeed?: number | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -185,6 +191,9 @@ export function GoatKit({
   const [liveLevels, setLiveLevels] = useState<Record<string, number> | null>(savedLevels);
   const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
   const [stage, setStage] = useState<Stage>(() => {
+    if (skill) {
+      return "earn";
+    }
     const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
     if (opened === "where" && !hasPlacement) {
       return needsCountry(kitProfile) && !seedCountry ? "live" : "grade";
@@ -195,6 +204,9 @@ export function GoatKit({
     return opened;
   });
   const [earn, setEarn] = useState<EarnState>(() => {
+    if (skill) {
+      return skillHold(skill, skillSeed ?? 3);
+    }
     if (picture) {
       return picturedHold(picture, savedLevels?.[picture] ?? level ?? 4);
     }
@@ -1357,6 +1369,7 @@ function EarnView({
             resetKey={`${earn.phase}:${earnPrompt(question)}:${earn.runGot}`}
             unit={earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}
             keys={keys}
+            choices={question.choices}
             onType={setTyped}
             onCommit={(attempt) => onCheck(attempt)}
             onHelp={onHelp}
@@ -1449,6 +1462,7 @@ function AnswerPad({
   resetKey,
   unit,
   keys,
+  choices,
   onType,
   onCommit,
   onHelp,
@@ -1461,6 +1475,7 @@ function AnswerPad({
   resetKey: string;
   unit: string;
   keys: string[];
+  choices?: ChoiceOption[];
   onType: (value: string) => void;
   onCommit: (attempt?: string) => void;
   onHelp: () => void;
@@ -1476,6 +1491,9 @@ function AnswerPad({
   const commitRef = useRef(onCommit);
   commitRef.current = onCommit;
   useEffect(() => {
+    if (choices && choices.length > 0) {
+      return;
+    }
     if (phase !== "plain" || moving.current || held != null || !typed) {
       return;
     }
@@ -1490,7 +1508,29 @@ function AnswerPad({
       window.clearTimeout(timer);
       moving.current = false;
     };
-  }, [typed, resetKey, phase, answer, truth, held]);
+  }, [typed, resetKey, phase, answer, truth, held, choices]);
+
+  function pickChoice(value: string) {
+    if (moving.current) {
+      return;
+    }
+    if (phase !== "plain") {
+      onCommit(value);
+      return;
+    }
+    if (acceptsAnswer(value, answer, truth)) {
+      moving.current = true;
+      setFlash("right");
+      setHeld(value);
+      window.setTimeout(() => onCommit(value), 300);
+      return;
+    }
+    moving.current = true;
+    setFlash("wrong");
+    setHeld(answer);
+    window.setTimeout(() => onCommit(value), 1000);
+  }
+
   function commit() {
     if (moving.current) {
       return;
@@ -1525,6 +1565,38 @@ function AnswerPad({
     }
     onType(`${typed}${key}`);
   }
+
+  if (choices && choices.length > 0) {
+    return (
+      <>
+        <div className="gk-choices" data-choices={choices.length} role="group" aria-label="Choices">
+          {choices.map((option) => {
+            const lit = held === option.value;
+            const cls =
+              flash === "right" && lit ? "is-right" : flash === "wrong" && lit ? "is-right" : flash === "wrong" && held !== option.value ? "is-dim" : "";
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`gk-choice ${cls}`}
+                data-choice={option.value}
+                data-kind={option.kind}
+                disabled={moving.current}
+                onClick={() => pickChoice(option.value)}
+              >
+                <ChoiceFace option={option} />
+              </button>
+            );
+          })}
+        </div>
+        <ScratchPad level={level} resetKey={resetKey} />
+        <button className="gk-idk" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="gk-answer">
@@ -1560,6 +1632,57 @@ function AnswerPad({
       </button>
     </>
   );
+}
+
+function ChoiceFace({ option }: { option: ChoiceOption }) {
+  if (option.kind === "picture" && option.draw) {
+    return <ChoicePicture draw={option.draw} label={option.label ?? option.value} />;
+  }
+  if (option.kind === "number") {
+    return <span className="gk-choice-num">{option.label ?? option.value}</span>;
+  }
+  return <span className="gk-choice-label">{option.label ?? option.value}</span>;
+}
+
+function ChoicePicture({ draw, label }: { draw: { op: string; a: number; b: number; c?: number }; label: string }) {
+  if (draw.op === "groups" || (draw.op === "add" && draw.b === 0 && draw.a <= 12)) {
+    const count = Math.max(1, Math.min(12, draw.a));
+    return (
+      <span className="gk-choice-pic" data-pic="bolts">
+        {Array.from({ length: count }, (_, index) => (
+          <img key={index} src={art("bolt.png")} alt="" />
+        ))}
+      </span>
+    );
+  }
+  if (draw.op === "frac") {
+    const unequal = (draw.c ?? 0) < 0;
+    const parts = Math.max(1, Math.min(8, Math.abs(draw.c ?? draw.b)));
+    const cuts = unequal ? [30] : Array.from({ length: parts - 1 }, (_, index) => ((index + 1) / parts) * 100);
+    return (
+      <span className="gk-choice-pic" data-pic="plank" data-parts={parts}>
+        <img src={art("plank-side.png")} alt="" />
+        <span className="gk-choice-cuts">
+          {cuts.map((pct) => (
+            <i key={pct} style={{ left: `${pct}%` }} />
+          ))}
+        </span>
+        <em>{label}</em>
+      </span>
+    );
+  }
+  if (draw.op === "compare") {
+    const long = Math.max(draw.a, draw.b);
+    const short = Math.min(draw.a, draw.b) || draw.a;
+    const width = draw.b === 0 ? Math.min(160, 24 + draw.a * 14) : Math.min(160, 24 + (draw.a === long ? long : short) * 14);
+    return (
+      <span className="gk-choice-pic" data-pic="beam">
+        <img src={art("beam-side.png")} alt="" style={{ width, height: 22 }} />
+        <em>{label}</em>
+      </span>
+    );
+  }
+  return <span className="gk-choice-label">{label}</span>;
 }
 
 function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
