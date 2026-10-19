@@ -5,6 +5,7 @@ import {
   adaptiveAnswer,
   adaptiveAsk,
   beginAdaptive,
+  fitLevels,
   gradeStartLevel,
   KIT_STRANDS,
   strandName,
@@ -524,7 +525,7 @@ export function GoatKit({
           marks={marks}
           units={units}
           onUnits={onUnits}
-          profile={unplaced ? { grade: null, levels: {}, history: [], notes: [] } : shownProfile(kitProfile)}
+          profile={screenProfile(unplaced, kitProfile, level)}
           onRetake={() => setStage("grade")}
           onBack={() => setStage("pick")}
         />
@@ -1644,10 +1645,10 @@ function strandLevels(level: number | null, saved: Record<string, number> | unde
     for (const id of KIT_STRANDS) {
       all[id] = level;
     }
-    return all;
+    return fitLevels(all);
   }
   if (saved && Object.keys(saved).length > 0) {
-    return saved;
+    return fitLevels(saved);
   }
   return null;
 }
@@ -1684,8 +1685,20 @@ function openingRun(start: Open): AdaptiveRun | null {
   return run;
 }
 
-function shownProfile(profile: KitProfile | null): KitProfile {
-  return profile ?? { grade: null, levels: {}, history: [], notes: [] };
+function screenProfile(unplaced: boolean, profile: KitProfile | null, level: number | null): KitProfile {
+  if (unplaced) {
+    return { grade: null, levels: {}, history: [], notes: [] };
+  }
+  const base = profile ?? { grade: null, levels: {}, history: [], notes: [] };
+  if (level != null) {
+    const levels = strandLevels(level, undefined) ?? {};
+    return { ...base, grade: base.grade ?? 3, levels, skills: skillsFromLevels(levels) };
+  }
+  if (Object.keys(base.levels).length === 0) {
+    return base;
+  }
+  const levels = fitLevels(base.levels);
+  return { ...base, levels, skills: base.skills ?? skillsFromLevels(levels) };
 }
 
 function GradePick({
@@ -1833,6 +1846,14 @@ function ProfileView({
           <>
         <h1>Skills</h1>
         <p className="gk-sub">Marks never move these. Only answers do.</p>
+        <ol className="gk-ladder">
+          {KIT_STRANDS.map((id) => (
+            <li key={id}>
+              <span>{strandName(id)}</span>
+              <b>Level {profile.levels[id]}</b>
+            </li>
+          ))}
+        </ol>
         <p className="gk-dunks">
           <img src={art("goat-idle.png")} alt="" />
           Goat dunks: {profile.dunks ?? 0}

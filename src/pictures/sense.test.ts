@@ -91,6 +91,12 @@ function numbersIn(text: string): string[] {
 function operandNumbers(question: EarnQuestion): Set<string> {
   const allowed = new Set<string>();
   const fact = question.fact;
+  if (fact.kind === "piece") {
+    for (const used of fact.used) {
+      allowed.add(String(used));
+    }
+    return allowed;
+  }
   if (fact.kind === "plain" && fact.draw) {
     allowed.add(String(fact.draw.a));
     allowed.add(String(fact.draw.b));

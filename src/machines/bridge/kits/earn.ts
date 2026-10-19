@@ -1,11 +1,13 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
-import { formatLength, formatWeight, lengthAbbrev, lengthName } from "../../../units";
+import { formatLength, formatWeight, lengthName } from "../../../units";
 import { plainQuestion } from "./plain";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
+import { fitLevels } from "../../../engine/strand-placement";
 import { queenPost, type KitGroup } from "./kit";
+import { pieceQuestion } from "./pieces";
 import {
   beginSession,
   clearWarmFlag,
@@ -20,6 +22,7 @@ import {
   skillsFromLevels,
   strandLevelsFrom,
   warmUpPlan,
+  withState,
   workingLevel,
   type SkillBook,
 } from "./skills";
@@ -41,6 +44,7 @@ export type EarnFact =
   | { kind: "split-gap"; gap: number; beams: number }
   | { kind: "add-parts"; left: number; right: number }
   | { kind: "brace-hyp"; across: number; up: number }
+  | { kind: "piece"; prompt: string; answer: string; used: number[]; slots: string[] }
   | { kind: "plain"; prompt: string; steps: string[]; why: string; draw?: PlainDraw };
 
 export type EarnBit = Picture["bits"][number];
@@ -165,6 +169,8 @@ export function earnPrompt(question: EarnQuestion): string {
       return "The two pieces are labeled. How long are they together?";
     case "brace-hyp":
       return "The brace is the long side of this right triangle. How long is it?";
+    case "piece":
+      return fact.prompt;
     default:
       return "";
   }
@@ -191,6 +197,8 @@ function rawHint(question: EarnQuestion): string {
       return "Hint: square both sides, add, then take the square root.";
     case "plain":
       return "";
+    case "piece":
+      return "Hint: use the numbers you were given.";
     case "count-posts":
       return "Hint: count the posts.";
     case "count-planks":
@@ -267,6 +275,8 @@ function factPicture(fact: EarnFact): EarnPicture {
       return slice(beams, [labelAt("bottom-a", formatLength(fact.left)), labelAt("bottom-b", formatLength(fact.right))]);
     case "brace-hyp":
       return slice(["brace-a"], [labelAt("bottom-a", formatLength(fact.across)), labelAt("post-a", formatLength(fact.up), -22)]);
+    case "piece":
+      return slice(fact.slots);
     default:
       return slice(beams);
   }
@@ -318,63 +328,16 @@ function answerFor(fact: EarnFact): string {
       return String(fact.left + fact.right);
     case "brace-hyp":
       return (Math.round(Math.hypot(fact.across, fact.up) * 100) / 100).toFixed(2);
+    case "piece":
+      return fact.answer;
     default:
       return "";
   }
 }
 
-function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
-  const bump = salt % 3;
-  if (group.id === "braces") {
-    if (level >= 9) {
-      return { kind: "brace-hyp", across: 2, up: 2 };
-    }
-    if (level <= 3) {
-      return { kind: "count-braces", count: Math.min(2, group.count) };
-    }
-    return { kind: "triangles", diagonals: 2, each: 2 };
-  }
-  if (level <= 3) {
-    if (group.id === "bottom") {
-      return { kind: "count-planks", count: salt === 0 ? queenPost.span : 5 + bump };
-    }
-    if (group.id === "posts") {
-      return { kind: "count-posts", count: Math.min(2, group.count) };
-    }
-    if (group.id === "gussets") {
-      return { kind: "count-gussets", count: Math.min(5, group.count) };
-    }
-    if (group.id === "top") {
-      return { kind: "count-pieces", count: 3 };
-    }
-    if (group.id === "bolts") {
-      return { kind: "count-bolts", count: Math.min(5, 4 + bump) };
-    }
-    if (group.id === "planks") {
-      return { kind: "count-planks", count: Math.min(8, group.count) };
-    }
-    return { kind: "count-rails", count: Math.min(2, group.count) };
-  }
-  if (group.id === "bottom") {
-    const gap = queenPost.span + bump * 2;
-    return { kind: "split-gap", gap, beams: group.count };
-  }
-  if (group.id === "posts") {
-    return { kind: "between-posts", left: 2, right: 6 + bump };
-  }
-  if (group.id === "gussets") {
-    return { kind: "count-gussets", count: Math.min(5, 4 + bump) };
-  }
-  if (group.id === "top") {
-    return { kind: "add-parts", left: 2 + bump, right: 3 };
-  }
-  if (group.id === "bolts") {
-    return { kind: "bolts-combine", plates: 3 + bump, each: 2 };
-  }
-  if (group.id === "planks") {
-    return { kind: "count-planks", count: group.count };
-  }
-  return { kind: "rail-both", side: queenPost.span - bump };
+function factFor(group: KitGroup, level: number): EarnFact {
+  const piece = pieceQuestion(group.id, level);
+  return { kind: "piece", prompt: piece.prompt, answer: piece.answer, used: piece.used, slots: piece.slots };
 }
 
 export function questionForStrand(strandId: string, level: number, salt = 0): EarnQuestion {
@@ -383,8 +346,9 @@ export function questionForStrand(strandId: string, level: number, salt = 0): Ea
 }
 
 function questionFor(group: KitGroup, level: number, salt = 0): EarnQuestion {
+  void salt;
   const rung = Math.min(13, Math.max(1, level));
-  const fact = factFor(group, rung, salt);
+  const fact = factFor(group, rung);
   return { groupId: group.id, level: rung, answer: answerFor(fact), fact, strandId: group.strand };
 }
 
@@ -423,62 +387,16 @@ export function speedLine(totalMs: number, previousMs: number | null): string | 
 }
 
 function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion {
-  const strandId = group.strand;
-  const gap = formatLength(8);
-  const two = formatLength(2);
-  const six = formatLength(6);
-  const four = formatLength(4);
-  const one = formatLength(1);
-  const unit = lengthAbbrev();
-  const base =
-    group.id === "top"
-      ? {
-          answer: "4",
-          word: `One post stands at ${two} and the other stands at ${six}. How long is the top beam between them?`,
-          fact: { kind: "between-posts" as const, left: 2, right: 6 },
-        }
-      : group.id === "bolts"
-        ? {
-            answer: "10",
-            word: `Each plate takes 2 bolts, and there are 5 plates. How many bolts is that? Lengths are in ${unit}.`,
-            fact: { kind: "bolts-combine" as const, plates: 5, each: 2 },
-          }
-        : group.id === "bottom"
-          ? {
-              answer: "4",
-              word: `The gap is ${gap} across. Two beams of the same length lie end to end to cross it. How long is each beam?`,
-              fact: { kind: "split-gap" as const, gap: 8, beams: 2 },
-            }
-          : group.id === "posts"
-            ? {
-                answer: "2",
-                word: `How many posts hold the beam up? Lengths are in ${unit}.`,
-                fact: { kind: "count-posts" as const, count: 2 },
-              }
-            : group.id === "gussets"
-              ? {
-                  answer: "5",
-                  word: `How many gusset plates join the corners? Lengths are in ${unit}.`,
-                  fact: { kind: "count-gussets" as const, count: 5 },
-                }
-              : group.id === "braces"
-                ? {
-                    answer: "2",
-                    word: `How many braces stop the posts from folding? Lengths are in ${unit}.`,
-                    fact: { kind: "count-braces" as const, count: 2 },
-                  }
-                : group.id === "planks"
-                  ? {
-                      answer: "8",
-                      word: `Each plank is ${one} long. The path is two beams of ${four} laid end to end. How many planks cover the path?`,
-                      fact: { kind: "count-planks" as const, count: 8, plank: 1, beam: 4 },
-                    }
-                : {
-                    answer: "16",
-                    word: `The deck is ${gap} long. The railing runs along both sides. How long is the railing altogether?`,
-                    fact: { kind: "rail-both" as const, side: 8 },
-                  };
-  return { groupId: group.id, strandId, level, skillId, ...base };
+  const piece = pieceQuestion(group.id, level);
+  return {
+    groupId: group.id,
+    strandId: group.strand,
+    level,
+    skillId,
+    answer: piece.answer,
+    word: piece.prompt,
+    fact: { kind: "piece", prompt: piece.prompt, answer: piece.answer, used: piece.used, slots: piece.slots },
+  };
 }
 
 export function roundQuestionTotal(round = 0, short = false): number {
@@ -511,7 +429,7 @@ function takePlan(groupId: string, slots: { skillId: string; strandId: string; l
   const prompts = new Set(seen);
   for (const slot of slots) {
     let question = slotQuestion(groupId, slot, cursor, hint);
-    while (prompts.has(earnPrompt(question)) && cursor < seed + 40) {
+    while ((prompts.has(earnPrompt(question)) || outOfRange(question)) && cursor < seed + 40) {
       cursor += 1;
       question = slotQuestion(groupId, slot, cursor, hint);
     }
@@ -601,11 +519,24 @@ function focusIndex(earned: string[], round: number): number {
   return next ? queenPost.groups.findIndex((group) => group.id === next) : -1;
 }
 
+function outOfRange(question: EarnQuestion): boolean {
+  if (question.level > 4) {
+    return false;
+  }
+  const prompt = earnPrompt(question).toLowerCase();
+  return question.answer.includes(".") || prompt.includes("square root") || prompt.includes("hypotenuse");
+}
+
+function needsLearn(book: SkillBook, question: EarnQuestion): boolean {
+  const skillId = question.skillId;
+  return Boolean(skillId && book.skills[skillId]?.state === "new");
+}
+
 function learnState(state: EarnState, groupIndex: number, levels: Record<string, number>): EarnState | null {
   const group = groupAt(groupIndex);
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
   const skill = newSkill(state.book, group.strand, level);
-  if (!skill || state.book.introduced) {
+  if (!skill) {
     return null;
   }
   const example = slotQuestion(group.id, { skillId: skill.id, strandId: skill.strandId, level: skill.level }, state.seed, false);
@@ -626,9 +557,17 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
   const slots = runPlan(state.book, group.strand, level, runLength(group.id, state.short), state.seed);
   const plan = takePlan(group.id, slots, state.seed, state.seen, false);
+  const seenPrompt = new Set<string>();
   const questions = [plan.current, ...plan.upcoming].map((question, index) => {
     const mask = pictureMask(plan.upcoming.length + 1, state.seed + groupIndex);
-    return mask[index] ? withPicture(question) : question;
+    const drawn = mask[index] ? withPicture(question) : question;
+    const line = earnPrompt(drawn);
+    if (drawn.picture && seenPrompt.has(line)) {
+      seenPrompt.add(earnPrompt(question));
+      return question;
+    }
+    seenPrompt.add(line);
+    return drawn;
   });
   return {
     ...state,
@@ -683,8 +622,14 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
 /** A practice run for one piece, used when the lesson is already past the warm-up. */
 export function openRun(levels: Record<string, number> | null, groupId: string, seed = 1): EarnState {
   const base = blankEarn(levels, seed);
+  let book = base.book;
+  for (const skill of KIT_SKILLS) {
+    if (book.skills[skill.id]?.state === "new") {
+      book = withState(book, skill.id, "learning");
+    }
+  }
   const index = Math.max(0, queenPost.groups.findIndex((group) => group.id === groupId));
-  return runState(base, index, levels ?? {});
+  return runState({ ...base, book }, index, levels ?? {});
 }
 
 export function earnAtWord(levels: Record<string, number> | null, groupId: string): EarnState {
@@ -885,7 +830,7 @@ export function answerEarn(
       const roundsFailed = state.roundsFailed + 1;
       if (roundsFailed >= 2) {
         const nextLevel = Math.max(1, (levels[current.strandId] ?? current.level) - 1);
-        const nextLevels = { ...levels, [current.strandId]: nextLevel };
+        const nextLevels = fitLevels({ ...levels, [current.strandId]: nextLevel });
         return {
           correct: false,
           levels: nextLevels,
@@ -930,7 +875,7 @@ export function answerEarn(
     const nextState = finished.phase === "done" ? { ...finished, speedLine: speedLine(total, previousMs) } : finished;
     return {
       correct: true,
-      levels: { ...levels, ...strandLevelsFrom(nextState.book) },
+      levels: fitLevels({ ...levels, ...strandLevelsFrom(nextState.book) }),
       note: null,
       marksDelta: 3,
       state: nextState,
@@ -941,12 +886,15 @@ export function answerEarn(
   const runGot = state.runGot + 1;
   const counted = advanceStep({ ...state, book, timesMs, runGot });
   if (state.upcoming.length > 0) {
+    const next = state.upcoming[0];
+    const rest = state.upcoming.slice(1);
+    const showing = state.phase === "plain" && needsLearn(counted.book, next) ? { ...counted, phase: "learn" as const, current: next, upcoming: rest } : { ...counted, current: next, upcoming: rest };
     return {
       correct: true,
       levels,
       note: null,
       marksDelta: 1,
-      state: { ...counted, current: state.upcoming[0], upcoming: state.upcoming.slice(1) },
+      state: showing,
     };
   }
   if (state.phase === "warmup") {

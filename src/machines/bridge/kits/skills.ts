@@ -1,4 +1,4 @@
-import { KIT_STRANDS } from "../../../engine/strand-placement";
+import { fitLevels, KIT_STRANDS } from "../../../engine/strand-placement";
 
 export type SkillStateName = "new" | "learning" | "practicing" | "mastered";
 
@@ -55,6 +55,9 @@ function pair(strandId: string, level: number): string[] {
   if (strandId === "multiplying" && level === 4) {
     return ["Times tables to 5", "Times tables to 10", "Multiply by 10", "Two-digit times one-digit"];
   }
+  if (strandId === "geometry" && level === 9) {
+    return ["Pythagoras", "The hypotenuse"];
+  }
   const word = band(level);
   const names: Record<string, [string, string]> = {
     counting: [`Count ${word}`, `Compare ${word}`],
@@ -92,22 +95,23 @@ function blankProgress(state: SkillStateName): SkillProgress {
 
 /** Skills below the placed level start mastered. The placed level starts new. */
 export function skillsFromLevels(levels: Record<string, number> | null): SkillBook {
+  const fitted = levels && Object.keys(levels).length > 0 ? fitLevels(levels) : null;
   const skills: Record<string, SkillProgress> = {};
   for (const skill of KIT_SKILLS) {
-    const placed = levels?.[skill.strandId] ?? 1;
+    const placed = fitted?.[skill.strandId] ?? 1;
     skills[skill.id] = blankProgress(skill.level < placed ? "mastered" : "new");
   }
   return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0 };
 }
 
-export function workingLevel(book: SkillBook, strandId: string, placed = 1): number {
+export function workingLevel(book: SkillBook, strandId: string, placed?: number): number {
   for (let level = 1; level <= 13; level += 1) {
     const at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
     if (at.some((skill) => book.skills[skill.id]?.state !== "mastered")) {
-      return level;
+      return placed != null ? Math.min(level, placed) : level;
     }
   }
-  return Math.min(13, Math.max(1, placed));
+  return Math.min(13, Math.max(1, placed ?? 1));
 }
 
 export function newSkill(book: SkillBook, strandId: string, level: number): KitSkill | null {

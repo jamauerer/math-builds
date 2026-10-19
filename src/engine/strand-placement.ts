@@ -71,13 +71,35 @@ export function adaptiveAsk(run: AdaptiveRun): { strandId: string; level: number
   return { strandId, level: run.level, number: run.asked + 1 };
 }
 
+const ARITHMETIC = ["adding", "multiplying", "dividing"] as const;
+
+/**
+ * No strand sits more than one level above the lowest arithmetic strand.
+ * A strand the placement never asked is the overall placed level, not a default of 1.
+ */
+export function fitLevels(levels: Record<string, number>): Record<string, number> {
+  const known = Object.values(levels).filter((level) => Number.isFinite(level));
+  const placed = known.length > 0 ? Math.max(...known) : MIN_LEVEL;
+  const next: Record<string, number> = {};
+  for (const id of KIT_STRANDS) {
+    const level = levels[id];
+    next[id] = typeof level === "number" && level >= MIN_LEVEL ? Math.min(MAX_LEVEL, Math.round(level)) : placed;
+  }
+  const floor = Math.min(...ARITHMETIC.map((id) => next[id]));
+  const ceiling = floor + 1;
+  for (const id of KIT_STRANDS) {
+    next[id] = Math.min(next[id], ceiling);
+  }
+  return next;
+}
+
 export function settledLevels(correctAt: readonly number[]): Record<string, number> {
   const assessed = correctAt.length > 0 ? Math.max(...correctAt) : MIN_LEVEL;
   const levels: Record<string, number> = {};
   for (const id of KIT_STRANDS) {
     levels[id] = assessed;
   }
-  return levels;
+  return fitLevels(levels);
 }
 
 export function adaptiveAnswer(run: AdaptiveRun, correct: boolean): { run: AdaptiveRun; levels: Record<string, number> | null } {

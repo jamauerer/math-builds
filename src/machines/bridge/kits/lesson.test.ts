@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { answerEarn, blankEarn, currentQuestion, earnPrompt, openRun, startGuided } from "./earn";
+import { queenPost } from "./kit";
+import { pieceQuestion } from "./pieces";
 import { currentSkill, KIT_SKILLS, longestStrandRun, noteSession, skillsFromLevels, withState } from "./skills";
+import { KIT_STRANDS } from "../../../engine/strand-placement";
 
 const levels = {
   counting: 4,
@@ -77,6 +80,55 @@ describe("lesson structure", () => {
     expect(next.earned).toEqual(["bottom"]);
     expect(next.phase).not.toBe("done");
     expect(currentQuestion(next)?.answer).toBeTruthy();
+  });
+
+  it("shows the Learn card before the first Pythagoras question", () => {
+    const high = Object.fromEntries(KIT_STRANDS.map((id) => [id, 9]));
+    let state = blankEarn(high, 1, null, "2026-10-19", 1);
+    state = { ...state, earned: ["posts", "top"], round: 1 };
+    for (let index = 0; index < 3; index += 1) {
+      expect(state.phase).toBe("warmup");
+      state = answerEarn(state, state.current.answer, high).state;
+    }
+    expect(state.phase).toBe("learn");
+    expect(state.current.strandId).toBe("geometry");
+    expect(state.current.level).toBe(9);
+    expect(earnPrompt(state.current).toLowerCase()).toContain("hypotenuse");
+    expect(state.current.answer).not.toContain(".");
+    expect(state.book.skills[state.current.skillId ?? ""].state).toBe("new");
+    expect(KIT_SKILLS.find((skill) => skill.id === state.current.skillId)?.name).toBe("Pythagoras");
+  });
+
+  it("has a whole-number question for every piece at every level", () => {
+    for (const group of queenPost.groups) {
+      for (let level = 1; level <= 13; level += 1) {
+        const question = pieceQuestion(group.id, level);
+        expect(question.prompt.length).toBeGreaterThan(0);
+        expect(question.answer.length).toBeGreaterThan(0);
+        if (level <= 4) {
+          expect(question.answer).not.toContain(".");
+          expect(question.prompt.toLowerCase()).not.toContain("square root");
+        }
+      }
+    }
+    expect(pieceQuestion("braces", 3).prompt.toLowerCase()).toContain("longest");
+    expect(pieceQuestion("braces", 4).prompt.toLowerCase()).toContain("triangles");
+    expect(pieceQuestion("braces", 6).prompt).toContain("across");
+    expect(pieceQuestion("braces", 6).prompt).toContain("up");
+    expect(pieceQuestion("braces", 9).prompt.toLowerCase()).toContain("triangle");
+    expect(pieceQuestion("braces", 9).answer).toBe("5");
+  });
+
+  it("keeps a level 4 run off decimals and square roots", () => {
+    for (const group of queenPost.groups) {
+      let state = openRun(levels, group.id, 3);
+      for (let index = 0; index < 8 && state.phase !== "done"; index += 1) {
+        const question = currentQuestion(state);
+        expect(question?.answer ?? "").not.toContain(".");
+        expect(earnPrompt(question ?? state.current).toLowerCase()).not.toContain("square root");
+        state = answerEarn(state, state.current.answer, levels).state;
+      }
+    }
   });
 
   it("masters a skill only across three different days", () => {
