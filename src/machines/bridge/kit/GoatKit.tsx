@@ -37,6 +37,8 @@ import {
   earnPrompt,
   explainQuestion,
   finishedEarn,
+  freshKit,
+  roundEndHold,
   kitQuestionTotal,
   lessonFrame,
   picturedHold,
@@ -214,6 +216,29 @@ export function GoatKit({
     askedAt.current = Date.now();
   }, [promptKey]);
 
+  function resetKit() {
+    const next = freshKit(savedLevels, kitProfile?.skills ?? earn.book);
+    setEarn(next);
+    setLengths({});
+    setPlaced({});
+    setGuideStep(0);
+    setResult(null);
+    onKitProfile?.({
+      grade: kitProfile?.grade ?? grade,
+      kitVersion: queenPost.version,
+      levels: Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {}),
+      history: kitProfile?.history ?? [],
+      notes: kitProfile?.notes ?? [],
+      lastRunMs: kitProfile?.lastRunMs,
+      skills: next.book,
+      seenIntro: true,
+      session: undefined,
+      build: { lengths: {}, placed: {} },
+      built: false,
+    });
+    return next;
+  }
+
   function openEarn() {
     if (!hasPlacement) {
       setStage("grade");
@@ -221,6 +246,11 @@ export function GoatKit({
     }
     if (!kitProfile?.seenIntro && !kitProfile?.session) {
       setStage("intro");
+      return;
+    }
+    if (earn.phase === "done" || kitProfile?.built) {
+      resetKit();
+      setStage("earn");
       return;
     }
     if (kitProfile?.session) {
@@ -236,6 +266,7 @@ export function GoatKit({
     }
     onKitProfile({
       grade: kitProfile?.grade ?? grade,
+      kitVersion: queenPost.version,
       levels: Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {}),
       history: kitProfile?.history ?? [],
       notes: kitProfile?.notes ?? [],
@@ -252,6 +283,12 @@ export function GoatKit({
       saveKit(earn, true);
     }
   }, [earn, stage, lengths, placed]);
+
+  useEffect(() => {
+    if (start !== "faster" && (stage === "earn" || stage === "explain" || stage === "practice") && earn.phase === "done" && !celebrate) {
+      setStage("assemble");
+    }
+  }, [stage, earn.phase, celebrate]);
 
   function remember(
     question: EarnQuestion,
@@ -272,6 +309,7 @@ export function GoatKit({
     const notes = note ? [...(kitProfile?.notes ?? []), note] : (kitProfile?.notes ?? []);
     onKitProfile({
       grade: kitProfile?.grade ?? grade,
+      kitVersion: queenPost.version,
       levels,
       history,
       notes,
@@ -343,6 +381,7 @@ export function GoatKit({
     if (stepped.levels) {
       onKitProfile?.({
         grade: grade ?? "unsure",
+        kitVersion: queenPost.version,
         levels: stepped.levels,
         history,
         notes: kitProfile?.notes ?? [],
@@ -355,6 +394,7 @@ export function GoatKit({
     }
     onKitProfile?.({
       grade: grade ?? "unsure",
+      kitVersion: queenPost.version,
       levels: kitProfile?.levels ?? {},
       history,
       notes: kitProfile?.notes ?? [],
@@ -380,6 +420,7 @@ export function GoatKit({
     if (stepped.levels) {
       onKitProfile?.({
         grade: grade ?? "unsure",
+        kitVersion: queenPost.version,
         levels: stepped.levels,
         history,
         notes: kitProfile?.notes ?? [],
@@ -391,6 +432,7 @@ export function GoatKit({
     }
     onKitProfile?.({
       grade: grade ?? "unsure",
+      kitVersion: queenPost.version,
       levels: kitProfile?.levels ?? {},
       history,
       notes: kitProfile?.notes ?? [],
@@ -504,6 +546,7 @@ export function GoatKit({
     if (start !== "wreck") {
       onKitProfile?.({
         grade: kitProfile?.grade ?? grade,
+      kitVersion: queenPost.version,
         levels: kitProfile?.levels ?? savedLevels ?? {},
         history: kitProfile?.history ?? [],
         notes: kitProfile?.notes ?? [],
@@ -607,7 +650,7 @@ export function GoatKit({
             </button>
             <div>
               <div className="gk-title">The Goat Bridge</div>
-              <div className="gk-sub">{subtitle(stage)}</div>
+              <div className="gk-sub">{stage === "assemble" ? (cut ? "Every piece needs a number." : "Put every piece on its dotted line.") : subtitle(stage)}</div>
             </div>
             <div className="gk-chips">
               {(["pick", "earn", "assemble", "drive"] as const).map((chip) => (
@@ -617,6 +660,9 @@ export function GoatKit({
                   type="button"
                   onClick={() => {
                     if (chip === "pick") {
+                      if (earn.phase === "done" || kitProfile?.built) {
+                        resetKit();
+                      }
                       setStage("pick");
                     } else if (chip === "earn") {
                       openEarn();
@@ -627,7 +673,7 @@ export function GoatKit({
                     }
                   }}
                 >
-                  {chip === "pick" ? "Pick" : chip === "earn" ? "Earn pieces" : chip === "assemble" ? "Assemble" : "Drive"}
+                  {chip === "pick" ? "Pick" : chip === "earn" ? "Earn pieces" : chip === "assemble" ? "Assemble" : "Test"}
                 </button>
               ))}
             </div>
@@ -636,7 +682,7 @@ export function GoatKit({
           {stage === "intro" ? (
             <IntroView
               onStart={() => {
-                saveKit(earn, true);
+                resetKit();
                 setStage("earn");
               }}
             />
@@ -671,6 +717,7 @@ export function GoatKit({
                 setEarn(next);
                 onKitProfile?.({
                   grade: kitProfile?.grade ?? grade,
+      kitVersion: queenPost.version,
                   levels: savedLevels ?? kitProfile?.levels ?? {},
                   history: kitProfile?.history ?? [],
                   notes: kitProfile?.notes ?? [],
@@ -761,7 +808,7 @@ function subtitle(stage: Stage): string {
     return "Every right answer earns a piece.";
   }
   if (stage === "assemble") {
-    return "Every piece needs a number.";
+    return "Put every piece on its dotted line.";
   }
   if (stage === "drive") {
     return "Send the goat.";
@@ -952,7 +999,7 @@ function EarnView({
           <div className="gk-card">
             <h2 className="gk-prompt">This round is earned.</h2>
             {earn.speedLine ? <p className="gk-speed">{earn.speedLine}</p> : null}
-            <button className="gk-check" type="button" onClick={onBuild}>
+            <button className="gk-check" type="button" data-action="primary" onClick={onBuild}>
               Build it
             </button>
           </div>
@@ -978,7 +1025,7 @@ function EarnView({
             <h2 className="gk-prompt">{earnPrompt(earn.current)}</h2>
             <Worked steps={explained.steps} />
             <p>{explained.why}</p>
-            <button className="gk-check" type="button" onClick={onLearn}>
+            <button className="gk-check" type="button" data-action="primary" onClick={onLearn}>
               Try 3 questions
             </button>
           </div>
@@ -1007,7 +1054,7 @@ function EarnView({
             <Worked steps={explained.steps} />
             <p>{explained.why}</p>
             <div className="gk-actions">
-              <button className="gk-check" type="button" onClick={onPractice}>
+              <button className="gk-check" type="button" data-action="primary" onClick={onPractice}>
                 Try again
               </button>
               {earn.roundsFailed >= 1 ? (
@@ -1046,7 +1093,7 @@ function EarnView({
           <div className="gk-answer">
             <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
             <span className="gk-unit">{earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
-            <button className="gk-check" type="button" onClick={onCheck}>
+            <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
               Check
             </button>
           </div>
@@ -1088,14 +1135,15 @@ function keysFor(answer: string, truth?: number): string[] {
 
 function EarnedBar({ steps, round, short }: { steps: number; round: number; short: boolean }) {
   const total = kitQuestionTotal(round, short);
+  const shown = Math.min(steps, total);
   return (
     <div>
       <div className="gk-kicker">EARNED SO FAR</div>
       <div className="gk-bar">
-        <i style={{ width: `${(steps / total) * 100}%` }} />
+        <i style={{ width: `${total === 0 ? 0 : (shown / total) * 100}%` }} />
       </div>
       <p className="gk-muted">
-        {steps} of {total}
+        {shown} of {total}
       </p>
     </div>
   );
@@ -1393,6 +1441,21 @@ function AssembleView({
   const rows = guide
     ? trayRows.filter((id) => id === guide.piece || (guide.piece.startsWith("plank") && id === "planks") || (guide.piece === "gussets" && id === "gussets"))
     : trayRows;
+  const rowDone = (id: string) => (id === "planks" ? plankSlots().every((slot) => placed[slot.id]) : Boolean(placed[id]));
+  const canPlace = (id: string) => {
+    if (rowDone(id)) {
+      return false;
+    }
+    if (id === "planks" || id === "gussets" || id === "bolts" || id === "rails") {
+      return !cut || id !== "planks" || Boolean(Number(lengths.planks));
+    }
+    if (!cut) {
+      return true;
+    }
+    return Boolean(Number(lengths[id]));
+  };
+  const ordered = [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b)));
+  const pulseId = ordered.find((id) => canPlace(id)) ?? null;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -1414,7 +1477,7 @@ function AssembleView({
             </p>
           ))}
           <div className="gk-actions">
-            <button className="gk-send" type="button" onClick={onSend}>
+            <button className="gk-send" type="button" data-action="primary" onClick={onSend}>
               Send the goat
             </button>
             <span className="gk-caption">{trayLeft === 0 ? "The tray is empty." : `${trayLeft} pieces still in the tray`}</span>
@@ -1453,19 +1516,18 @@ function AssembleView({
       <aside className="gk-panel" data-drag={drag ?? ""}>
         <h2>Kit tray</h2>
         <p className="gk-muted">{guide ? "This piece next." : "Tap a piece to place it, or drag it onto its dotted line."}</p>
-        {rows.map((id) => {
+        {ordered.map((id) => {
           if (id === "planks") {
-            const laid = plankSlots().filter((slot) => placed[slot.id]).length;
             return (
               <div
                 key="planks"
-                className="gk-row"
+                className={pulseId === "planks" ? "gk-row pulse" : "gk-row"}
                 onPointerUp={() => onTap("planks")}
               >
                 <img src={art("plank-side.png")} alt="" />
                 <div>
                   <b>Plank ×8</b>
-                  <span>{laid} of 8 laid</span>
+                  <span>{laid === 8 ? "on the bridge" : "in the tray"}</span>
                 </div>
                 {cut ? (
                   <input
@@ -1484,6 +1546,11 @@ function AssembleView({
                 ) : (
                   <span className="gk-printed">{formatLength(1)}</span>
                 )}
+                {canPlace("planks") ? (
+                  <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap("planks")}>
+                    Place
+                  </button>
+                ) : null}
               </div>
             );
           }
@@ -1494,7 +1561,7 @@ function AssembleView({
           return (
             <div
               key={id}
-              className={`gk-row ${placed[id] ? "earned" : ""}`}
+              className={`gk-row ${placed[id] ? "earned" : ""} ${pulseId === id ? "pulse" : ""}`}
               draggable={false}
               onPointerDown={(event) => {
                 if (placed[id]) {
@@ -1538,6 +1605,11 @@ function AssembleView({
                 />
               ) : !cut && slot && slot.length != null && !slot.bonus ? (
                 <span className="gk-printed">{formatLength(slot.length)}</span>
+              ) : null}
+              {canPlace(id) ? (
+                <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap(id)}>
+                  Place
+                </button>
               ) : null}
             </div>
           );
@@ -1590,7 +1662,7 @@ function DriveView({
             <button className="gk-light" type="button" onClick={onHeavy}>
               Add a heavier goat
             </button>
-            <button className="gk-dark" type="button" onClick={onNext}>
+            <button className="gk-dark" type="button" data-action="primary" onClick={onNext}>
               Next design
             </button>
           </div>
@@ -1686,11 +1758,11 @@ function WreckView({
           <div className="gk-actions">
             {offerNext ? <p className="gk-say">Want to earn the next round of pieces?</p> : null}
             {offerNext ? (
-              <button className="gk-dark" type="button" onClick={onEarn}>
+              <button className="gk-dark" type="button" data-action="primary" onClick={onEarn}>
                 Earn pieces
               </button>
             ) : (
-              <button className="gk-dark" type="button" onClick={onBack}>
+              <button className="gk-dark" type="button" data-action="primary" onClick={onBack}>
                 Back to the kit
               </button>
             )}
@@ -1837,6 +1909,9 @@ function strandLevels(level: number | null, saved: Record<string, number> | unde
 }
 
 function openingEarn(levels: Record<string, number> | null, start: Open, lesson: string | null, saved: SkillBook | null | undefined): EarnState {
+  if (lesson === "last") {
+    return roundEndHold(levels, 0);
+  }
   if (lesson === "loop" || lesson === "easier") {
     const held = explainHold("geometry", levels?.geometry ?? 9, 1);
     const using = levels ?? Object.fromEntries(KIT_STRANDS.map((id) => [id, held.current.level]));
@@ -1991,7 +2066,7 @@ function PlaceView({
             <div className="gk-answer">
               <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
               <span className="gk-unit">{earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
-              <button className="gk-check" type="button" onClick={onCheck}>
+              <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
                 Check
               </button>
             </div>

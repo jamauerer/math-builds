@@ -953,8 +953,37 @@ function resume(state: EarnState, levels: Record<string, number>): EarnState {
 }
 
 function advanceStep(state: EarnState, book: SkillBook = state.book): EarnState {
-  const steps = state.steps + 1;
+  const steps = Math.min(kitQuestionTotal(state.round, state.short), state.steps + 1);
   return { ...state, steps, book: { ...book, steps } };
+}
+
+/** A new kit: round 1, no pieces earned, bar at zero. */
+export function freshKit(levels: Record<string, number> | null, saved: SkillBook | null = null): EarnState {
+  const book = saved ? { ...saved, earned: [], steps: 0 } : null;
+  return blankEarn(levels, 1, book, "2026-10-19", 0);
+}
+
+/** The last question of a round, with the bar one step from full. */
+export function roundEndHold(levels: Record<string, number> | null, round = 0): EarnState {
+  const state = blankEarn(levels, 1, null, "2026-10-19", round);
+  const groups = queenPost.rounds[round]?.groups ?? [];
+  const lastId = groups[groups.length - 1] ?? queenPost.groups[0].id;
+  const index = Math.max(0, queenPost.groups.findIndex((group) => group.id === lastId));
+  const group = groupAt(index);
+  const level = levels?.[group.strand] ?? 4;
+  const skill = currentSkill(state.book, group.strand, level);
+  const total = kitQuestionTotal(round, state.short);
+  return {
+    ...state,
+    groupIndex: index,
+    earned: groups.slice(0, -1),
+    phase: "word",
+    returnPhase: "word",
+    current: wordFor(group, level, skill.id),
+    upcoming: [],
+    runGot: runLength(group.id, state.short),
+    steps: Math.max(0, total - 1),
+  };
 }
 
 function afterWarmup(state: EarnState, levels: Record<string, number>): EarnState {

@@ -14,6 +14,7 @@ import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/lo
 import { defaultUnitSystem, type UnitSystem } from "../units";
 import { fitLevels, strandName, type GradeChoice } from "../engine/strand-placement";
 import type { EarnState } from "../machines/bridge/kits/earn";
+import { queenPost } from "../machines/bridge/kits/kit";
 import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
 
 export type KitAttempt = {
@@ -36,6 +37,7 @@ export type KitProfile = {
   build?: { lengths: Record<string, string>; placed: Record<string, boolean> };
   built?: boolean;
   dunks?: number;
+  kitVersion?: number;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -182,7 +184,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
 }
 
 export function blankKitProfile(): KitProfile {
-  return { grade: null, levels: {}, history: [], notes: [] };
+  return { grade: null, levels: {}, history: [], notes: [], kitVersion: queenPost.version };
 }
 
 function sanitizeKitProfile(raw: unknown): KitProfile {
@@ -211,17 +213,19 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     : [];
   const notes = Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [];
   const clamped = clampStoredLevels(levels, notes);
+  const migrated = migrateKit(record, clamped.notes);
   return {
     grade: grade === "unsure" || (typeof grade === "number" && grade >= 0 && grade <= 12) ? grade : null,
     levels: clamped.levels,
     history,
-    notes: clamped.notes,
+    notes: migrated.notes,
+    kitVersion: queenPost.version,
     lastRunMs: typeof record.lastRunMs === "number" && record.lastRunMs >= 0 ? record.lastRunMs : undefined,
-    skills: sanitizeBook(record.skills),
+    skills: migrated.skills,
     seenIntro: record.seenIntro === true,
-    session: sanitizeSession(record.session),
-    build: sanitizeBuild(record.build),
-    built: record.built === true,
+    session: migrated.session,
+    build: migrated.build,
+    built: migrated.built,
     dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
   };
 }
@@ -240,6 +244,31 @@ export function clampStoredLevels(levels: Record<string, number>, notes: string[
   const note = `${line}. That was more than one above the lowest arithmetic strand.`;
   const already = notes.some((item) => item.includes("pulled down to level"));
   return { levels: fitted, notes: already ? notes : [...notes, note] };
+}
+
+/** Drop a stored build that was saved before this kit file. */
+function migrateKit(
+  record: Partial<KitProfile>,
+  notes: string[],
+): { notes: string[]; skills: SkillBook | undefined; session: EarnState | undefined; build: KitProfile["build"]; built: boolean } {
+  const skills = sanitizeBook(record.skills);
+  const session = sanitizeSession(record.session);
+  const build = sanitizeBuild(record.build);
+  const built = record.built === true;
+  const earned = skills?.earned.length ?? 0;
+  const stale = record.kitVersion !== queenPost.version && (session != null || build != null || built || earned > 0);
+  if (!stale) {
+    return { notes, skills, session, build, built };
+  }
+  const cleared = skills ? { ...skills, earned: [], steps: 0 } : undefined;
+  const note = "Cleared the old kit. This kit's rounds start over.";
+  return {
+    notes: notes.some((item) => item === note) ? notes : [...notes, note],
+    skills: cleared,
+    session: undefined,
+    build: undefined,
+    built: false,
+  };
 }
 
 function sanitizeSession(raw: unknown): EarnState | undefined {

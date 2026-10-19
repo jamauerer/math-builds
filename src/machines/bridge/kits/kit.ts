@@ -40,6 +40,7 @@ export type KitRound = {
 };
 
 export type QueenPostKit = {
+  version: number;
   id: string;
   name: string;
   intro: string;
