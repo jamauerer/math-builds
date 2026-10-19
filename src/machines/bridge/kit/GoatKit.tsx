@@ -253,13 +253,14 @@ export function GoatKit({
     note: string | null = null,
     lastRunMs = kitProfile?.lastRunMs,
     skills: SkillBook | undefined = undefined,
+    help = false,
   ) {
     if (!onKitProfile) {
       return;
     }
     const history = [
       ...(kitProfile?.history ?? []),
-      { strandId: question.strandId, level: question.level, prompt: earnPrompt(question), correct },
+      { strandId: question.strandId, level: question.level, prompt: earnPrompt(question), correct: help ? false : correct, help: help || undefined },
     ].slice(-80);
     const notes = note ? [...(kitProfile?.notes ?? []), note] : (kitProfile?.notes ?? []);
     onKitProfile({
@@ -292,10 +293,11 @@ export function GoatKit({
     });
   }
 
-  function submitAnswer() {
+  function submitAnswer(help?: boolean) {
     const question = currentQuestion(earn);
     const elapsed = earn.phase === "plain" ? Math.max(0, Date.now() - askedAt.current) : 0;
-    const next = answerEarn(earn, typed, savedLevels ?? {}, elapsed, kitProfile?.lastRunMs ?? null);
+    const asked = help === true;
+    const next = answerEarn(earn, typed, savedLevels ?? {}, elapsed, kitProfile?.lastRunMs ?? null, asked);
     const fresh = next.correct ? next.state.earned.filter((id) => !earn.earned.includes(id)) : [];
     setTyped("");
     if (fresh.length > 0) {
@@ -311,7 +313,7 @@ export function GoatKit({
     }
     if (question) {
       const lastRunMs = next.state.phase === "done" ? next.state.timesMs.reduce((sum, time) => sum + time, 0) : kitProfile?.lastRunMs;
-      remember(question, next.correct, next.levels, next.note, lastRunMs, next.state.book);
+      remember(question, next.correct, next.levels, next.note, lastRunMs, next.state.book, asked);
     }
   }
 
@@ -347,6 +349,41 @@ export function GoatKit({
       history,
       notes: kitProfile?.notes ?? [],
       lastRunMs: kitProfile?.lastRunMs,
+      skills: kitProfile?.skills,
+    });
+    setRun(stepped.run);
+  }
+
+  function askHelp() {
+    if (stage !== "place" || !run) {
+      submitAnswer(true);
+      return;
+    }
+    const ask = adaptiveAsk(run);
+    const question = questionForStrand(ask.strandId, ask.level, ask.number);
+    const stepped = adaptiveAnswer(run, false);
+    setTyped("");
+    const history = [
+      ...(kitProfile?.history ?? []),
+      { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct: false, help: true },
+    ].slice(-80);
+    if (stepped.levels) {
+      onKitProfile?.({
+        grade: grade ?? "unsure",
+        levels: stepped.levels,
+        history,
+        notes: kitProfile?.notes ?? [],
+        skills: skillsFromLevels(stepped.levels),
+      });
+      setEarn(blankEarn(stepped.levels));
+      setStage("profile");
+      return;
+    }
+    onKitProfile?.({
+      grade: grade ?? "unsure",
+      levels: kitProfile?.levels ?? {},
+      history,
+      notes: kitProfile?.notes ?? [],
       skills: kitProfile?.skills,
     });
     setRun(stepped.run);
@@ -519,6 +556,7 @@ export function GoatKit({
           typed={typed}
           setTyped={setTyped}
           onCheck={submitPlace}
+          onHelp={askHelp}
         />
       ) : stage === "profile" ? (
         <ProfileView
@@ -579,6 +617,7 @@ export function GoatKit({
               fading={celebrate != null}
               pulse={pulse}
               onCheck={submitAnswer}
+              onHelp={askHelp}
               onPractice={() => {
                 setEarn(startPractice(earn));
                 setTyped("");
@@ -835,6 +874,7 @@ function EarnView({
   fading,
   pulse,
   onCheck,
+  onHelp,
   onPractice,
   onLearn,
   onBuild,
@@ -846,6 +886,7 @@ function EarnView({
   fading?: boolean;
   pulse?: string | null;
   onCheck: () => void;
+  onHelp: () => void;
   onPractice: () => void;
   onLearn: () => void;
   onBuild: () => void;
@@ -978,6 +1019,9 @@ function EarnView({
               </button>
             ))}
           </div>
+          <button className="gk-idk" type="button" onClick={onHelp}>
+            I don't know
+          </button>
         </div>
         <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
         <RoundMark round={earn.round} />
@@ -1100,7 +1144,7 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
     <div className="gk-qpic" data-picture={question.fact.kind}>
       <div className="gk-qstage">
         {picture.banks ? <img className="gk-qbanks" src={art("banks.png")} alt="" /> : null}
-        {picture.ruler ? <RulerStrip /> : null}
+        {picture.ruler && !picture.tape ? <RulerStrip /> : null}
         {picture.bits.map((bit, index) => (
           <img
             key={`${bit.sprite}-${index}`}
@@ -1118,6 +1162,19 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
             }}
           />
         ))}
+        {picture.tape ? (
+          <>
+            <div className="gk-tape" style={{ left: picture.tape.x, top: picture.tape.y, width: picture.tape.w, height: picture.tape.h }} />
+            {picture.tape.ticks.map((tick) => (
+              <span key={`tick-${tick.x}`} className="gk-tick" style={{ left: tick.x, top: picture.tape?.y }}>
+                {tick.label ? <span>{tick.label}</span> : null}
+              </span>
+            ))}
+            {picture.tape.goat ? (
+              <img className="gk-tape-goat" alt="" src={art("goat-idle.png")} style={{ left: picture.tape.goat.x, top: picture.tape.goat.y }} />
+            ) : null}
+          </>
+        ) : null}
         {picture.labels.map((label) => (
           <span key={`${label.text}-${label.x}`} className="gk-qlabel" style={{ left: label.x, top: label.y }}>
             {label.text}
@@ -1749,6 +1806,7 @@ function PlaceView({
   typed,
   setTyped,
   onCheck,
+  onHelp,
 }: {
   marks: number;
   units: UnitSystem;
@@ -1758,6 +1816,7 @@ function PlaceView({
   typed: string;
   setTyped: (value: string) => void;
   onCheck: () => void;
+  onHelp: () => void;
 }) {
   const ask = adaptiveAsk(run);
   const question = questionForStrand(ask.strandId, ask.level, ask.number);
@@ -1800,6 +1859,9 @@ function PlaceView({
                 </button>
               ))}
             </div>
+            <button className="gk-idk" type="button" onClick={onHelp}>
+              I don't know
+            </button>
           </div>
         </div>
       </div>
@@ -1889,7 +1951,7 @@ function ProfileView({
                         <span>{state}</span>
                         {progress?.recent.slice(-10).map((item, index) => (
                           <small key={`${item.prompt}-${index}`}>
-                            {item.prompt} {item.correct ? "right" : "wrong"}
+                            {item.prompt} {item.help ? "asked for help" : item.correct ? "right" : "wrong"}
                           </small>
                         ))}
                       </div>
@@ -1908,6 +1970,7 @@ function ProfileView({
         <button className="gk-light" type="button" onClick={onRetake}>
           Retake
         </button>
+        <h2>Last answers</h2>
         {KIT_STRANDS.map((id) => {
           const recent = profile.history.filter((item) => item.strandId === id).slice(-10);
           if (recent.length === 0) {
@@ -1920,7 +1983,7 @@ function ProfileView({
                 {recent.map((item, index) => (
                   <div key={`${item.prompt}-${index}`}>
                     <span>{item.prompt}</span>
-                    <b>{item.correct ? "right" : "wrong"}</b>
+                    <b>{item.help ? "asked for help" : item.correct ? "right" : "wrong"}</b>
                   </div>
                 ))}
               </div>

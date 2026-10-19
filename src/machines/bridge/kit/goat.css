@@ -1,6 +1,8 @@
 .goat-kit {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background: #fff;
   color: #22201c;
   font-family: Figtree, "Segoe UI", sans-serif;
@@ -16,21 +18,21 @@
 }
 
 .app:has(.goat-kit) {
-  min-height: 100vh;
-  height: auto;
-  overflow: visible;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background: #fff;
   align-items: stretch;
 }
 
 .gk-header {
-  min-height: 72px;
+  min-height: 0;
   flex: none;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 18px;
-  padding: 12px 32px;
+  flex-wrap: nowrap;
+  gap: 10px 14px;
+  padding: 8px 20px;
   border-bottom: 1px solid #e6e2da;
   background: #fff;
 }
@@ -159,9 +161,11 @@
 
 .gk-qpic {
   width: 100%;
-  aspect-ratio: 520 / 180;
+  max-height: 40vh;
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
-  container-type: inline-size;
+  container-type: size;
   overflow: hidden;
   background: #e7f2fa;
   border-radius: 16px;
@@ -177,8 +181,42 @@
   top: 0;
   width: 520px;
   height: 180px;
-  transform: scale(calc(100cqw / 520px));
+  transform: scale(min(calc(100cqw / 520px), calc(100cqh / 180px)));
   transform-origin: top left;
+}
+
+.gk-tape {
+  position: absolute;
+  background: #f6d34d;
+  border: 2px solid #22201c;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.gk-tick {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 8px;
+  background: #22201c;
+}
+
+.gk-tick span {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #22201c;
+  white-space: nowrap;
+}
+
+.gk-tape-goat {
+  position: absolute;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
 }
 
 .gk-qbanks {
@@ -276,14 +314,21 @@
   flex-direction: column;
   gap: 4px;
   margin: 8px 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .gk-qlabel {
   position: absolute;
+  z-index: 4;
   font-family: Caveat, cursive;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
+  line-height: 1;
   color: #2e7fb0;
+  background: #fff;
+  border-radius: 6px;
+  padding: 1px 5px;
 }
 
 .gk-measure {
@@ -356,27 +401,35 @@
 
 .gk-body {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  flex: 1;
+  flex-wrap: nowrap;
+  align-items: stretch;
   width: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .gk-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .gk-panel {
-  flex: 1 1 400px;
-  max-width: min(440px, 100%);
-  min-width: min(100%, 280px);
+  flex: 0 0 300px;
+  max-width: 320px;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-left: 1px solid #e6e2da;
-  padding: 22px 24px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: #fff;
 }
 
@@ -464,22 +517,27 @@
 }
 
 .gk-earn {
-  flex: 1 1 640px;
+  flex: 1 1 auto;
   max-width: 100%;
-  min-width: min(100%, 560px);
-  padding: 26px 40px 26px 36px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .gk-card {
   border: 1.5px solid #e6e2da;
   border-radius: 18px;
-  padding: 28px 32px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .gk-card.is-fading {
@@ -579,9 +637,10 @@
 .gk-prompt {
   font-family: Fraunces, serif;
   font-weight: 600;
-  font-size: 30px;
-  line-height: 1.25;
+  font-size: 22px;
+  line-height: 1.2;
   margin: 0;
+  flex: none;
 }
 
 .gk-hint {
@@ -613,8 +672,8 @@
 }
 
 .gk-check {
-  height: 60px;
-  padding: 0 28px;
+  height: 44px;
+  padding: 0 18px;
   border-radius: 12px;
   border: 0;
   background: #22201c;
@@ -625,18 +684,32 @@
 
 .gk-keys {
   display: grid;
-  grid-template-columns: repeat(5, 44px);
-  gap: 6px;
+  grid-template-columns: repeat(5, 40px);
+  gap: 4px;
+  flex: none;
 }
 
 .gk-keys button {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 9px;
   border: 1.5px solid #d9d4cb;
   background: #fff;
   font-weight: 700;
   font-size: 18px;
+}
+
+.gk-idk {
+  align-self: flex-start;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #6b6459;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
 }
 
 .gk-bar {
@@ -769,8 +842,8 @@
 }
 
 .gk-goat-line img {
-  width: 92px;
-  height: 92px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
 }
 
@@ -789,16 +862,18 @@
 }
 
 .gk-scene-col {
-  flex: 0 1 1000px;
+  flex: 1 1 auto;
   max-width: 100%;
-  min-width: min(100%, 1000px);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .gk-scene-scale {
   width: 100%;
-  max-width: 1000px;
+  max-width: min(1000px, calc((100vh - 150px) * 1000 / 620));
   aspect-ratio: 1000 / 620;
   position: relative;
   container-type: inline-size;

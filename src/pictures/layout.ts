@@ -62,9 +62,10 @@ export function pictureSlot(id: string, mark = false): PictureBit {
   };
 }
 
-export function labelAt(slotId: string, text: string, dy = -28): PictureLabel {
+export function labelAt(slotId: string, text: string, dy = -48): PictureLabel {
   const bit = pictureSlot(slotId);
-  return { text, x: bit.x + 6, y: Math.max(2, bit.y + dy) };
+  const lift = Math.min(dy, -48);
+  return { text, x: bit.x + 8, y: Math.max(4, bit.y + lift) };
 }
 
 /** A standing subset of the kit, plus labels. */

@@ -24,12 +24,27 @@ export type PictureLabel = {
   y: number;
 };
 
+export type TapeTick = {
+  x: number;
+  label: string;
+};
+
+export type Tape = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  ticks: TapeTick[];
+  goat: { x: number; y: number } | null;
+};
+
 export type Picture = {
   banks: boolean;
   ruler: boolean;
   bits: PictureBit[];
   labels: PictureLabel[];
   measure?: { x: number; y: number; w: number; text: string };
+  tape?: Tape;
 };
 
 export type Drawn = {

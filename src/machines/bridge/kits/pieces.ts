@@ -176,3 +176,29 @@ function planks(level: number): PieceQuestion {
   }
   return { prompt: `Each plank is ${formatLength(3)}. The path is ${formatLength(15)}. How many planks cover the path?`, answer: "5", used: [3, 15], slots: PLANKS };
 }
+
+/** Word problems for strands that are not a kit piece. */
+export function strandWord(strandId: string): PieceQuestion {
+  if (strandId === "fractions") {
+    return {
+      prompt: `The deck is ${formatLength(8)}. How long is 3/4 of the deck?`,
+      answer: "6",
+      used: [8, 3, 4],
+      slots: PLANKS,
+    };
+  }
+  if (strandId === "ratios") {
+    return {
+      prompt: `There are 10 bolts and 5 gussets. How many bolts per gusset? Lengths are in ${lengthAbbrev()}.`,
+      answer: "2",
+      used: [10, 5],
+      slots: ["bolts", "gusset-n4"],
+    };
+  }
+  return {
+    prompt: `The unknown length is x. x + 3 = 8. How long is x? Lengths are in ${lengthAbbrev()}.`,
+    answer: "5",
+    used: [3, 8],
+    slots: ["top"],
+  };
+}

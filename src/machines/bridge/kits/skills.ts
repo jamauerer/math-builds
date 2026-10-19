@@ -12,6 +12,7 @@ export type KitSkill = {
 export type SkillRecent = {
   prompt: string;
   correct: boolean;
+  help?: boolean;
 };
 
 export type SkillProgress = {
@@ -37,40 +38,147 @@ export function isSmallPiece(groupId: string): boolean {
   return SMALL_PIECES.includes(groupId);
 }
 
-function band(level: number): string {
-  if (level <= 2) return "small numbers";
-  if (level <= 3) return "to 20";
-  if (level <= 4) return "to 100";
-  if (level <= 5) return "facts";
-  if (level <= 6) return "remainders";
-  if (level <= 7) return "fractions";
-  if (level <= 8) return "percent";
-  if (level <= 9) return "negatives";
-  if (level <= 10) return "shapes";
-  if (level <= 11) return "lines";
-  return "curves";
-}
+const WRITTEN: Record<string, string[][]> = {
+  counting: [
+    ["Count to 5", "Count to 10"],
+    ["Count on", "How many more"],
+    ["Count to 20", "Compare counts"],
+    ["Count to 100", "Skip count"],
+    ["Count facts", "Groups of ten"],
+    ["Count a remainder", "Leftover objects"],
+    ["Count a fraction", "Parts of a set"],
+    ["Count a percent", "Percent of a count"],
+    ["Count below zero", "Directed counts"],
+    ["Count an area", "Count a perimeter"],
+    ["Count along a line", "Equal steps"],
+    ["Count a rate", "Count a change"],
+    ["Count precisely", "Count a scale"],
+  ],
+  measuring: [
+    ["Measure with a ruler", "Compare two lengths"],
+    ["Measure to 10", "Gaps on a tape"],
+    ["Measure to 20", "Which mark is farther"],
+    ["Measure to 100", "The gap between marks"],
+    ["Length facts", "Convert a length"],
+    ["Split a length", "Remainder of a length"],
+    ["A fraction of a length", "Measure a part"],
+    ["Percent of a length", "A percent longer"],
+    ["A length below zero", "Directed distance"],
+    ["Area of a rectangle", "Perimeter"],
+    ["Length of a line", "Slope as a length"],
+    ["Length of a curve", "Arc length"],
+    ["Precise measure", "Scale a drawing"],
+  ],
+  adding: [
+    ["Add small numbers", "Subtract small numbers"],
+    ["Add within 10", "Subtract within 10"],
+    ["Add to 20", "Subtract from 20"],
+    ["Add to 100", "Subtract from 100"],
+    ["Addition facts", "Subtraction facts"],
+    ["Add across a ten", "Subtract across a ten"],
+    ["Add fractions", "Subtract fractions"],
+    ["Add percents", "Subtract percents"],
+    ["Add negatives", "Subtract negatives"],
+    ["Add an area", "Add a perimeter"],
+    ["Add along a line", "Find the intercept"],
+    ["Add a rate", "Add a change"],
+    ["Add precisely", "Subtract precisely"],
+  ],
+  multiplying: [
+    ["Groups of 2", "Count by twos"],
+    ["Multiply within 10", "Groups of 5"],
+    ["Multiply to 20", "Groups of 4"],
+    ["Times tables to 5", "Times tables to 10", "Multiply by 10", "Two-digit times one-digit"],
+    ["Multiplication facts", "Groups of 10"],
+    ["Multiply with a remainder", "Partial groups"],
+    ["Multiply a fraction", "A fraction of a group"],
+    ["Multiply a percent", "Percent of a group"],
+    ["Multiply negatives", "Groups below zero"],
+    ["Area by multiplying", "An array"],
+    ["Multiply on a line", "Scale factor"],
+    ["Multiply a rate", "Growth"],
+    ["Multiply precisely", "Powers"],
+  ],
+  dividing: [
+    ["Share small numbers", "Split in half"],
+    ["Divide within 10", "Share equally"],
+    ["Divide to 20", "Fair shares"],
+    ["Divide to 100", "Equal shares"],
+    ["Division facts", "Share a total"],
+    ["Divide with a remainder", "Leftover"],
+    ["Divide a fraction", "Share a fraction"],
+    ["Divide a percent", "Percent shares"],
+    ["Divide negatives", "Share a debt"],
+    ["Share an area", "Share a perimeter"],
+    ["Divide a line", "A rate"],
+    ["Divide a curve", "Average rate"],
+    ["Divide precisely", "A scale"],
+  ],
+  fractions: [
+    ["Half of a whole", "Fair parts"],
+    ["Thirds and halves", "Parts of a plank"],
+    ["Fractions to 20", "Compare parts"],
+    ["Fractions to 100", "Equal parts"],
+    ["Fraction facts", "Simplify a fraction"],
+    ["Mixed numbers", "A remainder as a fraction"],
+    ["Fractions of a deck", "Add fractions"],
+    ["A percent as a fraction", "Decimal parts"],
+    ["Fractions below zero", "Directed parts"],
+    ["Fraction of an area", "Part of a perimeter"],
+    ["Fraction of a line", "Slope as a fraction"],
+    ["Fraction of a curve", "Rate as a fraction"],
+    ["Precise fractions", "A scale factor"],
+  ],
+  ratios: [
+    ["Compare two counts", "More and less"],
+    ["Ratios within 10", "For each one"],
+    ["Ratios to 20", "Bolts for each plate"],
+    ["Ratios to 100", "Per gusset"],
+    ["Ratio facts", "Equivalent ratios"],
+    ["A remainder ratio", "Leftover ratio"],
+    ["A ratio as a fraction", "Part per whole"],
+    ["Percent", "Percent of a count"],
+    ["A ratio below zero", "Directed ratio"],
+    ["Ratio of areas", "Ratio of perimeters"],
+    ["Ratio of a line", "Slope"],
+    ["Ratio of a curve", "A rate"],
+    ["Precise ratios", "A scale"],
+  ],
+  geometry: [
+    ["Count the sides", "Name the figure"],
+    ["Count the corners", "The longer side"],
+    ["Which side is longest", "Sides to 20"],
+    ["Count the triangles", "Angles to 100"],
+    ["Right angles", "Angle facts"],
+    ["Across and up", "Which is longer"],
+    ["A fraction of a triangle", "Parts of a triangle"],
+    ["A percent of an area", "Percent of a triangle"],
+    ["Pythagoras", "The hypotenuse"],
+    ["Area of a triangle", "Perimeter of a triangle"],
+    ["Lines and angles", "Parallel lines"],
+    ["Curves", "An arc"],
+    ["Similarity", "A precise angle"],
+  ],
+  algebra: [
+    ["A missing number", "What is missing"],
+    ["Find the gap", "Unknown within 10"],
+    ["Unknown to 20", "Balance to 20"],
+    ["Unknown to 100", "Solve to 100"],
+    ["Equation facts", "What is x"],
+    ["A remainder equation", "Unknown remainder"],
+    ["A fraction equation", "Unknown part"],
+    ["A percent equation", "Unknown percent"],
+    ["A negative equation", "Unknown below zero"],
+    ["An area equation", "Unknown side"],
+    ["A line equation", "Slope and intercept"],
+    ["A curve equation", "Rate of change"],
+    ["Solve for x", "A precise equation"],
+  ],
+};
 
 function pair(strandId: string, level: number): string[] {
-  if (strandId === "multiplying" && level === 4) {
-    return ["Times tables to 5", "Times tables to 10", "Multiply by 10", "Two-digit times one-digit"];
-  }
-  if (strandId === "geometry" && level === 9) {
-    return ["Pythagoras", "The hypotenuse"];
-  }
-  const word = band(level);
-  const names: Record<string, [string, string]> = {
-    counting: [`Count ${word}`, `Compare ${word}`],
-    measuring: [`Measure ${word}`, `Gaps ${word}`],
-    adding: [`Add ${word}`, `Subtract ${word}`],
-    multiplying: [`Multiply ${word}`, `Groups ${word}`],
-    dividing: [`Divide ${word}`, `Share ${word}`],
-    fractions: [`Fractions ${word}`, `Decimals ${word}`],
-    ratios: [`Ratios ${word}`, `Percent ${word}`],
-    geometry: [`Area ${word}`, `Triangles ${word}`],
-    algebra: [`Equations ${word}`, `Lines ${word}`],
-  };
-  return names[strandId] ?? [`${strandId} ${word}`, `${strandId} ${word} again`];
+  const row = WRITTEN[strandId];
+  return row?.[level - 1] ?? [`${strandId} ${level}`, `${strandId} ${level} again`];
 }
 
 export const KIT_SKILLS: KitSkill[] = KIT_STRANDS.flatMap((strandId) =>
@@ -268,18 +376,18 @@ export function beginSession(book: SkillBook): SkillBook {
   return { ...book, skills, session: book.session + 1, introduced: null, tally: {} };
 }
 
-export function rememberAnswer(book: SkillBook, skillId: string, prompt: string, correct: boolean): SkillBook {
+export function rememberAnswer(book: SkillBook, skillId: string, prompt: string, correct: boolean, help = false): SkillBook {
   const progress = book.skills[skillId];
   if (!progress) {
     return book;
   }
-  const recent = [...progress.recent, { prompt, correct }].slice(-10);
+  const recent = [...progress.recent, { prompt, correct: help ? false : correct, help: help || undefined }].slice(-10);
   const tally = book.tally[skillId] ?? { right: 0, asked: 0 };
   return {
     ...book,
     skills: {
       ...book.skills,
-      [skillId]: { ...progress, recent, warmUp: correct ? progress.warmUp : true },
+      [skillId]: { ...progress, recent, warmUp: help || correct ? progress.warmUp : true },
     },
     tally: { ...book.tally, [skillId]: { right: tally.right + (correct ? 1 : 0), asked: tally.asked + 1 } },
   };
@@ -389,7 +497,7 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
         ? item.recent
             .filter((entry) => entry && typeof entry.prompt === "string")
             .slice(-10)
-            .map((entry) => ({ prompt: entry.prompt, correct: entry.correct === true }))
+            .map((entry) => ({ prompt: entry.prompt, correct: entry.correct === true, help: entry.help === true || undefined }))
         : [],
       warmUp: item.warmUp === true,
       sessionsSince: typeof item.sessionsSince === "number" ? item.sessionsSince : 0,

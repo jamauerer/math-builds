@@ -1,5 +1,5 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
-import { formatLength, formatWeight, lengthName } from "../../../units";
+import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
@@ -7,7 +7,8 @@ import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { fitLevels } from "../../../engine/strand-placement";
 import { queenPost, type KitGroup } from "./kit";
-import { pieceQuestion } from "./pieces";
+import { pieceQuestion, strandWord } from "./pieces";
+import { tapeOnPosts } from "../../../pictures/tape";
 import {
   beginSession,
   clearWarmFlag,
@@ -154,19 +155,19 @@ export function earnPrompt(question: EarnQuestion): string {
     case "between-posts":
       return "Two posts stand on the ruler. How long is the beam between them?";
     case "posts-timber":
-      return "Each post is labeled. How much timber do the posts use together?";
+      return "How much timber do the posts use together?";
     case "triangles":
       return "Each diagonal makes 2 triangles. How many triangles is that?";
     case "beam-weight":
-      return "The beam is split into pieces. Each piece is labeled. How heavy is the whole beam?";
+      return "The beam is split into pieces. How heavy is the whole beam?";
     case "bolts-combine":
-      return "Each gusset plate is labeled with its bolts. How many bolts is that?";
+      return "Each gusset plate has its own bolts. How many bolts is that?";
     case "rail-both":
-      return "The railing runs both sides. One side is labeled. How long is the railing?";
+      return "The railing runs both sides. How long is the railing?";
     case "split-gap":
-      return `The gap is labeled in ${lengthName(2)}. It is shared by the beams. How long is each beam?`;
+      return `The gap is shared by the beams. How long is each beam? Lengths are in ${lengthAbbrev()}.`;
     case "add-parts":
-      return "The two pieces are labeled. How long are they together?";
+      return "How long are the two pieces together?";
     case "brace-hyp":
       return "The brace is the long side of this right triangle. How long is it?";
     case "piece":
@@ -283,17 +284,37 @@ function factPicture(fact: EarnFact): EarnPicture {
 }
 
 export function earnPicture(question: EarnQuestion): EarnPicture | null {
+  let picture: EarnPicture | null = null;
   if (question.picture) {
-    return question.picture;
+    picture = question.picture;
+  } else if (question.word) {
+    picture = wordPicture(question);
+  } else if (question.fact.kind !== "plain") {
+    picture = factPicture(question.fact);
   }
-  if (question.word) {
-    return wordPicture(question);
+  if (!picture || !wantsTape(question)) {
+    return picture;
   }
+  return { ...picture, ruler: true, tape: tapeOnPosts(picture.bits, tapeMarks(question)) };
+}
+
+function wantsTape(question: EarnQuestion): boolean {
+  if (question.strandId === "measuring") {
+    return true;
+  }
+  return /\bruler\b|\bmarks?\b|\bmeasurement\b/i.test(earnPrompt(question));
+}
+
+function tapeMarks(question: EarnQuestion): number[] {
   const fact = question.fact;
-  if (fact.kind === "plain") {
-    return null;
+  if (fact.kind === "plain" && fact.draw) {
+    return [fact.draw.a, fact.draw.b];
   }
-  return factPicture(fact);
+  const found = earnPrompt(question)
+    .split(/[^0-9.]+/)
+    .filter((part) => /^\d+(\.\d+)?$/.test(part))
+    .map(Number);
+  return found.length > 0 ? found : [0, 8];
 }
 
 function repeat<T>(count: number, make: (index: number) => T): T[] {
@@ -341,8 +362,26 @@ function factFor(group: KitGroup, level: number): EarnFact {
 }
 
 export function questionForStrand(strandId: string, level: number, salt = 0): EarnQuestion {
-  const group = queenPost.groups.find((item) => item.strand === strandId) ?? queenPost.groups[0];
+  const group = queenPost.groups.find((item) => item.strand === strandId);
+  if (!group) {
+    const word = strandWord(strandId);
+    const rung = Math.min(13, Math.max(1, level));
+    return {
+      groupId: "deck",
+      level: rung,
+      answer: word.answer,
+      fact: { kind: "piece", prompt: word.prompt, answer: word.answer, used: word.used, slots: word.slots },
+      strandId,
+    };
+  }
   return questionFor(group, level, salt);
+}
+
+/** The word-problem sentence for a strand, with the numbers taken out. */
+export function wordTemplate(strandId: string): string {
+  const group = queenPost.groups.find((item) => item.strand === strandId);
+  const prompt = group ? pieceQuestion(group.id, 4).prompt : strandWord(strandId).prompt;
+  return prompt.replace(/\d+(\.\d+)?/g, "#");
 }
 
 function questionFor(group: KitGroup, level: number, salt = 0): EarnQuestion {
@@ -633,6 +672,27 @@ export function openRun(levels: Record<string, number> | null, groupId: string, 
 }
 
 export function earnAtWord(levels: Record<string, number> | null, groupId: string): EarnState {
+  if (groupId === "fractions" || groupId === "ratios" || groupId === "algebra") {
+    const word = strandWord(groupId);
+    const base = blankEarn(levels, 1);
+    const rung = levels?.[groupId] ?? 4;
+    const skill = currentSkill(base.book, groupId, rung);
+    return {
+      ...base,
+      phase: "word",
+      returnPhase: "word",
+      current: {
+        groupId: "deck",
+        strandId: groupId,
+        level: rung,
+        answer: word.answer,
+        skillId: skill.id,
+        fact: { kind: "piece", prompt: word.prompt, answer: word.answer, used: word.used, slots: word.slots },
+        word: word.prompt,
+      },
+      upcoming: [],
+    };
+  }
   const index = Math.max(0, queenPost.groups.findIndex((group) => group.id === groupId));
   const group = groupAt(index);
   const base = blankEarn(levels, 1);
@@ -764,6 +824,7 @@ export type EarnResult = {
   levels: Record<string, number>;
   note: string | null;
   marksDelta: number;
+  help?: boolean;
 };
 
 function resume(state: EarnState, levels: Record<string, number>): EarnState {
@@ -819,10 +880,23 @@ export function answerEarn(
   levels: Record<string, number> = {},
   elapsedMs = 0,
   previousMs: number | null = null,
+  help = false,
 ): EarnResult {
   const current = currentQuestion(state);
   if (!current || state.phase === "explain" || state.phase === "done" || state.phase === "learn") {
     return { state, correct: false, levels, note: null, marksDelta: 0 };
+  }
+  if (help === true) {
+    const returnPhase = state.phase === "word" ? "word" : state.phase === "warmup" ? "warmup" : state.phase === "guided" ? "guided" : "plain";
+    const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), false, true) : state.book;
+    return {
+      correct: false,
+      help: true,
+      levels,
+      note: null,
+      marksDelta: 0,
+      state: { ...state, book, phase: "explain", returnPhase, streak: 0, practiceIndex: 0 },
+    };
   }
   const correct = given.trim() === current.answer.trim();
   if (state.phase === "practice") {

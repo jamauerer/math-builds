@@ -21,6 +21,7 @@ export type KitAttempt = {
   level: number;
   prompt: string;
   correct: boolean;
+  help?: boolean;
 };
 
 export type KitProfile = {
@@ -205,6 +206,7 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
         level: typeof item.level === "number" ? item.level : 1,
         prompt: item.prompt,
         correct: item.correct === true,
+        help: item.help === true || undefined,
       }))
     : [];
   return {
