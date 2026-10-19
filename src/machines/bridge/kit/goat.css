@@ -167,6 +167,10 @@
   border-radius: 16px;
 }
 
+.gk-qstage img.gk-bit.on {
+  filter: sepia(0.7) saturate(6) hue-rotate(350deg);
+}
+
 .gk-qstage {
   position: absolute;
   left: 0;

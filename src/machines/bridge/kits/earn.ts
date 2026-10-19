@@ -1,6 +1,9 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthName } from "../../../units";
 import { plainQuestion } from "./plain";
+import { drawPlain } from "../../../pictures";
+import { pictureMask } from "../../../pictures/pick";
+import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { queenPost, type KitGroup } from "./kit";
 import {
   beginSession,
@@ -37,30 +40,11 @@ export type EarnFact =
   | { kind: "split-gap"; gap: number; beams: number }
   | { kind: "add-parts"; left: number; right: number }
   | { kind: "brace-hyp"; across: number; up: number }
-  | { kind: "plain"; prompt: string; steps: string[]; why: string };
+  | { kind: "plain"; prompt: string; steps: string[]; why: string; draw?: PlainDraw };
 
-export type EarnBit = {
-  sprite: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  rotate?: number;
-};
-
-export type EarnLabel = {
-  text: string;
-  x: number;
-  y: number;
-};
-
-export type EarnPicture = {
-  banks: boolean;
-  ruler: boolean;
-  bits: EarnBit[];
-  labels: EarnLabel[];
-  measure?: { x: number; y: number; w: number; text: string };
-};
+export type EarnBit = Picture["bits"][number];
+export type EarnLabel = Picture["labels"][number];
+export type EarnPicture = Picture;
 
 export type EarnMeasure = "count" | "length" | "weight";
 
@@ -74,6 +58,8 @@ export type EarnQuestion = {
   skillId?: string;
   mixed?: boolean;
   hint?: string;
+  picture?: EarnPicture;
+  pictureCaption?: string;
 };
 
 export type EarnState = {
@@ -135,6 +121,9 @@ export function earnMeasure(question: EarnQuestion): EarnMeasure {
 }
 
 export function earnPrompt(question: EarnQuestion): string {
+  if (question.pictureCaption) {
+    return question.pictureCaption;
+  }
   if (question.word) {
     return question.word;
   }
@@ -347,6 +336,9 @@ function wordPicture(question: EarnQuestion): EarnPicture {
 }
 
 export function earnPicture(question: EarnQuestion): EarnPicture | null {
+  if (question.picture) {
+    return question.picture;
+  }
   if (question.word) {
     return wordPicture(question);
   }
@@ -814,7 +806,7 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     skillId: slot.skillId,
     mixed: slot.mixed === true,
     hint: hint ? item.steps[0] : undefined,
-    fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why },
+    fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
   };
 }
 
@@ -833,6 +825,75 @@ function takePlan(groupId: string, slots: { skillId: string; strandId: string; l
     cursor += 1;
   }
   return { current: questions[0], upcoming: questions.slice(1), seed: cursor, seen: [...prompts] };
+}
+
+function withPicture(question: EarnQuestion): EarnQuestion {
+  if (question.fact.kind !== "plain" || !question.fact.draw) {
+    return question;
+  }
+  const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
+  if (!drawn || drawn.picture.bits.length === 0) {
+    return question;
+  }
+  return { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
+}
+
+const PICTURE_STRANDS = ["counting", "measuring", "adding", "multiplying", "dividing", "fractions", "ratios", "geometry", "algebra"];
+
+function pictureFits(strandId: string, draw: PlainDraw): boolean {
+  if (pictureOp[strandId] && draw.op !== pictureOp[strandId]) {
+    return false;
+  }
+  if (strandId === "counting" || strandId === "adding") {
+    return draw.op === "add" && draw.a <= 8 && draw.b <= 8;
+  }
+  if (strandId === "multiplying") {
+    return draw.op === "mul" && draw.a <= 5 && draw.b <= 6;
+  }
+  if (strandId === "dividing") {
+    return draw.op === "div" && draw.b > 1 && draw.a / draw.b <= 8 && draw.a % draw.b === 0;
+  }
+  if (strandId === "fractions") {
+    return draw.op === "frac" && (draw.c ?? 0) <= 12;
+  }
+  return true;
+}
+
+const pictureOp: Record<string, string> = {
+  fractions: "frac",
+  geometry: "hyp",
+  ratios: "percent",
+  dividing: "div",
+};
+
+/** One pictured plain question, for a held screen. */
+export function picturedHold(strandId: string, level: number): EarnState {
+  const levels = Object.fromEntries(PICTURE_STRANDS.map((id) => [id, level]));
+  const base = blankEarn(levels, 2);
+  const groupIndex = Math.max(0, queenPost.groups.findIndex((group) => group.strand === strandId));
+  const group = queenPost.groups[groupIndex];
+  let fallback = base.current;
+  for (let seed = 1; seed < 60; seed += 1) {
+    const item = plainQuestion(strandId, level, seed);
+    const drawn = drawPlain(strandId, item.draw, item.answer);
+    if (!drawn) {
+      continue;
+    }
+    const question: EarnQuestion = {
+      groupId: group.id,
+      strandId,
+      level,
+      answer: item.answer,
+      fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
+      picture: drawn.picture,
+      pictureCaption: drawn.caption,
+    };
+    fallback = question;
+    if (pictureFits(strandId, item.draw)) {
+      return { ...base, groupIndex, phase: "plain", returnPhase: "plain", current: question, upcoming: [], runGot: 1 };
+    }
+  }
+  return { ...base, groupIndex, phase: "plain", returnPhase: "plain", current: fallback, upcoming: [], runGot: 1 };
 }
 
 function groupAt(index: number): KitGroup {
@@ -870,13 +931,17 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
   const slots = runPlan(state.book, group.strand, level, runLength(group.id, state.short), state.seed);
   const plan = takePlan(group.id, slots, state.seed, state.seen, false);
+  const questions = [plan.current, ...plan.upcoming].map((question, index) => {
+    const mask = pictureMask(plan.upcoming.length + 1, state.seed + groupIndex);
+    return mask[index] ? withPicture(question) : question;
+  });
   return {
     ...state,
     groupIndex,
     phase: "plain",
     returnPhase: "plain",
-    current: plan.current,
-    upcoming: plan.upcoming,
+    current: questions[0],
+    upcoming: questions.slice(1),
     runGot: 0,
     seed: plan.seed,
     seen: plan.seen,

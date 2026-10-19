@@ -163,6 +163,7 @@ export function App() {
           stareNow={new URLSearchParams(window.location.search).get("stare") === "1"}
           pose={new URLSearchParams(window.location.search).get("pose")}
           round={kitRound(new URLSearchParams(window.location.search).get("round"))}
+          picture={new URLSearchParams(window.location.search).get("picture")}
           beam={new URLSearchParams(window.location.search).get("beam")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {

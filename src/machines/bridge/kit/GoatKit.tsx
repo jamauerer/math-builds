@@ -35,6 +35,7 @@ import {
   finishedEarn,
   kitQuestionTotal,
   lessonFrame,
+  picturedHold,
   questionForStrand,
   runLength,
   WARMUP_COUNT,
@@ -96,6 +97,7 @@ export function GoatKit({
   stareNow = false,
   pose = null,
   round = null,
+  picture = null,
   beam = null,
   kitProfile = null,
   onKitProfile,
@@ -120,6 +122,7 @@ export function GoatKit({
   stareNow?: boolean;
   pose?: string | null;
   round?: number | null;
+  picture?: string | null;
   beam?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
@@ -136,6 +139,9 @@ export function GoatKit({
     return opened;
   });
   const [earn, setEarn] = useState<EarnState>(() => {
+    if (picture) {
+      return picturedHold(picture, savedLevels?.[picture] ?? level ?? 4);
+    }
     if (round != null) {
       return blankEarn(savedLevels, 1, kitProfile?.skills, "2026-10-19", Math.max(0, round - 1));
     }
@@ -1097,6 +1103,7 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
         {picture.bits.map((bit, index) => (
           <img
             key={`${bit.sprite}-${index}`}
+            className={bit.mark ? "gk-bit on" : undefined}
             alt=""
             src={art(bit.sprite)}
             style={{
