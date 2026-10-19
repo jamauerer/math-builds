@@ -1,6 +1,6 @@
 import { BoxShape, RevoluteJoint, Vec2, type Body, type Joint, type World } from "planck";
 import { createWorld, TIME_STEP } from "../../../engine/physics";
-import { kitNode, pieceEnd, plankCovers, queenPost, wreckLines, type KitSlot } from "./kit";
+import { kitNode, pieceEnd, plankCovers, queenPost, roundTrial, wreckLines, type KitSlot } from "./kit";
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
@@ -269,6 +269,14 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
   }
 
+  const trial = roundTrial(lengths);
+  if (trial === "beams") {
+    for (const piece of pieces) {
+      piece.body.setStatic();
+    }
+  }
+  let released = trial !== "beams";
+
   const goat = world.createKinematicBody({ position: new Vec2(-1.1, 0.55), allowSleep: false });
   goat.createFixture(new BoxShape(0.28, 0.22), {
     density: 1,
@@ -338,7 +346,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "walk";
         goat.setPosition(new Vec2(goatX, 0.45));
         goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
-      } else if (nextX < 8 && !plankCovers(lengths, nextX)) {
+      } else if (nextX < 8 && trial !== "beams" && !plankCovers(lengths, nextX)) {
         goat.setDynamic();
         goat.setAwake(true);
         goat.setLinearVelocity(new Vec2(0, -0.2));
@@ -353,6 +361,13 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       } else {
         const support = deckUnder(pieces, Math.min(nextX, 8.2));
         if (support) {
+          if (!released) {
+            for (const piece of pieces) {
+              piece.body.setDynamic();
+              piece.body.setAwake(true);
+            }
+            released = true;
+          }
           goatX = nextX;
           feetY = nextX >= 8 && support.y > -0.25 ? 0 : support.y;
           goat.setPosition(new Vec2(goatX, feetY + 0.28));

@@ -235,7 +235,13 @@ function sanitizeSession(raw: unknown): EarnState | undefined {
   if (!book) {
     return undefined;
   }
-  return { ...record, book, earned: record.earned.filter((item) => typeof item === "string") };
+  return {
+    ...record,
+    book,
+    earned: record.earned.filter((item) => typeof item === "string"),
+    round: typeof record.round === "number" && record.round >= 0 ? record.round : 0,
+    short: record.short === true,
+  };
 }
 
 function sanitizeBuild(raw: unknown): KitProfile["build"] {

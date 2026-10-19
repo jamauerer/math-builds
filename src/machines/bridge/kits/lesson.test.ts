@@ -17,12 +17,12 @@ const levels = {
 describe("lesson structure", () => {
   it("shows Learn before the run only when the piece has a new skill", () => {
     let fresh = blankEarn(levels, 2);
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 3; index += 1) {
       expect(fresh.phase).toBe("warmup");
       fresh = answerEarn(fresh, fresh.current.answer, levels).state;
     }
     expect(fresh.phase).toBe("learn");
-    expect(fresh.earned).toEqual(expect.arrayContaining(["gussets", "bolts"]));
+    expect(fresh.earned).toEqual([]);
     const guided = startGuided(fresh);
     expect(guided.phase).toBe("guided");
     expect(guided.book.skills[fresh.current.skillId ?? ""].state).toBe("learning");
@@ -33,7 +33,7 @@ describe("lesson structure", () => {
       book = withState(book, skill.id, "practicing");
     }
     let settled = blankEarn(levels, 2, book);
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 3; index += 1) {
       settled = answerEarn(settled, settled.current.answer, levels).state;
     }
     expect(settled.phase).toBe("plain");
@@ -46,7 +46,7 @@ describe("lesson structure", () => {
       strands.push(state.current.strandId);
       state = answerEarn(state, state.current.answer, levels).state;
     }
-    expect(strands.length).toBe(8);
+    expect(strands.length).toBe(5);
     expect(longestStrandRun(strands)).toBeLessThan(5);
   });
 
@@ -68,15 +68,13 @@ describe("lesson structure", () => {
     let state = openRun(levels, "bottom", 2);
     state = {
       ...state,
-      earned: ["gussets", "bolts"],
-      book: { ...state.book, introduced: "already", earned: ["gussets", "bolts"] },
+      book: { ...state.book, introduced: "already" },
     };
     while (state.phase === "plain") {
       state = answerEarn(state, state.current.answer, levels).state;
     }
     const next = answerEarn(state, state.current.answer, levels).state;
-    expect(next.earned).toEqual(expect.arrayContaining(["gussets", "bolts", "bottom"]));
-    expect(next.earned).toHaveLength(3);
+    expect(next.earned).toEqual(["bottom"]);
     expect(next.phase).not.toBe("done");
     expect(currentQuestion(next)?.answer).toBeTruthy();
   });

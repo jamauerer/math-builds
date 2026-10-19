@@ -29,6 +29,14 @@ export type KitSlot = {
   need?: string;
 };
 
+/** One sitting of a kit. `trial` is what a test of this partial build does. */
+export type KitRound = {
+  groups: string[];
+  runs: Record<string, number>;
+  trial: string;
+  say: string;
+};
+
 export type QueenPostKit = {
   id: string;
   name: string;
@@ -40,6 +48,7 @@ export type QueenPostKit = {
   scene: { width: number; height: number; originX: number; deckY: number };
   nodes: KitNode[];
   groups: KitGroup[];
+  rounds: KitRound[];
   guide: { piece: string; say: string }[];
   dunks: string[];
   slots: KitSlot[];
@@ -80,7 +89,7 @@ const TRAY_WORDS: Record<string, [string, string]> = {
   planks: ["plank", "planks"],
 };
 
-function trayGroup(id: string): string {
+export function pieceGroup(id: string): string {
   if (id.startsWith("plank")) {
     return "planks";
   }
@@ -112,7 +121,7 @@ function trayGroup(id: string): string {
 export function trayNote(ids: string[]): string | null {
   const counts = new Map<string, number>();
   for (const id of ids) {
-    const group = trayGroup(id);
+    const group = pieceGroup(id);
     counts.set(group, (counts.get(group) ?? 0) + 1);
   }
   const parts = [...counts.entries()].map(([group, count]) => {
@@ -143,6 +152,22 @@ export function stareLine(lengths: Record<string, number>): string {
 }
 
 export const queenPost = raw as QueenPostKit;
+
+/** Highest round whose structural pieces are all present in this build. */
+export function testedRound(lengths: Record<string, number>): number {
+  let found = 0;
+  queenPost.rounds.forEach((round, index) => {
+    const slots = queenPost.slots.filter((slot) => round.groups.includes(slot.group) && slot.structural && slot.length != null);
+    if (slots.length > 0 && slots.every((slot) => lengths[slot.id] != null)) {
+      found = index;
+    }
+  });
+  return found;
+}
+
+export function roundTrial(lengths: Record<string, number>): string {
+  return queenPost.rounds[testedRound(lengths)]?.trial ?? "cross";
+}
 
 export const PX_PER_M = queenPost.pxPerMetre;
 

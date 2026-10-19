@@ -37,12 +37,13 @@ import {
   lessonFrame,
   questionForStrand,
   runLength,
+  WARMUP_COUNT,
   startGuided,
   startPractice,
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import { knownLine, plankSlots, preCut, queenPost, stareLine, trayNote, typedLine, wreckLines } from "../kits/kit";
+import { knownLine, pieceGroup, plankSlots, preCut, queenPost, stareLine, testedRound, trayNote, typedLine, wreckLines } from "../kits/kit";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
@@ -94,6 +95,7 @@ export function GoatKit({
   checkOpen = false,
   stareNow = false,
   pose = null,
+  round = null,
   beam = null,
   kitProfile = null,
   onKitProfile,
@@ -117,6 +119,7 @@ export function GoatKit({
   checkOpen?: boolean;
   stareNow?: boolean;
   pose?: string | null;
+  round?: number | null;
   beam?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
@@ -133,6 +136,9 @@ export function GoatKit({
     return opened;
   });
   const [earn, setEarn] = useState<EarnState>(() => {
+    if (round != null) {
+      return blankEarn(savedLevels, 1, kitProfile?.skills, "2026-10-19", Math.max(0, round - 1));
+    }
     if (word && piece) {
       return earnAtWord(savedLevels, piece);
     }
@@ -148,6 +154,13 @@ export function GoatKit({
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
   const [lengths, setLengths] = useState<Record<string, string>>(() => {
+    if (round === 1) {
+      return { "bottom-a": "4", "bottom-b": "4" };
+    }
+    if (round === 2) {
+      const values = roundLengths(2) ?? {};
+      return Object.fromEntries(Object.entries(values).map(([id, value]) => [id, String(value)]));
+    }
     const base = Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) };
     if (beam) {
       base["bottom-a"] = beam;
@@ -170,7 +183,7 @@ export function GoatKit({
       return simulateCrossing(numericLengths(filledLengths()));
     }
     if (start === "wreck" || fault) {
-      return simulateCrossing(scenarioLengths(start, fault));
+      return simulateCrossing(roundLengths(round) ?? scenarioLengths(start, fault));
     }
     return null;
   });
@@ -263,6 +276,9 @@ export function GoatKit({
       setPulse(current[0]);
       if (current.length === 1) {
         setReveal(null);
+        if (earn.phase === "done") {
+          setStage("assemble");
+        }
         return null;
       }
       return current.slice(1);
@@ -375,6 +391,24 @@ export function GoatKit({
     setDrag(null);
   }
 
+  function earnMore() {
+    setShowCheck(false);
+    if (earn.phase === "done") {
+      const next = blankEarn(savedLevels, earn.seed + 1, earn.book, earn.day, Math.min(queenPost.rounds.length - 1, earn.round + 1));
+      setEarn(next);
+      setReveal(null);
+    }
+    setStage("earn");
+  }
+
+  function earnAfterWreck() {
+    const built = testedRound(numericLengths(lengths));
+    const next = blankEarn(savedLevels, earn.seed + 1, earn.book, earn.day, Math.min(queenPost.rounds.length - 1, built + 1));
+    setEarn(next);
+    setReveal(null);
+    setStage("earn");
+  }
+
   function sendGoat(nextMass = mass) {
     const numbers = numericLengths(lengths);
     const crossing = simulateCrossing(numbers, nextMass);
@@ -419,7 +453,8 @@ export function GoatKit({
     if (!guideOn) {
       return;
     }
-    const step = queenPost.guide[guideStep];
+    const steps = queenPost.guide.filter((step) => (queenPost.rounds[earn.round]?.groups ?? []).includes(pieceGroup(step.piece)));
+    const step = steps[guideStep];
     if (!step) {
       return;
     }
@@ -427,25 +462,28 @@ export function GoatKit({
     if (!done) {
       return;
     }
-    if (guideStep + 1 >= queenPost.guide.length) {
+    if (guideStep + 1 >= steps.length) {
       setGuideOn(false);
       return;
     }
     setGuideStep(guideStep + 1);
-  }, [placed, guideOn, guideStep]);
+  }, [placed, guideOn, guideStep, earn.round]);
 
   const shown = result;
   const active = stage === "wreck" ? "drive" : stage === "explain" || stage === "practice" ? "earn" : stage;
+  const roundGroups = new Set(queenPost.rounds[earn.round]?.groups ?? []);
   const leftIds = [
-    ...TRAY.filter((id) => !placed[id]),
+    ...TRAY.filter((id) => !placed[id] && roundGroups.has(pieceGroup(id))),
     ...plankSlots()
       .map((slot) => slot.id)
-      .filter((id) => !placed[id]),
+      .filter((id) => !placed[id] && roundGroups.has("planks")),
   ];
   const trayLeft = leftIds.length;
   const measuringLevel = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
   const cut = !preCut(measuringLevel);
-  const guide = guideOn ? queenPost.guide[guideStep] : null;
+  const roundGuide = queenPost.guide.filter((step) => roundGroups.has(pieceGroup(step.piece)));
+  const guide = guideOn ? (roundGuide[guideStep] ?? null) : null;
+  const unfinished = earn.round < queenPost.rounds.length - 1;
 
   return (
     <div className="goat-kit" data-stage={stage}>
@@ -570,6 +608,8 @@ export function GoatKit({
               cut={cut}
               guide={guide}
               showCheck={showCheck}
+              unfinished={unfinished}
+              round={earn.round}
               geometryLevel={savedLevels?.geometry ?? kitProfile?.levels.geometry ?? 4}
               onLength={(id, value) => setLengths((current) => ({ ...current, [id]: value }))}
               onDrag={setDrag}
@@ -581,6 +621,7 @@ export function GoatKit({
                 sendGoat(40);
               }}
               onLook={() => setShowCheck(false)}
+              onEarn={earnMore}
               onGuide={() => {
                 setGuideStep(0);
                 setGuideOn(true);
@@ -609,6 +650,9 @@ export function GoatKit({
               pose={pose}
               onAgain={() => setStage("drive")}
               onBack={() => setStage("assemble")}
+              offerNext={testedRound(numericLengths(lengths)) < queenPost.rounds.length - 1}
+              onEarn={earnAfterWreck}
+              onTry={() => setStage("assemble")}
             />
           ) : null}
         </>
@@ -810,13 +854,14 @@ function EarnView({
       <div className="gk-body">
         <div className="gk-earn">
           <div className="gk-card">
-            <h2 className="gk-prompt">The kit is earned.</h2>
+            <h2 className="gk-prompt">This round is earned.</h2>
             {earn.speedLine ? <p className="gk-speed">{earn.speedLine}</p> : null}
             <button className="gk-check" type="button" onClick={onBuild}>
               Build it
             </button>
           </div>
-          <EarnedBar steps={earn.steps} />
+          <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
+          <RoundMark round={earn.round} />
           <GoatWait />
         </div>
         <KitPanel earned={earned} pulse={pulse} />
@@ -847,7 +892,8 @@ function EarnView({
               Try 3 questions
             </button>
           </div>
-          <EarnedBar steps={earn.steps} />
+          <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
+          <RoundMark round={earn.round} />
           <GoatWait />
         </div>
         <KitPanel earned={earned} current={earn.current.groupId} pulse={pulse} />
@@ -892,10 +938,10 @@ function EarnView({
       : earn.phase === "word"
         ? "Word problem"
         : earn.phase === "warmup"
-          ? `${earn.runGot + 1} of 5`
+          ? `${earn.runGot + 1} of ${WARMUP_COUNT}`
           : earn.phase === "guided"
             ? `${earn.runGot + 1} of 3`
-            : `${earn.runGot + 1} of ${runLength(groupId)}`;
+            : `${earn.runGot + 1} of ${runLength(groupId, earn.short)}`;
   const openHint = earn.phase === "guided" ? earn.current.hint || hint : hint;
   return (
     <div className="gk-body">
@@ -926,7 +972,8 @@ function EarnView({
             ))}
           </div>
         </div>
-        <EarnedBar steps={earn.steps} />
+        <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
+        <RoundMark round={earn.round} />
         <GoatWait />
       </div>
       <KitPanel earned={earned} current={groupId} pulse={pulse} />
@@ -946,8 +993,8 @@ function keysFor(answer: string): string[] {
   return keys;
 }
 
-function EarnedBar({ steps }: { steps: number }) {
-  const total = kitQuestionTotal();
+function EarnedBar({ steps, round, short }: { steps: number; round: number; short: boolean }) {
+  const total = kitQuestionTotal(round, short);
   return (
     <div>
       <div className="gk-kicker">EARNED SO FAR</div>
@@ -957,6 +1004,22 @@ function EarnedBar({ steps }: { steps: number }) {
       <p className="gk-muted">
         {steps} of {total}
       </p>
+    </div>
+  );
+}
+
+function RoundMark({ round }: { round: number }) {
+  const total = queenPost.rounds.length;
+  return (
+    <div className="gk-rounds" data-round={round + 1}>
+      <span>
+        Round {round + 1} of {total}
+      </span>
+      <div className="gk-dots">
+        {queenPost.rounds.map((item, index) => (
+          <i key={item.trial} className={index === round ? "on" : index < round ? "done" : ""} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1112,6 +1175,8 @@ function AssembleView({
   cut,
   guide,
   showCheck,
+  unfinished,
+  round,
   geometryLevel,
   onLength,
   onDrag,
@@ -1120,6 +1185,7 @@ function AssembleView({
   onSend,
   onSendNow,
   onLook,
+  onEarn,
   onGuide,
 }: {
   lengths: Record<string, string>;
@@ -1130,6 +1196,8 @@ function AssembleView({
   cut: boolean;
   guide: { piece: string; say: string } | null;
   showCheck: boolean;
+  unfinished: boolean;
+  round: number;
   geometryLevel: number;
   onLength: (id: string, value: string) => void;
   onDrag: (id: string | null) => void;
@@ -1138,6 +1206,7 @@ function AssembleView({
   onSend: () => void;
   onSendNow: () => void;
   onLook: () => void;
+  onEarn: () => void;
   onGuide: () => void;
 }) {
   const numbers = numericLengths(lengths);
@@ -1146,7 +1215,8 @@ function AssembleView({
     const line = typedLine(slot?.name ?? id, lengths[id] ?? "");
     return line ? [{ id, line }] : [];
   });
-  const trayRows = [...TRAY, "planks"];
+  const groups = new Set(queenPost.rounds[round]?.groups ?? []);
+  const trayRows = [...TRAY, "planks"].filter((id) => groups.has(pieceGroup(id)));
   const rows = guide
     ? trayRows.filter((id) => id === guide.piece || (guide.piece.startsWith("plank") && id === "planks") || (guide.piece === "gussets" && id === "gussets"))
     : trayRows;
@@ -1184,14 +1254,26 @@ function AssembleView({
       </div>
       {showCheck ? (
         <div className="gk-check-card" role="dialog">
-          <p>Finished? If the bridge is right, the goat crosses. If it is wrong, he goes in the river.</p>
-          {leftNote ? <p className="gk-say">{leftNote}</p> : null}
+          {unfinished ? (
+            <p>The bridge is not finished yet. Send him anyway?</p>
+          ) : (
+            <>
+              <p>Finished? If the bridge is right, the goat crosses. If it is wrong, he goes in the river.</p>
+              {leftNote ? <p className="gk-say">{leftNote}</p> : null}
+            </>
+          )}
           <button className="gk-check" type="button" onClick={onSendNow}>
             Send him
           </button>
-          <button className="gk-light" type="button" onClick={onLook}>
-            Let me look again
-          </button>
+          {unfinished ? (
+            <button className="gk-light" type="button" onClick={onEarn}>
+              Earn more pieces first
+            </button>
+          ) : (
+            <button className="gk-light" type="button" onClick={onLook}>
+              Let me look again
+            </button>
+          )}
         </div>
       ) : null}
       <aside className="gk-panel" data-drag={drag ?? ""}>
@@ -1306,7 +1388,11 @@ function DriveView({
       <div className="gk-scene-col">
         <CrossingPicture frame={frame} />
         <div className="gk-strip">
-          <p>Every piece fit. The goat is halfway, the posts are holding, nothing is bending.</p>
+          <p>
+            {frame.goatX >= 8
+              ? "The goat is across."
+              : "Every piece fit. The goat is halfway, the posts are holding, nothing is bending."}
+          </p>
           <div className="gk-actions">
             <button className="gk-light" type="button" onClick={onHeavy}>
               Add a heavier goat
@@ -1355,16 +1441,22 @@ function WreckView({
   badge,
   stareNow,
   pose,
+  offerNext,
   onAgain,
   onBack,
+  onEarn,
+  onTry,
 }: {
   result: CrossingResult;
   lengths: Record<string, string>;
   badge: boolean;
   stareNow?: boolean;
   pose?: string | null;
+  offerNext?: boolean;
   onAgain: () => void;
   onBack: () => void;
+  onEarn: () => void;
+  onTry: () => void;
 }) {
   const resting = result.frames[result.frames.length - 1];
   const held = pose ? framePose(result.frames, pose) : stareNow ? framePose(result.frames, "glare") : null;
@@ -1385,7 +1477,8 @@ function WreckView({
   }, [held, resting]);
   const frame = held ?? (import.meta.env.VITEST ? resting : blink);
   const line = stareLine(numericLengths(lengths));
-  const numbers = { ...numericLengths(filledLengths()), ...numericLengths(lengths) };
+  const own = numericLengths(lengths);
+  const numbers = own.top == null && own["post-a"] == null ? own : { ...numericLengths(filledLengths()), ...own };
   const lines = wreckLines(numbers);
   const glaring = frame?.mode === "glare";
   return (
@@ -1404,12 +1497,25 @@ function WreckView({
             </div>
           ) : null}
           <div className="gk-actions">
-            <button className="gk-light" type="button" onClick={onAgain}>
-              Watch it again
-            </button>
-            <button className="gk-dark" type="button" onClick={onBack}>
-              Back to the kit
-            </button>
+            {offerNext ? <p className="gk-say">Want to earn the next round of pieces?</p> : null}
+            {offerNext ? (
+              <button className="gk-dark" type="button" onClick={onEarn}>
+                Earn pieces
+              </button>
+            ) : (
+              <button className="gk-dark" type="button" onClick={onBack}>
+                Back to the kit
+              </button>
+            )}
+            {offerNext ? (
+              <button className="gk-light" type="button" onClick={onTry}>
+                Try again
+              </button>
+            ) : (
+              <button className="gk-light" type="button" onClick={onAgain}>
+                Watch it again
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1497,6 +1603,22 @@ function faultLengths(start: Open, fault: "top" | "post" | "bottom" | null): Rec
 
 function scenarioLengths(start: Open, fault: "top" | "post" | "bottom" | null): Record<string, number> {
   return { ...numericLengths(filledLengths()), ...numericLengths(faultLengths(start, fault)) };
+}
+
+function roundLengths(round: number | null): Record<string, number> | null {
+  if (round === 1) {
+    return { "bottom-a": 4, "bottom-b": 4 };
+  }
+  if (round === 2) {
+    const lengths = numericLengths(filledLengths());
+    for (const slot of queenPost.slots) {
+      if (slot.kind === "plank" || slot.kind === "rail" || slot.group === "bolts") {
+        delete lengths[slot.id];
+      }
+    }
+    return lengths;
+  }
+  return null;
 }
 
 function filledLengths(): Record<string, string> {

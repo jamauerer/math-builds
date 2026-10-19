@@ -8,7 +8,7 @@ import {
   closeTallies,
   currentSkill,
   flagWarmUp,
-  isSmallPiece,
+  KIT_SKILLS,
   markLearning,
   newSkill,
   rememberAnswer,
@@ -95,7 +95,11 @@ export type EarnState = {
   book: SkillBook;
   day: string;
   steps: number;
+  round: number;
+  short: boolean;
 };
+
+export const WARMUP_COUNT = 3;
 
 const BRIDGE_SKILLS = [
   "gap-between-marks",
@@ -697,8 +701,27 @@ function questionFor(group: KitGroup, level: number, salt = 0): EarnQuestion {
   return { groupId: group.id, level: rung, answer: answerFor(fact), fact, strandId: group.strand };
 }
 
-export function runLength(groupId: string): number {
-  return groupId === "braces" || groupId === "railing" ? 8 : 5;
+export function runLength(groupId: string, short = false): number {
+  for (const round of queenPost.rounds) {
+    const planned = round.runs[groupId];
+    if (planned != null) {
+      return short ? Math.min(3, planned) : planned;
+    }
+  }
+  return short ? 3 : 5;
+}
+
+/** True when every strand the kit uses is mastered at the learner's placed level. */
+export function roundsAreShort(book: SkillBook, levels: Record<string, number> | null): boolean {
+  if (!levels) {
+    return false;
+  }
+  const strands = [...new Set(queenPost.groups.map((group) => group.strand))];
+  return strands.every((strand) => {
+    const level = levels[strand] ?? 1;
+    const at = KIT_SKILLS.filter((skill) => skill.strandId === strand && skill.level === level);
+    return at.length > 0 && at.every((skill) => book.skills[skill.id]?.state === "mastered");
+  });
 }
 
 export function speedLine(totalMs: number, previousMs: number | null): string | null {
@@ -771,8 +794,14 @@ function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion
   return { groupId: group.id, strandId, level, skillId, ...base };
 }
 
-export function kitQuestionTotal(): number {
-  return queenPost.groups.reduce((sum, group) => sum + runLength(group.id) + 1, 0);
+export function roundQuestionTotal(round = 0, short = false): number {
+  const sitting = queenPost.rounds[round] ?? queenPost.rounds[0];
+  const pieces = sitting.groups.reduce((sum, groupId) => sum + runLength(groupId, short) + 1, 0);
+  return WARMUP_COUNT + pieces;
+}
+
+export function kitQuestionTotal(round = 0, short = false): number {
+  return roundQuestionTotal(round, short);
 }
 
 function slotQuestion(groupId: string, slot: { skillId: string; strandId: string; level: number; mixed?: boolean }, seed: number, hint: boolean): EarnQuestion {
@@ -810,8 +839,10 @@ function groupAt(index: number): KitGroup {
   return queenPost.groups[index] ?? queenPost.groups[0];
 }
 
-function focusIndex(earned: string[]): number {
-  return queenPost.groups.findIndex((group) => !isSmallPiece(group.id) && !earned.includes(group.id));
+function focusIndex(earned: string[], round: number): number {
+  const groups = queenPost.rounds[round]?.groups ?? [];
+  const next = groups.find((groupId) => !earned.includes(groupId));
+  return next ? queenPost.groups.findIndex((group) => group.id === next) : -1;
 }
 
 function learnState(state: EarnState, groupIndex: number, levels: Record<string, number>): EarnState | null {
@@ -837,7 +868,7 @@ function learnState(state: EarnState, groupIndex: number, levels: Record<string,
 function runState(state: EarnState, groupIndex: number, levels: Record<string, number>): EarnState {
   const group = groupAt(groupIndex);
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
-  const slots = runPlan(state.book, group.strand, level, runLength(group.id), state.seed);
+  const slots = runPlan(state.book, group.strand, level, runLength(group.id, state.short), state.seed);
   const plan = takePlan(group.id, slots, state.seed, state.seen, false);
   return {
     ...state,
@@ -853,13 +884,14 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   };
 }
 
-export function blankEarn(levels: Record<string, number> | null, seed = 1, saved: SkillBook | null = null, day = "2026-10-19"): EarnState {
+export function blankEarn(levels: Record<string, number> | null, seed = 1, saved: SkillBook | null = null, day = "2026-10-19", round = 0): EarnState {
   const book = beginSession(saved ?? skillsFromLevels(levels));
   const earned = book.earned.slice();
-  const index = focusIndex(earned);
+  const short = roundsAreShort(book, levels);
+  const index = focusIndex(earned, round);
   const group = groupAt(index < 0 ? 0 : index);
-  const slots = warmUpPlan(book);
-  const plan = takePlan(isSmallPiece(group.id) ? "gussets" : group.id, slots, seed, [], false);
+  const slots = warmUpPlan(book, WARMUP_COUNT);
+  const plan = takePlan(group.id, slots, seed, [], false);
   let cleared = book;
   for (const slot of slots) {
     cleared = clearWarmFlag(cleared, slot.skillId);
@@ -882,7 +914,9 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
     speedLine: null,
     book: { ...cleared, earned },
     day,
-    steps: cleared.steps,
+    steps: 0,
+    round,
+    short,
   };
 }
 
@@ -902,7 +936,7 @@ export function earnAtWord(levels: Record<string, number> | null, groupId: strin
   return {
     ...base,
     groupIndex: index,
-    runGot: runLength(group.id),
+    runGot: runLength(group.id, base.short),
     phase: "word",
     returnPhase: "word",
     current: wordFor(group, level, skill.id),
@@ -1050,21 +1084,18 @@ function advanceStep(state: EarnState, book: SkillBook = state.book): EarnState 
 }
 
 function afterWarmup(state: EarnState, levels: Record<string, number>): EarnState {
-  const earned = [...new Set([...state.earned, "gussets", "bolts"])];
-  const book = { ...state.book, earned };
-  const index = focusIndex(earned);
+  const index = focusIndex(state.earned, state.round);
   if (index < 0) {
-    return { ...state, earned, book, phase: "done", speedLine: speedLine(state.timesMs.reduce((sum, time) => sum + time, 0), null) };
+    return { ...state, phase: "done", speedLine: speedLine(state.timesMs.reduce((sum, time) => sum + time, 0), null) };
   }
-  const withBook = { ...state, earned, book };
-  return learnState(withBook, index, levels) ?? runState(withBook, index, levels);
+  return learnState(state, index, levels) ?? runState(state, index, levels);
 }
 
 function afterPiece(state: EarnState, levels: Record<string, number>, groupId: string): EarnState {
   const earned = [...new Set([...state.earned, groupId])];
   const book = closeTallies({ ...state.book, earned }, state.day);
   const nextLevels = { ...levels, ...strandLevelsFrom(book) };
-  const index = focusIndex(earned);
+  const index = focusIndex(earned, state.round);
   if (index < 0) {
     const total = state.timesMs.reduce((sum, time) => sum + time, 0);
     return { ...state, earned, book, phase: "done", speedLine: speedLine(total, null) };

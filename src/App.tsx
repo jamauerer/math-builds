@@ -66,6 +66,11 @@ function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" 
   return "pick";
 }
 
+function kitRound(value: string | null): number | null {
+  const round = Number(value);
+  return round === 1 || round === 2 || round === 3 ? round : null;
+}
+
 function kitDrops(value: string | null): Record<string, string> {
   const lengths: Record<string, string> = {};
   if (!value) {
@@ -157,6 +162,7 @@ export function App() {
           checkOpen={new URLSearchParams(window.location.search).get("check") === "1"}
           stareNow={new URLSearchParams(window.location.search).get("stare") === "1"}
           pose={new URLSearchParams(window.location.search).get("pose")}
+          round={kitRound(new URLSearchParams(window.location.search).get("round"))}
           beam={new URLSearchParams(window.location.search).get("beam")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {

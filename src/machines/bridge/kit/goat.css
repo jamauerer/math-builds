@@ -648,6 +648,39 @@
   background: #f2b544;
 }
 
+.gk-rounds {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 0;
+}
+
+.gk-rounds span {
+  font-family: Fraunces, serif;
+  font-size: 18px;
+}
+
+.gk-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.gk-dots i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  background: #e4ddd2;
+}
+
+.gk-dots i.on {
+  background: #e0661a;
+}
+
+.gk-dots i.done {
+  background: #2f6f4e;
+}
+
 .gk-note {
   font-family: Caveat, cursive;
   font-size: 24px;

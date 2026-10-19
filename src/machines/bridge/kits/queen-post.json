@@ -1,7 +1,7 @@
 {
   "id": "queen-post",
   "name": "The Goat Bridge",
-  "intro": "Solve math problems to build the bridge. Every right answer earns a piece. When you have them all, you work out how long each piece is, put the bridge together, and send the goat across.",
+  "intro": "Solve math problems to build the bridge. Each round earns the next pieces, about five minutes of math. Build what you have and send the goat. Three rounds finish the bridge.",
   "kind": "queen-post truss",
   "span": 8,
   "marks": 12,
@@ -90,6 +90,26 @@
       "strand": "counting",
       "blurb": "the path the goat walks",
       "lengthLabel": "1 m"
+    }
+  ],
+  "rounds": [
+    {
+      "groups": ["bottom", "gussets"],
+      "runs": { "bottom": 5, "gussets": 5 },
+      "trial": "beams",
+      "say": "The goat steps on. The middle joint folds, and he goes in."
+    },
+    {
+      "groups": ["posts", "top", "braces"],
+      "runs": { "posts": 2, "top": 2, "braces": 5 },
+      "trial": "planks",
+      "say": "The truss is up and the planks are not. The goat falls through the first plank slot."
+    },
+    {
+      "groups": ["planks", "bolts", "railing"],
+      "runs": { "planks": 2, "bolts": 2, "railing": 5 },
+      "trial": "cross",
+      "say": "The planks go on last. The goat crosses."
     }
   ],
   "guide": [

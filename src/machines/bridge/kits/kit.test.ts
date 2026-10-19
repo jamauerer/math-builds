@@ -1,9 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { setUnitSystem, lengthAbbrev } from "../../../units";
-import { answerEarn, blankEarn, earnAtWord, earnHint, earnPrompt, kitQuestionTotal, openRun, speedLine, startPractice } from "./earn";
+import { answerEarn, blankEarn, earnAtWord, earnHint, earnPrompt, kitQuestionTotal, openRun, roundQuestionTotal, roundsAreShort, runLength, speedLine, startGuided, startPractice } from "./earn";
 import { queenPost, correctLengths, wreckLines } from "./kit";
+import { KIT_SKILLS, skillsFromLevels, withState } from "./skills";
 import { goatSprite } from "../kit/scene";
 import { simulateCrossing } from "./simulate";
+
+const roundLevels = {
+  counting: 4,
+  measuring: 4,
+  adding: 4,
+  multiplying: 4,
+  dividing: 4,
+  fractions: 4,
+  ratios: 4,
+  geometry: 4,
+  algebra: 4,
+};
+
+function finishRound(round = 0) {
+  let state = blankEarn(roundLevels, 1, null, "2026-10-19", round);
+  for (let guard = 0; state.phase !== "done" && guard < 40; guard += 1) {
+    if (state.phase === "learn") {
+      state = startGuided(state);
+      continue;
+    }
+    state = answerEarn(state, state.current.answer, roundLevels).state;
+  }
+  return state;
+}
 
 describe("goat bridge kit", () => {
   it("asks five plain dividing questions, then one word problem, for the bottom beam", () => {
@@ -162,5 +187,44 @@ describe("goat bridge kit", () => {
     expect(slip).toBeGreaterThanOrEqual(0);
     expect(swim).toBeGreaterThan(slip);
     expect(glare).toBeGreaterThan(swim);
+  });
+
+  it("earns one round at a time, resets the bar, and tests the build that round can make", () => {
+    expect(roundQuestionTotal(0)).toBeGreaterThanOrEqual(12);
+    expect(roundQuestionTotal(0)).toBeLessThanOrEqual(15);
+    expect(roundQuestionTotal(1)).toBeGreaterThanOrEqual(12);
+    expect(roundQuestionTotal(1)).toBeLessThanOrEqual(15);
+    expect(roundQuestionTotal(2)).toBeGreaterThanOrEqual(12);
+    expect(roundQuestionTotal(2)).toBeLessThanOrEqual(15);
+    expect(runLength("braces")).toBe(5);
+    const done = finishRound(0);
+    expect(done.phase).toBe("done");
+    expect(done.earned.slice().sort()).toEqual(["bottom", "gussets"]);
+    expect(done.steps).toBeGreaterThan(0);
+    const next = blankEarn(roundLevels, 4, done.book, done.day, 1);
+    expect(next.round).toBe(1);
+    expect(next.steps).toBe(0);
+    expect((next.steps / kitQuestionTotal(next.round)) * 100).toBe(0);
+    const folded = simulateCrossing({ "bottom-a": 4, "bottom-b": 4 });
+    expect(folded.ok).toBe(false);
+    expect(folded.frames.some((frame) => frame.goatY < 0)).toBe(true);
+    const crossed = simulateCrossing(correctLengths());
+    expect(crossed.ok).toBe(true);
+    expect(crossed.goatX).toBeGreaterThanOrEqual(8);
+  });
+
+  it("asks 3 questions a piece when every strand is mastered at the kit level", () => {
+    let book = skillsFromLevels(roundLevels);
+    for (const skill of KIT_SKILLS) {
+      if (roundLevels[skill.strandId as keyof typeof roundLevels] === skill.level) {
+        book = withState(book, skill.id, "mastered");
+      }
+    }
+    expect(roundsAreShort(book, roundLevels)).toBe(true);
+    const state = blankEarn(roundLevels, 1, book);
+    expect(state.short).toBe(true);
+    expect(runLength("bottom", true)).toBe(3);
+    expect(runLength("braces", true)).toBe(3);
+    expect(roundQuestionTotal(0, true)).toBeLessThan(roundQuestionTotal(0));
   });
 });

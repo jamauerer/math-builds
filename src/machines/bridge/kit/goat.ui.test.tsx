@@ -62,7 +62,8 @@ describe("goat bridge screens", () => {
       );
     });
     expect(container.textContent?.toLowerCase()).not.toContain("level");
-    expect(container.textContent).toContain("1 of 5");
+    expect(container.textContent).toContain("1 of 3");
+    expect(container.textContent).toContain("Round 1 of 3");
     expect(container.textContent).toContain("The goat waits on the bank.");
     expect(container.querySelector(".gk-qpic")).toBeNull();
     expect(container.querySelector(".gk-keys")?.textContent).not.toContain(".");
@@ -126,8 +127,7 @@ describe("goat bridge screens", () => {
     let state = openRun(levels, "bottom", 2);
     state = {
       ...state,
-      earned: ["gussets", "bolts"],
-      book: { ...state.book, introduced: "already", earned: ["gussets", "bolts"] },
+      book: { ...state.book, introduced: "already" },
     };
     while (state.phase === "plain") {
       state = answerEarn(state, state.current.answer, levels).state;
@@ -299,12 +299,46 @@ describe("goat bridge screens", () => {
     await act(async () => {
       send.click();
     });
-    expect(container.textContent).toContain("You still have");
-    expect(container.textContent).toContain("braces");
-    expect(container.textContent).toContain("planks");
+    expect(container.textContent).toContain("The bridge is not finished yet. Send him anyway?");
     expect(container.textContent).toContain("Send him");
+    expect(container.textContent).toContain("Earn more pieces first");
+    expect(container.textContent).toContain("Bottom beam");
+    expect(container.textContent).toContain("Gusset");
+    expect(container.textContent).not.toContain("Post");
     root.unmount();
     container.remove();
+  });
+
+  it("shows the next round marker and only that round in the tray", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="earn" level={4} round={2} kitProfile={placedProfile} />,
+      );
+    });
+    expect(container.textContent).toContain("Round 2 of 3");
+    const bar = container.querySelector(".gk-earn .gk-bar i") as HTMLElement | null;
+    expect(parseFloat(bar?.style.width ?? "1")).toBe(0);
+    root.unmount();
+    container.remove();
+
+    const assemble = document.createElement("div");
+    document.body.appendChild(assemble);
+    const assembleRoot = createRoot(assemble);
+    await act(async () => {
+      assembleRoot.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={4} round={1} guideMode="off" kitProfile={{ ...placedProfile, built: true }} />,
+      );
+    });
+    const tray = assemble.querySelector("[data-drag]")?.textContent ?? "";
+    expect(tray).toContain("Bottom beam");
+    expect(tray).toContain("Gusset");
+    expect(tray).not.toContain("Post");
+    expect(tray).not.toContain("Plank");
+    assembleRoot.unmount();
+    assemble.remove();
   });
 
   it("shows a stare line after a dunk and does not change marks", async () => {

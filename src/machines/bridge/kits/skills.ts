@@ -135,8 +135,8 @@ function dueEvery(skillId: string): number {
 
 export type WarmSlot = { skillId: string; strandId: string; level: number };
 
-/** Five warm-up slots: missed skills first, then practicing skills that are due, with a mastered skill about 1 in 10. */
-export function warmUpPlan(book: SkillBook): WarmSlot[] {
+/** Warm-up slots: missed skills first, then practicing skills that are due, with a mastered skill about 1 in 10. */
+export function warmUpPlan(book: SkillBook, count = 3): WarmSlot[] {
   const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp);
   const practicing = KIT_SKILLS.filter((skill) => {
     const progress = book.skills[skill.id];
@@ -148,7 +148,7 @@ export function warmUpPlan(book: SkillBook): WarmSlot[] {
   const slots: WarmSlot[] = [];
   const used = new Set<string>();
   for (const skill of pool) {
-    if (slots.length >= 5 || used.has(skill.id)) {
+    if (slots.length >= count || used.has(skill.id)) {
       continue;
     }
     used.add(skill.id);
@@ -157,7 +157,7 @@ export function warmUpPlan(book: SkillBook): WarmSlot[] {
   const includeMastered = book.session % 2 === 1 && mastered.length > 0;
   let fill = mastered.length > 0 ? mastered : KIT_SKILLS.filter((skill) => skill.level === 1);
   let cursor = 0;
-  while (slots.length < 5 && fill.length > 0) {
+  while (slots.length < count && fill.length > 0) {
     const skill = fill[cursor % fill.length];
     cursor += 1;
     if (!skill || (used.has(skill.id) && cursor > fill.length * 2)) {
@@ -172,7 +172,7 @@ export function warmUpPlan(book: SkillBook): WarmSlot[] {
   if (includeMastered && mastered[0] && !slots.some((slot) => slot.skillId === mastered[0].id)) {
     slots[slots.length - 1] = { skillId: mastered[0].id, strandId: mastered[0].strandId, level: mastered[0].level };
   }
-  return slots.slice(0, 5);
+  return slots.slice(0, count);
 }
 
 export type RunSlot = { skillId: string; strandId: string; level: number; mixed: boolean };
