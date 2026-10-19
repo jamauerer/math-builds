@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { LearnerMap } from "../../../engine/placement";
-import { answerEarn, blankEarn, earnDone, type EarnState } from "../kits/earn";
+import {
+  formatLength,
+  formatWeight,
+  lengthAbbrev,
+  setUnitSystem,
+  systemLabel,
+  systemShort,
+  weightAbbrev,
+  type UnitSystem,
+} from "../../../units";
+import { answerEarn, blankEarn, earnDone, earnHint, earnMeasure, earnPicture, earnPrompt, type EarnState } from "../kits/earn";
 import { queenPost, wreckLines } from "../kits/kit";
 import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
@@ -39,6 +49,9 @@ export function GoatKit({
   start = "pick",
   seek = null,
   fault = null,
+  units,
+  onUnits,
+  level = null,
 }: {
   map: LearnerMap;
   marks: number;
@@ -46,9 +59,14 @@ export function GoatKit({
   start?: Stage;
   seek?: number | null;
   fault?: "top" | "post" | "bottom" | null;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  level?: number | null;
 }) {
+  setUnitSystem(units);
   const [stage, setStage] = useState<Stage>(start);
-  const [earn, setEarn] = useState<EarnState>(() => blankEarn(map, 7));
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [earn, setEarn] = useState<EarnState>(() => blankEarn(map, 7, level ?? undefined));
   const [typed, setTyped] = useState("");
   const [lengths, setLengths] = useState<Record<string, string>>(() => faultLengths(start, fault));
   const [placed, setPlaced] = useState<Record<string, boolean>>({});
@@ -140,7 +158,7 @@ export function GoatKit({
   return (
     <div className="goat-kit" data-stage={stage}>
       {stage === "pick" ? (
-        <Pick marks={marks} onOpen={openEarn} />
+        <Pick marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={() => setProfileOpen((open) => !open)} onOpen={openEarn} />
       ) : (
         <>
           <header className="gk-header">
@@ -173,7 +191,7 @@ export function GoatKit({
                 </button>
               ))}
             </div>
-            <Marks marks={marks} />
+            <Account marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={() => setProfileOpen((open) => !open)} />
           </header>
           {stage === "earn" ? (
             <EarnView
@@ -240,22 +258,73 @@ function subtitle(stage: Stage): string {
   return "Well. That happened.";
 }
 
-function Marks({ marks }: { marks: number }) {
+function Account({
+  marks,
+  units,
+  onUnits,
+  profileOpen,
+  onProfile,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  profileOpen: boolean;
+  onProfile: () => void;
+}) {
   return (
-    <div className="gk-marks">
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <circle cx="14" cy="14" r="12" fill="#F2B544" />
-        <circle cx="14" cy="14" r="8" fill="none" stroke="#9A6A12" strokeWidth="1.5" />
-        <text x="14" y="18" textAnchor="middle" fontFamily="Fraunces, serif" fontSize="12" fontWeight="800" fill="#9A6A12">
-          M
-        </text>
-      </svg>
-      {marks} marks
-    </div>
+    <>
+      <div className="gk-marks">
+        <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+          <circle cx="14" cy="14" r="12" fill="#F2B544" />
+          <circle cx="14" cy="14" r="8" fill="none" stroke="#9A6A12" strokeWidth="1.5" />
+          <text x="14" y="18" textAnchor="middle" fontFamily="Fraunces, serif" fontSize="12" fontWeight="800" fill="#9A6A12">
+            M
+          </text>
+        </svg>
+        {marks} marks
+        <div className="gk-unit-toggle" role="group" aria-label="Units">
+          {(["us", "metric"] as const).map((choice) => (
+            <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
+              {systemShort(choice)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="gk-profile-wrap">
+        <button className="gk-profile" type="button" onClick={onProfile}>
+          <div className="gk-avatar">M</div>
+          Maya
+        </button>
+        {profileOpen ? (
+          <div className="gk-profile-card">
+            <p>Units</p>
+            {(["us", "metric"] as const).map((choice) => (
+              <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
+                {systemLabel(choice)}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
 
-function Pick({ marks, onOpen }: { marks: number; onOpen: () => void }) {
+function Pick({
+  marks,
+  units,
+  onUnits,
+  profileOpen,
+  onProfile,
+  onOpen,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  profileOpen: boolean;
+  onProfile: () => void;
+  onOpen: () => void;
+}) {
   return (
     <>
       <header className="gk-header">
@@ -266,11 +335,7 @@ function Pick({ marks, onOpen }: { marks: number; onOpen: () => void }) {
           </svg>
           Math Builds
         </div>
-        <Marks marks={marks} />
-        <div className="gk-profile">
-          <div className="gk-avatar">M</div>
-          Maya
-        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={onProfile} />
       </header>
       <div className="gk-pick">
         <h1>What will you build?</h1>
@@ -302,7 +367,7 @@ function Pick({ marks, onOpen }: { marks: number; onOpen: () => void }) {
                   Queen-post truss
                 </span>
               </div>
-              <div style={{ fontSize: 14, color: "#6B6459" }}>An 8 m queen-post truss. Earn the pieces, give each one a length, send the goat.</div>
+              <div style={{ fontSize: 14, color: "#6B6459" }}>An {formatLength(8)} queen-post truss. Earn the pieces, give each one a length, send the goat.</div>
               <div className="gk-progress">
                 <div style={{ flex: 1, height: 8, borderRadius: 99, background: "#F1EFEA", overflow: "hidden" }}>
                   <i style={{ width: "8%" }} />
@@ -337,7 +402,7 @@ function LockedCard({
 }) {
   return (
     <button className={locked ? "gk-card-btn locked" : "gk-card-btn"} type="button">
-      <div className="gk-thumb" style={{ background: "#F7F3EC" }} dangerouslySetInnerHTML={{ __html: thumb }} />
+      <div className="gk-thumb" style={{ background: "#F7F3EC" }} dangerouslySetInnerHTML={{ __html: thumb.split(" kg").join(` ${weightAbbrev()}`).split(" m<").join(` ${lengthAbbrev()}<`) }} />
       <div className="meta">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <h3>{title}</h3>
@@ -380,18 +445,18 @@ function EarnView({
             </span>
             <span>answer right = earn the {group?.name.toLowerCase()}</span>
           </div>
-          <h2 className="gk-prompt">{question.prompt}</h2>
-          {question.unit === "kg" ? <WeightSketch questionTop={question.visual} /> : null}
-          <p className="gk-hint">{question.hint}</p>
+          <h2 className="gk-prompt">{earnPrompt(question)}</h2>
+          <EarnSketch question={question} />
+          <p className="gk-hint">{earnHint(question)}</p>
           <div className="gk-answer">
             <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
-            <span className="gk-unit">{question.unit}</span>
+            <span className="gk-unit">{earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
             <button className="gk-check" type="button" onClick={onCheck}>
               Check
             </button>
           </div>
           <div className="gk-keys">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"].map((key) => (
+            {(question.level <= 3 ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "←"] : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -434,17 +499,49 @@ function EarnView({
   );
 }
 
-function WeightSketch({ questionTop }: { questionTop: EarnState["queue"][number]["visual"] }) {
-  const visual = questionTop as { top?: number; bottom?: number } | undefined;
-  const metres = visual?.top ?? 4;
-  const kg = visual?.bottom ?? 12;
+function EarnSketch({ question }: { question: EarnState["queue"][number] }) {
+  const picture = earnPicture(question);
   return (
-    <div style={{ position: "relative", height: 90 }}>
-      <img src={art("beam-side.png")} alt="" style={{ position: "absolute", left: 20, top: 40, width: 380, height: 41 }} />
-      <p className="gk-note" style={{ color: "#2E7FB0", position: "absolute", left: 20, top: 0 }}>
-        {kg} kg · {metres} m
-      </p>
+    <div className="gk-qpic" data-picture={question.fact.kind}>
+      <div className="gk-qstage">
+        {picture.banks ? <img className="gk-qbanks" src={art("banks.png")} alt="" /> : null}
+        {picture.ruler ? <RulerStrip /> : null}
+        {picture.bits.map((bit, index) => (
+          <img
+            key={`${bit.sprite}-${index}`}
+            alt=""
+            src={art(bit.sprite)}
+            style={{
+              position: "absolute",
+              left: bit.x,
+              top: bit.y,
+              width: bit.w,
+              height: bit.h,
+              transform: bit.rotate ? `rotate(${bit.rotate}deg)` : undefined,
+              transformOrigin: "0 0",
+            }}
+          />
+        ))}
+        {picture.labels.map((label) => (
+          <span key={`${label.text}-${label.x}`} className="gk-qlabel" style={{ left: label.x, top: label.y }}>
+            {label.text}
+          </span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function RulerStrip() {
+  return (
+    <>
+      <div className="gk-qline" />
+      {[0, 2, 4, 6, 8].map((mark) => (
+        <span key={mark} className="gk-qtick" style={{ left: 24 + mark * 55, top: 144 }}>
+          {mark} {lengthAbbrev()}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -466,7 +563,7 @@ function KitPanel({ earned, current }: { earned: string[]; current?: string }) {
               </b>
               <span>{group.blurb}</span>
             </div>
-            {have ? <span className="gk-ok">{group.lengthLabel} ✓</span> : null}
+            {have ? <span className="gk-ok">{groupLength(group.id)} ✓</span> : null}
             {now ? <span className="gk-wait">answer to earn</span> : null}
             {!have && !now ? <span className="gk-wait">later</span> : null}
           </div>
@@ -507,7 +604,7 @@ function AssembleView({
         />
         <div className="gk-strip">
           <p>
-            Gap is 8 m. Bottom: two beams, 8 ÷ 2 = 4 m each. ✓ Posts at 2 m and 6 m, so the top beam is 6 - 2 = 4 m. Drop it on the dotted line.
+            Gap is {formatLength(8)}. Bottom: two beams, 8 ÷ 2 = {formatLength(4)} each. ✓ Posts at {formatLength(2)} and {formatLength(6)}, so the top beam is 6 - 2 = {formatLength(4)}. Drop it on the dotted line.
           </p>
           <div className="gk-actions">
             <button className="gk-send" type="button" disabled={trayLeft > 0} onClick={onSend}>
@@ -609,12 +706,12 @@ function DriveView({
         <h2>How it is doing</h2>
         <div className="gk-load">
           <small>LOAD ON THE BRIDGE</small>
-          <strong>{result.massKg} kg</strong>
+          <strong>{formatWeight(result.massKg)}</strong>
           <span className="gk-muted">{result.massKg === 40 ? "one goat" : "a heavier goat"}</span>
           <div className="gk-bar">
             <i style={{ width: `${result.loadPercent}%`, background: "#3C7A2B" }} />
           </div>
-          <p className="gk-muted">holds up to about 180 kg</p>
+          <p className="gk-muted">holds up to about {formatWeight(180)}</p>
         </div>
         <p className="gk-muted">Who is working hardest</p>
         {result.members.slice(0, 3).map((member) => (
@@ -660,7 +757,7 @@ function WreckView({
         <div className="gk-strip">
           <p>
             {numbers.top === 3
-              ? "Top beam was 3 m. The posts are 4 m apart. The right post had nothing to hold on to. The goat is fine. Mostly."
+              ? `Top beam was ${formatLength(3)}. The posts are ${formatLength(4)} apart. The right post had nothing to hold on to. The goat is fine. Mostly.`
               : `${lines[0] ?? "A piece let go."} The goat is fine. Mostly.`}
           </p>
           <div className="gk-actions">
@@ -697,7 +794,7 @@ function WreckView({
             <div>Every engineer breaks one on purpose.</div>
           </div>
         ) : null}
-        <p className="gk-muted">Marks stay at the last award. This crossing added none. Load was {result.massKg} kg.</p>
+        <p className="gk-muted">Marks stay at the last award. This crossing added none. Load was {formatWeight(result.massKg)}.</p>
       </aside>
     </div>
   );
@@ -767,6 +864,14 @@ function filledLengths(): Record<string, string> {
     }
   }
   return lengths;
+}
+
+function groupLength(groupId: string): string {
+  const slot = queenPost.slots.find((item) => item.group === groupId && item.length != null);
+  if (!slot || slot.length == null) {
+    return "";
+  }
+  return formatLength(slot.length);
 }
 
 function numericLengths(lengths: Record<string, string | number>): Record<string, number> {

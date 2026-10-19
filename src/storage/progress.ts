@@ -11,6 +11,7 @@ import { emptyScribble, type Scribble, type ScribbleStroke } from "../engine/scr
 import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
+import { defaultUnitSystem, type UnitSystem } from "../units";
 
 const STORAGE_KEY = "math-builds.progress.v3";
 
@@ -30,6 +31,7 @@ export type SavedProgress = {
   bridgeEarned: Record<string, Record<string, number>>;
   workshop?: WorkshopSave;
   sequence?: SequenceSave;
+  units?: UnitSystem;
 };
 
 export type GalleryShot = {
@@ -97,7 +99,7 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {}, workshop: sanitizeWorkshop(undefined) };
+    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {}, workshop: sanitizeWorkshop(undefined), units: defaultUnitSystem() };
   }
   const record = raw as {
     map?: unknown;
@@ -110,6 +112,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     bridgeEarned?: unknown;
     workshop?: unknown;
     sequence?: unknown;
+    units?: unknown;
   };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
@@ -146,6 +149,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     bridgeEarned: sanitizeEarned(record.bridgeEarned),
     workshop: sanitizeWorkshop(record.workshop),
     sequence: sanitizeSequence(record.sequence),
+    units: record.units === "us" || record.units === "metric" ? record.units : defaultUnitSystem(),
   };
 }
 

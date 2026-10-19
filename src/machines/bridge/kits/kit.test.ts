@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
+import { setUnitSystem } from "../../../units";
 import { answerEarn, blankEarn } from "./earn";
 import { correctLengths, wreckLines } from "./kit";
 import { simulateCrossing } from "./simulate";
@@ -39,9 +40,12 @@ describe("goat bridge kit", () => {
     expect(result.goatY).toBeLessThan(0);
     expect(result.bodies.some((body) => body.id.includes("beam") || body.id === "top" || body.id.startsWith("bottom"))).toBe(true);
     expect(result.bodies.some((body) => (body.id === "top" || body.id.startsWith("bottom")) && body.y < 0)).toBe(true);
+    setUnitSystem("metric");
     const line = wreckLines(lengths).find((item) => item.startsWith("Top beam"));
     expect(line).toContain("1 m short");
     expect(line).toContain("6 - 2 = 4");
+    setUnitSystem("us");
+    expect(wreckLines(lengths).find((item) => item.startsWith("Top beam"))).toContain("1 ft short");
   });
 
   it("drops the goat before the far bank when a bottom beam is 3 m", () => {

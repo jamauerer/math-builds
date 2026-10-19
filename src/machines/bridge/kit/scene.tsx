@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { formatLength, lengthAbbrev } from "../../../units";
 import { kitNode, nodePixel, queenPost, type KitSlot } from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
@@ -60,7 +61,7 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         }
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
-        const label = slot.length == null ? "" : slot.length >= 2.8 && slot.length < 3 ? "2.8 m" : `${slot.length} m`;
+        const label = slot.length == null ? "" : formatLength(slot.length);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const span = Math.hypot(dx, dy) || 1;
@@ -69,9 +70,9 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         return (
           <g key={slot.id}>
             <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />
-            <g transform={`translate(${midX - 28} ${midY - 28})`}>
-              <rect width="56" height="22" rx="11" fill="#fff" stroke="#2E7FB0" />
-              <text x="28" y="15" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#2E7FB0">
+            <g transform={`translate(${midX - 40} ${midY - 28})`}>
+              <rect width="80" height="22" rx="11" fill="#fff" stroke="#2E7FB0" />
+              <text x="40" y="15" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#2E7FB0">
                 {label}?
               </text>
             </g>
@@ -159,7 +160,7 @@ function Ruler() {
       ))}
       {[0, 2, 4, 6, 8].map((mark) => (
         <text key={mark} x={292 + mark * 50} y="442" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#22201C">
-          {mark} m
+          {mark} {lengthAbbrev()}
         </text>
       ))}
     </svg>

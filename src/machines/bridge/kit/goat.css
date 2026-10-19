@@ -92,6 +92,127 @@
   font-size: 16px;
 }
 
+.gk-unit-toggle {
+  display: flex;
+  border: 1.5px solid #e6e2da;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.gk-unit-toggle button {
+  min-width: 64px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: #6b6459;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.gk-unit-toggle button.on {
+  background: #22201c;
+  color: #fff;
+}
+
+.gk-profile-wrap {
+  position: relative;
+}
+
+.gk-profile-card {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  z-index: 4;
+  width: 240px;
+  padding: 12px;
+  border: 1.5px solid #e6e2da;
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gk-profile-card p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b6459;
+}
+
+.gk-profile-card button {
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1.5px solid #e6e2da;
+  background: #fff;
+  text-align: left;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.gk-profile-card button.on {
+  border-color: #22201c;
+  background: #22201c;
+  color: #fff;
+}
+
+.gk-qpic {
+  width: 100%;
+  aspect-ratio: 520 / 180;
+  position: relative;
+  container-type: inline-size;
+  overflow: hidden;
+  background: #e7f2fa;
+  border-radius: 16px;
+}
+
+.gk-qstage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 520px;
+  height: 180px;
+  transform: scale(calc(100cqw / 520px));
+  transform-origin: top left;
+}
+
+.gk-qbanks {
+  position: absolute;
+  left: -80px;
+  top: 8px;
+  width: 680px;
+  height: 200px;
+  object-fit: cover;
+}
+
+.gk-qlabel {
+  position: absolute;
+  font-family: Caveat, cursive;
+  font-size: 22px;
+  font-weight: 700;
+  color: #2e7fb0;
+}
+
+.gk-qline {
+  position: absolute;
+  left: 40px;
+  top: 138px;
+  width: 440px;
+  height: 2px;
+  background: #22201c;
+}
+
+.gk-qtick {
+  position: absolute;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #22201c;
+}
+
 .gk-profile {
   display: flex;
   align-items: center;

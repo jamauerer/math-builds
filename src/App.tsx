@@ -9,6 +9,7 @@ import {
 import { blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
 import { blankSequence } from "./sequence/logic";
 import { GoatKit } from "./machines/bridge/kit/GoatKit";
+import { defaultUnitSystem, setUnitSystem, type UnitSystem } from "./units";
 import { PracticeQuiz } from "./ui/PlacementQuiz";
 import { Workshop } from "./workshop/Workshop";
 
@@ -27,6 +28,24 @@ function kitFault(value: string | null): "top" | "post" | "bottom" | null {
   return null;
 }
 
+function kitUnits(value: string | null, saved: UnitSystem | undefined): UnitSystem {
+  if (value === "us" || value === "metric") {
+    return value;
+  }
+  return saved ?? defaultUnitSystem();
+}
+
+function kitLevel(value: string | null): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 13) {
+    return null;
+  }
+  return parsed;
+}
+
 function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" {
   if (value === "earn" || value === "assemble" || value === "drive" || value === "wreck") {
     return value;
@@ -42,9 +61,12 @@ type Screen =
 
 export function App() {
   const store = useMemo(() => browserProgressStore(skills), []);
-  const [progress, setProgress] = useState<SavedProgress>(
-    () =>
-      store.load() ?? {
+  const [progress, setProgress] = useState<SavedProgress>(() => {
+    const loaded = store.load();
+    const units = kitUnits(new URLSearchParams(window.location.search).get("units"), loaded?.units);
+    setUnitSystem(units);
+    return (
+      loaded ?? {
         map: createLearnerMap(skills),
         toppedOut: [],
         placement: null,
@@ -54,8 +76,10 @@ export function App() {
         bridgeCompleted: [],
         bridgeEarned: {},
         workshop: blankWorkshop(),
-      },
-  );
+        units,
+      }
+    );
+  });
   const [screen, setScreen] = useState<Screen>(() =>
     new URLSearchParams(window.location.search).get("challenge") ? { name: "workshop" } : { name: "map" },
   );
@@ -95,6 +119,12 @@ export function App() {
           start={kitStage(new URLSearchParams(window.location.search).get("kit"))}
           seek={seekMetre(new URLSearchParams(window.location.search).get("at"))}
           fault={kitFault(new URLSearchParams(window.location.search).get("fault"))}
+          level={kitLevel(new URLSearchParams(window.location.search).get("level"))}
+          units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
+          onUnits={(units) => {
+            setUnitSystem(units);
+            save({ ...progress, units });
+          }}
         />
       )}
       {screen.name === "practice" ? (
@@ -118,6 +148,7 @@ export function App() {
               bridgeCompleted: progress.bridgeCompleted,
               bridgeEarned: progress.bridgeEarned,
               workshop: progress.workshop,
+              units: progress.units,
             });
           }}
           onClose={() => setScreen(practiceReturn === "workshop" ? { name: "workshop" } : { name: "map" })}

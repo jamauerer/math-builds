@@ -1,3 +1,4 @@
+import { formatLength, lengthAbbrev } from "../../../units";
 import raw from "./queen-post.json";
 
 export type KitNode = { id: string; m: number; h: number };
@@ -103,13 +104,11 @@ export function wreckLine(slot: KitSlot, typed: number): string | null {
   }
   const short = delta > 0;
   const amount = Math.abs(delta);
-  const amountLabel = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
-  const typedLabel = Number.isInteger(typed) ? String(typed) : String(typed);
-  if (slot.id === "top" && slot.need) {
-    return `Top beam, ${typedLabel} m, needed ${slot.need} m, ${amountLabel} m ${short ? "short" : "long"}`;
-  }
   const way = short ? "short" : "long";
-  return `${slot.name}, ${typedLabel} m, needed ${slot.length} m, ${amountLabel} m ${way}`;
+  if (slot.id === "top" && slot.need) {
+    return `Top beam, ${formatLength(typed)}, needed ${slot.need} ${lengthAbbrev()}, ${formatLength(amount)} ${way}`;
+  }
+  return `${slot.name}, ${formatLength(typed)}, needed ${formatLength(slot.length)}, ${formatLength(amount)} ${way}`;
 }
 
 /** When the top beam does not reach the far post, that post has nothing to hold. */
@@ -127,7 +126,7 @@ export function wreckLines(lengths: Record<string, number>): string[] {
   const top = queenPost.slots.find((slot) => slot.id === "top");
   const post = queenPost.slots.find((slot) => slot.id === "post-b");
   if (top && post && lengths.top != null && lengthDelta(top, lengths.top) > 0.05) {
-    lines.push("Right post, 2 m, needed 2 m, right length, nothing on top, fell");
+    lines.push(`Right post, ${formatLength(2)}, needed ${formatLength(2)}, right length, nothing on top, fell`);
   }
   return lines;
 }
