@@ -44,7 +44,7 @@ describe("goat bridge screens", () => {
   it("draws a level 1 picture with as many planks as the answer", async () => {
     setUnitSystem("us");
     const map = createLearnerMap(skills);
-    const question = blankEarn(map, 1, 1).queue[0];
+    const question = blankEarn(null, 1).queue[0];
     expect(question?.answer).toBe("8");
     expect(question?.fact.kind).toBe("count-planks");
     const container = document.createElement("div");
