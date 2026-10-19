@@ -1,7 +1,8 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
-import { formatLength, formatWeight, lengthName } from "../../../units";
+import { formatLength, formatWeight, lengthAbbrev, lengthName } from "../../../units";
 import { plainQuestion } from "./plain";
 import { drawPlain } from "../../../pictures";
+import { labelAt, slice } from "../../../pictures/layout";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { queenPost, type KitGroup } from "./kit";
@@ -24,7 +25,7 @@ import {
 } from "./skills";
 
 export type EarnFact =
-  | { kind: "count-planks"; count: number }
+  | { kind: "count-planks"; count: number; plank?: number; beam?: number }
   | { kind: "count-posts"; count: number }
   | { kind: "count-pieces"; count: number }
   | { kind: "count-gussets"; count: number }
@@ -143,7 +144,7 @@ export function earnPrompt(question: EarnQuestion): string {
     case "count-braces":
       return "How many braces?";
     case "count-bolts":
-      return "How many bolts?";
+      return "How many plates?";
     case "count-rails":
       return "How many railings?";
     case "between-posts":
@@ -159,7 +160,7 @@ export function earnPrompt(question: EarnQuestion): string {
     case "rail-both":
       return "The railing runs both sides. One side is labeled. How long is the railing?";
     case "split-gap":
-      return `The gap is labeled in ${lengthName(2)}. It is shared by the beams drawn. How long is each beam?`;
+      return `The gap is labeled in ${lengthName(2)}. It is shared by the beams. How long is each beam?`;
     case "add-parts":
       return "The two pieces are labeled. How long are they together?";
     case "brace-hyp":
@@ -174,12 +175,14 @@ function rawHint(question: EarnQuestion): string {
   switch (fact.kind) {
     case "between-posts":
       return "Hint: the right mark minus the left mark.";
-    case "posts-timber":
     case "add-parts":
-    case "beam-weight":
     case "bolts-combine":
-    case "triangles":
       return "Hint: combine the labels.";
+    case "triangles":
+      return "Hint: 2 triangles for each diagonal.";
+    case "posts-timber":
+    case "beam-weight":
+      return "Hint: each amount times how many there are.";
     case "rail-both":
       return "Hint: both sides.";
     case "split-gap":
@@ -188,10 +191,22 @@ function rawHint(question: EarnQuestion): string {
       return "Hint: square both sides, add, then take the square root.";
     case "plain":
       return "";
+    case "count-posts":
+      return "Hint: count the posts.";
     case "count-planks":
-      return question.groupId === "planks" ? "Hint: the path is as long as the two beams together." : "Hint: count what is drawn.";
+      return question.groupId === "planks" ? "Hint: the path is as long as the two beams together." : "Hint: count the planks.";
+    case "count-gussets":
+      return "Hint: count the plates.";
+    case "count-braces":
+      return "Hint: count the braces.";
+    case "count-bolts":
+      return "Hint: count the plates.";
+    case "count-rails":
+      return "Hint: count the railings.";
+    case "count-pieces":
+      return "Hint: count the beams.";
     default:
-      return "Hint: count what is drawn.";
+      return "Hint: count the pieces.";
   }
 }
 
@@ -207,132 +222,54 @@ export function earnHint(question: EarnQuestion): string {
 function wordPicture(question: EarnQuestion): EarnPicture {
   const fact = question.fact;
   if (question.groupId === "planks") {
-    return {
-      banks: true,
-      ruler: false,
-      labels: [
-        { text: formatLength(4), x: 120, y: 36 },
-        { text: formatLength(4), x: 330, y: 36 },
-        { text: formatLength(1), x: 220, y: 118 },
-      ],
-      bits: [
-        { sprite: "beam-side.png", x: 48, y: 70, w: 200, h: 22 },
-        { sprite: "beam-side.png", x: 248, y: 70, w: 200, h: 22 },
-        { sprite: "plank-side.png", x: 200, y: 108, w: 54, h: 16 },
-      ],
-    };
+    return slice(["bottom-a", "bottom-b", "plank-1"], [labelAt("bottom-a", formatLength(4)), labelAt("bottom-b", formatLength(4)), labelAt("plank-1", formatLength(1), -22)]);
   }
-  if (fact.kind === "split-gap") {
-    const left = 48;
-    const width = 200;
-    const y = 108;
-    return {
-      banks: true,
-      ruler: false,
-      labels: [
-        { text: "?", x: left + 86, y: 70 },
-        { text: "?", x: left + width + 86, y: 70 },
-      ],
-      bits: [
-        { sprite: "beam-side.png", x: left, y, w: width, h: 22 },
-        { sprite: "beam-side.png", x: left + width, y, w: width, h: 22 },
-      ],
-      measure: { x: left, y: 58, w: width * 2, text: formatLength(fact.gap) },
-    };
+  return factPicture(fact);
+}
+
+function factPicture(fact: EarnFact): EarnPicture {
+  const posts = ["post-a", "post-b"];
+  const beams = ["bottom-a", "bottom-b"];
+  const gussets = ["gusset-n4", "gusset-n2", "gusset-n6", "gusset-p2", "gusset-p6"];
+  const planks = ["plank-1", "plank-2", "plank-3", "plank-4", "plank-5", "plank-6", "plank-7", "plank-8"];
+  switch (fact.kind) {
+    case "count-planks":
+      return slice(planks.slice(0, Math.min(fact.count, planks.length)));
+    case "count-posts":
+      return slice(posts.slice(0, Math.min(fact.count, posts.length)));
+    case "count-pieces":
+      return slice(["bottom-a", "bottom-b", "top"].slice(0, Math.min(fact.count, 3)));
+    case "count-gussets":
+    case "count-bolts":
+      return slice(gussets.slice(0, Math.min(fact.count, gussets.length)));
+    case "count-braces":
+      return slice(["brace-a", "brace-b"].slice(0, Math.min(fact.count, 2)));
+    case "count-rails":
+      return slice(["rail-a", "rail-b"].slice(0, Math.min(fact.count, 2)));
+    case "between-posts":
+      return slice(posts, [labelAt("post-a", formatLength(fact.left), -22), labelAt("post-b", formatLength(fact.right), -22)]);
+    case "posts-timber":
+      return slice(posts.slice(0, Math.min(fact.count, 2)), repeat(Math.min(fact.count, 2), (index) => labelAt(posts[index], formatLength(fact.each), -22)));
+    case "triangles":
+      return slice(["brace-a", "brace-b"].slice(0, Math.min(fact.diagonals, 2)), [labelAt("brace-a", String(fact.each), -24)]);
+    case "beam-weight":
+      return slice(beams, [labelAt("bottom-a", formatWeight(fact.each)), labelAt("bottom-b", String(fact.pieces))]);
+    case "bolts-combine":
+      return slice(
+        gussets.slice(0, Math.min(fact.plates, gussets.length)),
+        gussets.slice(0, Math.min(fact.plates, gussets.length)).map((id) => labelAt(id, String(fact.each), -24)),
+      );
+    case "rail-both":
+      return slice(["rail-a", "rail-b"], [labelAt("rail-a", formatLength(fact.side), -24)]);
+    case "split-gap":
+      return slice(beams.slice(0, Math.min(fact.beams, 2)), [labelAt("bottom-a", formatLength(fact.gap), -36)]);
+    case "add-parts":
+      return slice(beams, [labelAt("bottom-a", formatLength(fact.left)), labelAt("bottom-b", formatLength(fact.right))]);
+    case "brace-hyp":
+      return slice(["brace-a"], [labelAt("bottom-a", formatLength(fact.across)), labelAt("post-a", formatLength(fact.up), -22)]);
+    default:
+      return slice(beams);
   }
-  if (fact.kind === "between-posts") {
-    return {
-      banks: true,
-      ruler: false,
-      labels: [
-        { text: formatLength(fact.left), x: rulerX(fact.left) - 16, y: 8 },
-        { text: formatLength(fact.right), x: rulerX(fact.right) - 16, y: 8 },
-      ],
-      bits: [fact.left, fact.right].map((mark) => ({
-        sprite: "post.png",
-        x: rulerX(mark) - 16,
-        y: 40,
-        w: 32,
-        h: 78,
-      })),
-    };
-  }
-  if (fact.kind === "bolts-combine") {
-    return {
-      banks: false,
-      ruler: false,
-      labels: [
-        ...repeat(fact.plates, (index) => ({ text: String(fact.each), x: 48 + index * 84, y: 28 })),
-        { text: formatLength(1), x: 210, y: 130 },
-      ],
-      bits: repeat(fact.plates, (index) => ({
-        sprite: "gusset-small.png",
-        x: 32 + index * 84,
-        y: 58,
-        w: 52,
-        h: 44,
-      })),
-    };
-  }
-  if (fact.kind === "count-posts") {
-    return {
-      banks: true,
-      ruler: false,
-      labels: [{ text: formatLength(4), x: 210, y: 36 }],
-      bits: [
-        { sprite: "beam-side.png", x: 70, y: 58, w: 360, h: 22 },
-        ...repeat(fact.count, (index) => ({
-          sprite: "post.png",
-          x: 120 + index * 200,
-          y: 80,
-          w: 32,
-          h: 78,
-        })),
-      ],
-    };
-  }
-  if (fact.kind === "count-gussets") {
-    return {
-      banks: false,
-      ruler: false,
-      labels: [{ text: formatLength(4), x: 200, y: 24 }],
-      bits: [
-        { sprite: "beam-side.png", x: 40, y: 48, w: 420, h: 22 },
-        ...repeat(fact.count, (index) => ({
-          sprite: "gusset-small.png",
-          x: 36 + index * 90,
-          y: 78,
-          w: 48,
-          h: 42,
-        })),
-      ],
-    };
-  }
-  if (fact.kind === "count-braces") {
-    return {
-      banks: false,
-      ruler: false,
-      labels: [{ text: formatLength(3), x: 200, y: 16 }],
-      bits: repeat(fact.count, (index) => ({
-        sprite: "beam-half.png",
-        x: 90 + index * 180,
-        y: 46,
-        w: 150,
-        h: 20,
-        rotate: -36,
-      })),
-    };
-  }
-  return {
-    banks: true,
-    ruler: false,
-    labels: [],
-    bits: [
-      { sprite: "railing.png", x: 60, y: 58, w: 380, h: 28 },
-      { sprite: "railing.png", x: 60, y: 108, w: 380, h: 28 },
-    ],
-    measure: { x: 60, y: 48, w: 380, text: formatLength(8) },
-  };
 }
 
 export function earnPicture(question: EarnQuestion): EarnPicture | null {
@@ -346,249 +283,7 @@ export function earnPicture(question: EarnQuestion): EarnPicture | null {
   if (fact.kind === "plain") {
     return null;
   }
-  switch (fact.kind) {
-    case "count-planks":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "plank-side.png",
-          x: 36 + index * 58,
-          y: 96,
-          w: 54,
-          h: 18,
-        })),
-      };
-    case "count-posts":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "post.png",
-          x: 150 + index * 140,
-          y: 28,
-          w: 36,
-          h: 100,
-        })),
-      };
-    case "count-pieces":
-      return {
-        banks: false,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "beam-side.png",
-          x: 24 + index * 120,
-          y: 70,
-          w: 108,
-          h: 28,
-        })),
-      };
-    case "count-gussets":
-      return {
-        banks: false,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "gusset-small.png",
-          x: 36 + (index % 5) * 90,
-          y: 60,
-          w: 48,
-          h: 42,
-        })),
-      };
-    case "count-braces":
-      return {
-        banks: false,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "beam-half.png",
-          x: 80 + index * 180,
-          y: 50,
-          w: 140,
-          h: 22,
-          rotate: -40,
-        })),
-      };
-    case "count-bolts":
-      return {
-        banks: false,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "bolt.png",
-          x: 28 + (index % 5) * 96,
-          y: 36 + Math.floor(index / 5) * 64,
-          w: 44,
-          h: 28,
-        })),
-      };
-    case "count-rails":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [],
-        bits: repeat(fact.count, (index) => ({
-          sprite: "railing.png",
-          x: 70,
-          y: 48 + index * 36,
-          w: 360,
-          h: 28,
-        })),
-      };
-    case "between-posts":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [
-          { text: String(fact.left), x: rulerX(fact.left) - 8, y: 8 },
-          { text: String(fact.right), x: rulerX(fact.right) - 8, y: 8 },
-        ],
-        bits: [fact.left, fact.right].map((mark) => ({
-          sprite: "post.png",
-          x: rulerX(mark) - 16,
-          y: 40,
-          w: 32,
-          h: 78,
-        })),
-      };
-    case "posts-timber":
-      return {
-        banks: true,
-        ruler: false,
-        labels: repeat(fact.count, (index) => ({
-          text: formatLength(fact.each),
-          x: 120 + index * 160,
-          y: 16,
-        })),
-        bits: repeat(fact.count, (index) => ({
-          sprite: "post.png",
-          x: 130 + index * 160,
-          y: 40,
-          w: 36,
-          h: 100,
-        })),
-      };
-    case "triangles":
-      return {
-        banks: false,
-        ruler: false,
-        labels: repeat(fact.diagonals, (index) => ({ text: String(fact.each), x: 150 + index * 180, y: 24 })),
-        bits: repeat(fact.diagonals, (index) => ({
-          sprite: "beam-half.png",
-          x: 70 + index * 180,
-          y: 70,
-          w: 150,
-          h: 20,
-          rotate: index % 2 === 0 ? -32 : 32,
-        })),
-      };
-    case "beam-weight":
-      return {
-        banks: false,
-        ruler: false,
-        labels: repeat(fact.pieces, (index) => ({
-          text: formatWeight(fact.each),
-          x: 28 + index * 124,
-          y: 36,
-        })),
-        bits: repeat(fact.pieces, (index) => ({
-          sprite: "beam-side.png",
-          x: 20 + index * 124,
-          y: 78,
-          w: 112,
-          h: 28,
-        })),
-      };
-    case "bolts-combine":
-      return {
-        banks: false,
-        ruler: false,
-        labels: repeat(fact.plates, (index) => ({ text: String(fact.each), x: 40 + index * 96, y: 28 })),
-        bits: repeat(fact.plates, (index) => ({
-          sprite: "gusset-small.png",
-          x: 28 + index * 96,
-          y: 64,
-          w: 56,
-          h: 48,
-        })),
-      };
-    case "rail-both":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [{ text: formatLength(fact.side), x: 200, y: 28 }],
-        bits: [
-          { sprite: "railing.png", x: 60, y: 58, w: 380, h: 30 },
-          { sprite: "railing.png", x: 60, y: 100, w: 380, h: 30 },
-        ],
-      };
-    case "split-gap":
-      return {
-        banks: true,
-        ruler: false,
-        labels: [{ text: formatLength(fact.gap), x: 210, y: 24 }],
-        bits: repeat(fact.beams, (index) => ({
-          sprite: "beam-side.png",
-          x: 40 + index * 230,
-          y: 88,
-          w: 210,
-          h: 28,
-        })),
-      };
-    case "add-parts":
-      return {
-        banks: false,
-        ruler: false,
-        labels: [
-          { text: formatLength(fact.left), x: 70, y: 40 },
-          { text: formatLength(fact.right), x: 300, y: 40 },
-        ],
-        bits: [
-          { sprite: "beam-side.png", x: 30, y: 80, w: 200, h: 28 },
-          { sprite: "beam-side.png", x: 250, y: 80, w: 200, h: 28 },
-        ],
-      };
-    case "brace-hyp":
-      return bracePicture(fact.across, fact.up, "");
-    default:
-      return { banks: false, ruler: false, bits: [], labels: [] };
-  }
-}
-
-function bracePicture(across: number, up: number, hypotenuse: string): EarnPicture {
-  const width = 160;
-  const height = 110;
-  const x = 160;
-  const y = 130;
-  return {
-    banks: false,
-    ruler: false,
-    labels: [
-      { text: formatLength(across), x: x + 40, y: y + 8 },
-      { text: formatLength(up), x: x - 70, y: y - 60 },
-      ...(hypotenuse ? [{ text: hypotenuse, x: x + 70, y: y - 70 }] : []),
-    ],
-    bits: [
-      { sprite: "beam-side.png", x, y, w: width, h: 22 },
-      { sprite: "post.png", x: x - 8, y: y - height, w: 28, h: height },
-      {
-        sprite: "beam-half.png",
-        x,
-        y: y - height,
-        w: Math.hypot(width, height),
-        h: 18,
-        rotate: (Math.atan2(height, width) * 180) / Math.PI,
-      },
-    ],
-  };
-}
-
-function rulerX(mark: number): number {
-  return 40 + mark * 55;
+  return factPicture(fact);
 }
 
 function repeat<T>(count: number, make: (index: number) => T): T[] {
@@ -635,30 +330,30 @@ function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
       return { kind: "brace-hyp", across: 2, up: 2 };
     }
     if (level <= 3) {
-      return { kind: "count-braces", count: group.count + bump };
+      return { kind: "count-braces", count: Math.min(2, group.count) };
     }
-    return { kind: "triangles", diagonals: 2 + bump, each: 2 };
+    return { kind: "triangles", diagonals: 2, each: 2 };
   }
   if (level <= 3) {
     if (group.id === "bottom") {
       return { kind: "count-planks", count: salt === 0 ? queenPost.span : 5 + bump };
     }
     if (group.id === "posts") {
-      return { kind: "count-posts", count: group.count + bump };
+      return { kind: "count-posts", count: Math.min(2, group.count) };
     }
     if (group.id === "gussets") {
-      return { kind: "count-gussets", count: group.count + bump };
+      return { kind: "count-gussets", count: Math.min(5, group.count) };
     }
     if (group.id === "top") {
-      return { kind: "count-pieces", count: 4 + bump };
+      return { kind: "count-pieces", count: 3 };
     }
     if (group.id === "bolts") {
-      return { kind: "count-bolts", count: Math.min(10, 4 + bump * 2) };
+      return { kind: "count-bolts", count: Math.min(5, 4 + bump) };
     }
     if (group.id === "planks") {
-      return { kind: "count-planks", count: group.count };
+      return { kind: "count-planks", count: Math.min(8, group.count) };
     }
-    return { kind: "count-rails", count: group.count + (bump === 0 ? 0 : 1) };
+    return { kind: "count-rails", count: Math.min(2, group.count) };
   }
   if (group.id === "bottom") {
     const gap = queenPost.span + bump * 2;
@@ -668,7 +363,7 @@ function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
     return { kind: "between-posts", left: 2, right: 6 + bump };
   }
   if (group.id === "gussets") {
-    return { kind: "count-gussets", count: 4 + bump };
+    return { kind: "count-gussets", count: Math.min(5, 4 + bump) };
   }
   if (group.id === "top") {
     return { kind: "add-parts", left: 2 + bump, right: 3 };
@@ -733,8 +428,8 @@ function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion
   const two = formatLength(2);
   const six = formatLength(6);
   const four = formatLength(4);
-  const three = formatLength(3);
   const one = formatLength(1);
+  const unit = lengthAbbrev();
   const base =
     group.id === "top"
       ? {
@@ -745,7 +440,7 @@ function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion
       : group.id === "bolts"
         ? {
             answer: "10",
-            word: `Each plate takes 2 bolts, and there are 5 plates. Each plate is ${one} across. How many bolts is that?`,
+            word: `Each plate takes 2 bolts, and there are 5 plates. How many bolts is that? Lengths are in ${unit}.`,
             fact: { kind: "bolts-combine" as const, plates: 5, each: 2 },
           }
         : group.id === "bottom"
@@ -757,26 +452,26 @@ function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion
           : group.id === "posts"
             ? {
                 answer: "2",
-                word: `A beam ${four} long rests on the posts. How many posts hold it up?`,
+                word: `How many posts hold the beam up? Lengths are in ${unit}.`,
                 fact: { kind: "count-posts" as const, count: 2 },
               }
             : group.id === "gussets"
               ? {
                   answer: "5",
-                  word: `The plates join the corners of a beam ${four} long. How many gusset plates is that?`,
+                  word: `How many gusset plates join the corners? Lengths are in ${unit}.`,
                   fact: { kind: "count-gussets" as const, count: 5 },
                 }
               : group.id === "braces"
                 ? {
                     answer: "2",
-                    word: `Each brace reaches ${three} across and stops the posts from folding. How many braces is that?`,
+                    word: `How many braces stop the posts from folding? Lengths are in ${unit}.`,
                     fact: { kind: "count-braces" as const, count: 2 },
                   }
                 : group.id === "planks"
                   ? {
                       answer: "8",
                       word: `Each plank is ${one} long. The path is two beams of ${four} laid end to end. How many planks cover the path?`,
-                      fact: { kind: "count-planks" as const, count: 8 },
+                      fact: { kind: "count-planks" as const, count: 8, plank: 1, beam: 4 },
                     }
                 : {
                     answer: "16",
@@ -1072,7 +767,7 @@ export function explainQuestion(question: EarnQuestion): { steps: string[]; why:
   }
   if (fact.kind === "split-gap") {
     return {
-      steps: ["Read the gap on the picture.", "Share it into equal beams.", `Each beam is ${answer}.`],
+      steps: ["Read the gap.", "Share it into equal beams.", `Each beam is ${answer}.`],
       why: "Sharing a length into equal parts is dividing.",
     };
   }
@@ -1084,12 +779,12 @@ export function explainQuestion(question: EarnQuestion): { steps: string[]; why:
   }
   if (fact.kind.startsWith("count")) {
     return {
-      steps: ["Start at one side of the picture.", "Count each piece once.", `You land on ${answer}.`],
-      why: "The picture is the question. What you can count is the answer.",
+      steps: ["Count each piece once.", `You land on ${answer}.`],
+      why: "Count the pieces.",
     };
   }
   return {
-    steps: ["Read each label on the picture.", "Combine the labels.", `That comes to ${answer}.`],
+    steps: ["Read each label.", "Combine the labels.", `That comes to ${answer}.`],
     why: "The labels are the parts. The question asks for them together.",
   };
 }

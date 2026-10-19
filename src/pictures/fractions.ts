@@ -1,18 +1,21 @@
-import { blank, row, type Drawn, type PlainDraw } from "./parts";
+import { labelAt, slice } from "./layout";
+import type { Drawn, PlainDraw } from "./parts";
 import { dividingPicture } from "./dividing";
+
+const PLANKS = ["plank-1", "plank-2", "plank-3", "plank-4", "plank-5", "plank-6", "plank-7", "plank-8"];
 
 export function fractionsPicture(draw: PlainDraw): Drawn {
   if (draw.op !== "frac") {
     return dividingPicture(draw);
   }
-  const whole = draw.c ?? draw.b;
-  const colored = Math.round((draw.a / Math.max(draw.b, 1)) * whole);
-  const shown = Math.min(whole, 12);
-  const tinted = Math.round((colored / Math.max(whole, 1)) * shown);
+  const whole = Math.min(draw.c ?? draw.b, PLANKS.length);
+  const colored = Math.max(0, Math.min(whole, Math.round((draw.a / Math.max(draw.b, 1)) * whole)));
   return {
     caption: "How many are colored?",
-    picture: blank(row("plank-side.png", shown, 20, 78, 36, 16, 4).map((bit, index) => ({ ...bit, mark: index < tinted })), [
-      { text: `${draw.a}/${draw.b}`, x: 20, y: 28 },
-    ]),
+    picture: slice(
+      PLANKS.slice(0, whole),
+      [labelAt("bottom-a", `${draw.a}/${draw.b}`, -36), labelAt("bottom-b", String(draw.c ?? draw.b), -36)],
+      PLANKS.slice(0, colored),
+    ),
   };
 }

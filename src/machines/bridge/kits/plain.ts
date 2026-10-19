@@ -139,7 +139,7 @@ function dividing(level: number, rng: Rng): PlainItem {
     const quot = intBetween(rng, 2, 9);
     const remainder = intBetween(rng, 1, divisor - 1);
     const dividend = divisor * quot + remainder;
-    return item(`Remainder of ${dividend} ÷ ${divisor}`, remainder, [`${divisor} fits ${quot} times.`, `${remainder} is left over.`], "The remainder is what is left after equal groups.", { op: "rem", a: dividend, b: divisor, c: remainder });
+    return item(`Remainder of ${dividend} ÷ ${divisor}`, remainder, [`Divide ${dividend} by ${divisor}.`, `${remainder} is left over.`], "The remainder is what is left after equal groups.", { op: "rem", a: dividend, b: divisor, c: remainder });
   }
   const divisor = intBetween(rng, 2, level <= 3 ? 5 : 9);
   const quot = intBetween(rng, 2, level <= 3 ? 5 : 12);
@@ -154,7 +154,7 @@ function fractions(level: number, rng: Rng): PlainItem {
   const numerator = intBetween(rng, 1, denominator - 1);
   const groups = intBetween(rng, 2, 6);
   const whole = groups * denominator;
-  return item(`${numerator}/${denominator} of ${whole}`, groups * numerator, [`${whole} split into ${denominator} equal parts is ${groups} each.`, `${numerator} of those parts is ${groups * numerator}.`], "A fraction of a whole is that many equal parts.", { op: "frac", a: numerator, b: denominator, c: whole });
+  return item(`${numerator}/${denominator} of ${whole}`, groups * numerator, [`${numerator}/${denominator} of ${whole}.`, `${numerator} of those parts is ${groups * numerator}.`], "A fraction of a whole is that many equal parts.", { op: "frac", a: numerator, b: denominator, c: whole });
 }
 
 function ratios(level: number, rng: Rng): PlainItem {
@@ -164,7 +164,7 @@ function ratios(level: number, rng: Rng): PlainItem {
   if (level <= 8) {
     const percent = intBetween(rng, 2, 5) * 10;
     const whole = intBetween(rng, 2, 8) * 10;
-    return item(`${percent}% of ${whole}`, (percent / 100) * whole, [`${percent}% is ${percent / 10} tenths of the whole.`, `${percent}% of ${whole} is ${(percent / 100) * whole}.`], "Percent is a fraction of 100.", { op: "percent", a: percent, b: whole });
+    return item(`${percent}% of ${whole}`, (percent / 100) * whole, [`${percent}% of ${whole}.`, `${percent}% of ${whole} is ${(percent / 100) * whole}.`], "Percent is a fraction of 100.", { op: "percent", a: percent, b: whole });
   }
   return algebra(level, rng);
 }

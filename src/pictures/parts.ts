@@ -8,6 +8,7 @@ export type PlainDraw = {
 };
 
 export type PictureBit = {
+  slot: string;
   sprite: string;
   x: number;
   y: number;
@@ -35,32 +36,3 @@ export type Drawn = {
   caption: string;
   picture: Picture;
 };
-
-export function row(sprite: string, count: number, x: number, y: number, w: number, h: number, gap = 4, mark = false): PictureBit[] {
-  const shown = Math.max(0, Math.min(count, 14));
-  return Array.from({ length: shown }, (_, index) => ({
-    sprite,
-    x: x + index * (w + gap),
-    y,
-    w,
-    h,
-    mark,
-  }));
-}
-
-export function grid(sprite: string, columns: number, count: number, x: number, y: number, w: number, h: number, gap = 3, colored = 0): PictureBit[] {
-  const shown = Math.max(0, Math.min(count, 60));
-  const cols = Math.max(1, columns);
-  return Array.from({ length: shown }, (_, index) => ({
-    sprite,
-    x: x + (index % cols) * (w + gap),
-    y: y + Math.floor(index / cols) * (h + gap),
-    w,
-    h,
-    mark: index < colored,
-  }));
-}
-
-export function blank(bits: PictureBit[], labels: PictureLabel[] = [], banks = false): Picture {
-  return { banks, ruler: false, bits, labels };
-}

@@ -30,6 +30,12 @@ export function drawPlain(strandId: string, draw: PlainDraw, answer: string): Dr
   }
   const labels = drawn.picture.labels.filter((label) => !leaks(label, token));
   const measure = drawn.picture.measure && leaks({ text: drawn.picture.measure.text, x: 0, y: 0 }, token) ? undefined : drawn.picture.measure;
+  const shown = [drawn.caption, ...labels.map((label) => label.text), measure?.text ?? ""].join(" ");
+  const tokens = new Set(shown.split(/[^0-9.]+/).filter((part) => part.length > 0));
+  const needed = [draw.a, draw.b, ...(draw.c != null && draw.c !== -1 ? [draw.c] : [])].map(String).filter((part) => part !== token);
+  if (needed.some((part) => !tokens.has(part))) {
+    return null;
+  }
   return { caption: drawn.caption, picture: { ...drawn.picture, labels, measure } };
 }
 

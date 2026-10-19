@@ -1113,7 +1113,7 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
               width: bit.w,
               height: bit.h,
               transform: bit.rotate ? `rotate(${bit.rotate}deg)` : undefined,
-              transformOrigin: "0 0",
+              transformOrigin: bit.rotate ? "0 50%" : undefined,
             }}
           />
         ))}
