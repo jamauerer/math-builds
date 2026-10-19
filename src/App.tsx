@@ -166,6 +166,7 @@ export function App() {
           round={kitRound(new URLSearchParams(window.location.search).get("round"))}
           picture={new URLSearchParams(window.location.search).get("picture")}
           beam={new URLSearchParams(window.location.search).get("beam")}
+          heavy={new URLSearchParams(window.location.search).get("heavy") === "1"}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

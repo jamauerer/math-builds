@@ -199,14 +199,16 @@ describe("goat bridge kit", () => {
     expect(runLength("braces")).toBe(5);
     const done = finishRound(0);
     expect(done.phase).toBe("done");
-    expect(done.earned.slice().sort()).toEqual(["bottom", "gussets"]);
+    expect(done.earned.slice().sort()).toEqual(["bottom", "gussets", "planks"]);
     expect(done.steps).toBeGreaterThan(0);
     const next = blankEarn(roundLevels, 4, done.book, done.day, 1);
     expect(next.round).toBe(1);
     expect(next.steps).toBe(0);
     expect((next.steps / kitQuestionTotal(next.round)) * 100).toBe(0);
-    const folded = simulateCrossing({ "bottom-a": 4, "bottom-b": 4 });
+    const planks = Object.fromEntries(queenPost.slots.filter((slot) => slot.kind === "plank").map((slot) => [slot.id, 1]));
+    const folded = simulateCrossing({ "bottom-a": 4, "bottom-b": 4, ...planks });
     expect(folded.ok).toBe(false);
+    expect(folded.cause?.kind).toBe("joint");
     expect(folded.frames.some((frame) => frame.goatY < 0)).toBe(true);
     const crossed = simulateCrossing(correctLengths());
     expect(crossed.ok).toBe(true);

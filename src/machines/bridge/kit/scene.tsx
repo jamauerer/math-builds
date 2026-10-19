@@ -26,7 +26,7 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
     return {
       position: "absolute",
       left: queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre,
-      top: queenPost.scene.deckY - 16,
+      top: queenPost.scene.deckY - 36,
       width,
       height: 16,
     };
@@ -50,7 +50,7 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
   const height = slot.kind === "brace" ? 15 : slot.kind === "rail" ? 28 : 22;
   const width = Math.max(8, typed * queenPost.pxPerMetre);
   const alongDeck = slot.kind === "beam" && fromNode.h === 0 && Math.abs(angle) < 0.2;
-  const top = alongDeck ? from.y : from.y - (slot.kind === "brace" ? 11 : height / 2);
+  const top = alongDeck ? from.y - height : from.y - (slot.kind === "brace" ? 11 : height / 2);
   return {
     position: "absolute",
     left: from.x,
@@ -58,7 +58,7 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
     width,
     height,
     transform: `rotate(${angle}rad)`,
-    transformOrigin: "0 50%",
+    transformOrigin: alongDeck ? "0 100%" : "0 50%",
   };
 }
 
@@ -170,6 +170,7 @@ export function BridgeScene({
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
       <img className="banks" src={art("banks.png")} alt="" />
+      <Abutments />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
@@ -202,7 +203,7 @@ export function BridgeScene({
           const typed = lengths[slot.id] ?? slot.length ?? 1;
           const style = memberStyle(slot, typed);
           return (
-            <span key={slot.id}>
+            <span key={`${slot.id}:${typed}`}>
               <img className="gk-piece" alt="" data-piece={slot.id} data-length={typed} src={art(slot.sprite)} style={style} />
             </span>
           );
@@ -289,11 +290,13 @@ function poseStyle(pose: PiecePose): CSSProperties {
   const py = queenPost.scene.deckY - queenPost.pxPerMetre * pose.y;
   const along = pose.length * queenPost.pxPerMetre;
   const vertical = pose.kind === "post";
+  const plank = pose.kind === "plank";
   const width = vertical ? 32 : along;
-  const height = vertical ? along : pose.kind === "brace" ? 15 : 22;
+  const height = plank ? 14 : vertical ? along : pose.kind === "brace" ? 15 : 22;
   const rotation = vertical ? -pose.angle + Math.PI / 2 : -pose.angle;
-  let top = py - height / 2;
-  if (pose.y <= waterWorld() + 0.02) {
+  const deckBeam = pose.kind === "beam" && Math.abs(pose.angle) < 0.25;
+  let top = plank ? py - height : deckBeam ? py + queenPost.pxPerMetre * 0.06 - height : py - height / 2;
+  if (!deckBeam && !plank && pose.y <= waterWorld() + 0.02) {
     top = Math.max(top, waterPixel() - height / 2);
   }
   top = Math.min(top, BANK_BOTTOM - height);
@@ -350,6 +353,19 @@ export function goatSprite(mode: GoatMode, walkFrame: number): { src: string; wi
 }
 
 export function frameNear(frames: CrossingFrame[], metres: number): CrossingFrame {
+  if (metres >= 8 && frames.some((frame) => frame.celebrate > 0)) {
+    const target = metres - 8;
+    let best = frames[0];
+    let bestDist = Infinity;
+    for (const frame of frames) {
+      const dist = Math.abs(frame.celebrate - target);
+      if (dist < bestDist) {
+        best = frame;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
   let best = frames[0];
   let bestDist = Infinity;
   for (const frame of frames) {
@@ -360,6 +376,64 @@ export function frameNear(frames: CrossingFrame[], metres: number): CrossingFram
     }
   }
   return best;
+}
+
+function Abutments() {
+  const deck = queenPost.scene.deckY;
+  const span = queenPost.scene.originX + 8 * queenPost.pxPerMetre;
+  const width = 110;
+  const height = 58;
+  const style = (left: number): CSSProperties => ({
+    position: "absolute",
+    left,
+    top: deck - height,
+    width,
+    height,
+  });
+  return (
+    <>
+      <img className="gk-piece" data-piece="abutment-left" alt="" src={art("brick-side.png")} style={style(queenPost.scene.originX - width)} />
+      <img className="gk-piece" data-piece="abutment-right" alt="" src={art("brick-side.png")} style={style(span)} />
+    </>
+  );
+}
+
+function Fireworks({ t }: { t: number }) {
+  if (t <= 0) {
+    return null;
+  }
+  const colors = ["#E0661A", "#2E7FB0", "#3C7A2B", "#F2B544"];
+  const origin = { x: 816, y: 250 };
+  const bursts = [0.05, 0.55, 1.05];
+  return (
+    <>
+      {bursts.map((start, index) => {
+        const age = t - start;
+        if (age < 0 || age > 0.55) {
+          return null;
+        }
+        const spread = 16 + age * 80;
+        return Array.from({ length: 6 }, (_, dot) => {
+          const angle = (dot / 6) * Math.PI * 2 + index * 0.4;
+          return (
+            <span
+              key={`${index}-${dot}`}
+              data-firework="1"
+              style={{
+                position: "absolute",
+                left: origin.x + Math.cos(angle) * spread,
+                top: origin.y + Math.sin(angle) * spread - age * 36,
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: colors[(dot + index) % colors.length],
+              }}
+            />
+          );
+        });
+      })}
+    </>
+  );
 }
 
 /** Pieces and the goat drawn from one simulation frame. The camera does not move. */
@@ -374,9 +448,11 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode}>
       <img className="banks" src={art("banks.png")} alt="" />
+      <Abutments />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
+      <Fireworks t={frame.celebrate} />
       {frame.pieces.map((pose) => (
         <img key={pose.id} className="gk-piece" alt="" src={art(spriteFor(pose))} style={poseStyle(pose)} />
       ))}
@@ -385,7 +461,24 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
         const y = waterPixel() - 8;
         return <img key={`${splash.x.toFixed(2)}`} className="gk-piece" data-splash="1" alt="" src={art("splash.png")} style={{ left: x, top: y, width: 320, height: 130, opacity: 0.9 }} />;
       })}
-      <img src={art(goat.src)} alt="" data-belly={wet ? waterPixel() : undefined} style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
+      <img src={art(goat.src)} alt="" data-goat="lead" data-belly={wet ? waterPixel() : undefined} style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
+      {frame.follower
+        ? (() => {
+            const second = goatSprite(frame.follower.mode, frame.walkFrame);
+            const wetSecond = frame.follower.mode === "swim" || frame.follower.mode === "splash";
+            const secondLeft = queenPost.scene.originX + queenPost.pxPerMetre * frame.follower.x - second.width / 2;
+            let secondTop = wetSecond ? waterPixel() - Math.round(second.height * 0.62) : queenPost.scene.deckY - queenPost.pxPerMetre * frame.follower.y - second.height;
+            secondTop = Math.min(secondTop, BANK_BOTTOM - second.height);
+            return (
+              <img
+                src={art(second.src)}
+                alt=""
+                data-goat="follow"
+                style={{ position: "absolute", left: secondLeft, top: secondTop, width: second.width, height: second.height, zIndex: 3 }}
+              />
+            );
+          })()
+        : null}
     </div>
     </div>
   );

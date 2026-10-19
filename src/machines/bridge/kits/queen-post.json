@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "id": "queen-post",
   "name": "The Goat Bridge",
   "intro": "Solve math problems to build the bridge. Each round earns the next pieces, about five minutes of math. Build what you have and send the goat. Three rounds finish the bridge.",
@@ -95,22 +95,28 @@
   ],
   "rounds": [
     {
-      "groups": ["bottom", "gussets"],
-      "runs": { "bottom": 5, "gussets": 5 },
-      "trial": "beams",
-      "say": "The goat steps on. The middle joint folds, and he goes in."
+      "groups": ["bottom", "planks", "gussets"],
+      "runs": { "bottom": 5, "planks": 2, "gussets": 2 },
+      "trial": "fold",
+      "say": "The goat steps on. The middle joint folds, and he goes in.",
+      "coming": "posts, top beam, braces",
+      "marks": 0
     },
     {
       "groups": ["posts", "top", "braces"],
       "runs": { "posts": 2, "top": 2, "braces": 5 },
-      "trial": "planks",
-      "say": "The truss is up and the planks are not. The goat falls through the first plank slot."
+      "trial": "cross",
+      "say": "The truss holds. The goat crosses.",
+      "coming": "bolts, railing",
+      "marks": 12
     },
     {
-      "groups": ["planks", "bolts", "railing"],
-      "runs": { "planks": 2, "bolts": 2, "railing": 5 },
-      "trial": "cross",
-      "say": "The planks go on last. The goat crosses."
+      "groups": ["bolts", "railing"],
+      "runs": { "bolts": 2, "railing": 5 },
+      "trial": "heavy",
+      "say": "Add a heavier goat.",
+      "coming": "",
+      "marks": 6
     }
   ],
   "guide": [

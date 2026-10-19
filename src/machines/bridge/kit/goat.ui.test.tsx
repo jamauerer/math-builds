@@ -335,8 +335,9 @@ describe("goat bridge screens", () => {
     const tray = assemble.querySelector("[data-drag]")?.textContent ?? "";
     expect(tray).toContain("Bottom beam");
     expect(tray).toContain("Gusset");
+    expect(tray).toContain("Plank");
+    expect(tray).toContain("Coming in round 2: posts, top beam, braces");
     expect(tray).not.toContain("Post");
-    expect(tray).not.toContain("Plank");
     assembleRoot.unmount();
     assemble.remove();
   });

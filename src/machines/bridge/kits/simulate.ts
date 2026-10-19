@@ -1,6 +1,6 @@
 import { BoxShape, RevoluteJoint, Vec2, type Body, type Joint, type World } from "planck";
 import { createWorld, TIME_STEP } from "../../../engine/physics";
-import { kitNode, pieceEnd, plankCovers, queenPost, roundTrial, waterWorld, wreckLines, type KitSlot, type WreckCause } from "./kit";
+import { kitNode, pieceEnd, plankCovers, plankStart, queenPost, roundTrial, waterWorld, wreckLines, type KitSlot, type WreckCause } from "./kit";
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
@@ -38,6 +38,8 @@ export type CrossingFrame = {
   walkFrame: number;
   pieces: PiecePose[];
   splashes: SplashMark[];
+  celebrate: number;
+  follower: { x: number; y: number; mode: GoatMode } | null;
 };
 
 export function framePose(frames: CrossingFrame[], pose: string): CrossingFrame | null {
@@ -104,8 +106,10 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
   const length = Math.max(0.25, Math.hypot(end.m - from.m, end.h - from.h));
   const angle = Math.atan2(end.h - from.h, end.m - from.m);
   const thick = slot.kind === "post" ? 0.18 : 0.12;
+  const deck = slot.kind === "beam" && Math.abs(end.h - from.h) < 0.02;
+  const lift = deck ? thick / 2 : 0;
   const body = world.createDynamicBody({
-    position: new Vec2((from.m + end.m) / 2, (from.h + end.h) / 2),
+    position: new Vec2((from.m + end.m) / 2, (from.h + end.h) / 2 + lift),
     angle,
     linearDamping: 0.35,
     angularDamping: 0.45,
@@ -133,10 +137,41 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
   return {
     piece,
     ends: [
-      { piece, local: new Vec2(-length / 2, 0), x: from.m, y: from.h, side: "left" },
-      { piece, local: new Vec2(length / 2, 0), x: end.m, y: end.h, side: "right" },
+      { piece, local: new Vec2(-length / 2, deck ? -thick / 2 : 0), x: from.m, y: from.h, side: "left" },
+      { piece, local: new Vec2(length / 2, deck ? -thick / 2 : 0), x: end.m, y: end.h, side: "right" },
     ],
   };
+}
+
+function plankPoses(pieces: Piece[], lengths: Record<string, number>): PiecePose[] {
+  const poses: PiecePose[] = [];
+  for (const slot of queenPost.slots) {
+    if (slot.kind !== "plank" || lengths[slot.id] == null) {
+      continue;
+    }
+    const typed = lengths[slot.id];
+    const mid = plankStart(slot) + typed / 2;
+    const beam = pieces.find((piece) => piece.kind === "beam" && piece.id.startsWith("bottom") && mid >= Math.min(piece.ax, piece.bx) - 0.05 && mid <= Math.max(piece.ax, piece.bx) + 0.05);
+    if (!beam) {
+      poses.push({ id: slot.id, x: mid, y: 0.12, angle: 0, length: typed, kind: "plank", broken: null });
+      continue;
+    }
+    const pos = beam.body.getPosition();
+    const angle = beam.body.getAngle();
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const along = (mid - pos.x) * cosine + (0 - pos.y) * sine;
+    poses.push({
+      id: slot.id,
+      x: pos.x + along * cosine,
+      y: pos.y + along * sine + beam.thick / 2,
+      angle,
+      length: typed,
+      kind: "plank",
+      broken: null,
+    });
+  }
+  return poses;
 }
 
 function jobFor(slotId: string): string {
@@ -240,12 +275,13 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         continue;
       }
       linked.add(key);
+      const otherDeck = other.kind === "beam" && Math.abs(other.ay - other.by) < 0.02;
       const joint = world.createJoint(
         new RevoluteJoint({
           bodyA: end.piece.body,
           bodyB: other.body,
           localAnchorA: end.local,
-          localAnchorB: new Vec2(-other.half + along.t * other.length, 0),
+          localAnchorB: new Vec2(-other.half + along.t * other.length, otherDeck ? -other.thick / 2 : 0),
           collideConnected: false,
         }),
       );
@@ -274,12 +310,16 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   }
 
   const trial = roundTrial(lengths);
-  if (trial === "beams") {
+  const heavy = massKg >= 80;
+  const bolted = lengths.bolts != null;
+  const railed = lengths["rail-a"] != null && lengths["rail-b"] != null;
+  const breakN = heavy && !bolted ? 280 : BREAK_N;
+  if (trial === "fold") {
     for (const piece of pieces) {
       piece.body.setStatic();
     }
   }
-  let released = trial !== "beams";
+  let released = trial !== "fold";
 
   const goat = world.createKinematicBody({ position: new Vec2(-1.1, 0.55), allowSleep: false });
   goat.createFixture(new BoxShape(0.28, 0.22), {
@@ -316,6 +356,11 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let glareTime = 0;
   let splashHold = 0;
   let climbing = false;
+  let celebrate = 0;
+  let followX = -2.7;
+  let followY = 0;
+  let followMode: GoatMode = "idle";
+  let followOff = false;
 
   const capture = (t: number) => {
     const cycle =
@@ -326,19 +371,24 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       goatY: feetY,
       mode,
       walkFrame: cycle,
-      pieces: pieces.map((piece) => {
-        const pos = piece.body.getPosition();
-        return {
-          id: piece.id,
-          x: pos.x,
-          y: pos.y,
-          angle: piece.body.getAngle(),
-          length: piece.length,
-          kind: piece.kind,
-          broken: piece.broken,
-        };
-      }),
+      pieces: [
+        ...pieces.map((piece) => {
+          const pos = piece.body.getPosition();
+          return {
+            id: piece.id,
+            x: pos.x,
+            y: pos.y,
+            angle: piece.body.getAngle(),
+            length: piece.length,
+            kind: piece.kind,
+            broken: piece.broken,
+          };
+        }),
+        ...plankPoses(pieces, lengths),
+      ],
       splashes: splashes.map((mark) => ({ ...mark })),
+      celebrate,
+      follower: heavy ? { x: followX, y: followY, mode: followMode } : null,
     });
   };
 
@@ -359,7 +409,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "walk";
         goat.setPosition(new Vec2(goatX, 0.45));
         goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
-      } else if (nextX < 8 && trial !== "beams" && !plankCovers(lengths, nextX)) {
+      } else if (nextX < 8 && !plankCovers(lengths, nextX)) {
         goat.setDynamic();
         goat.setAwake(true);
         goat.setLinearVelocity(new Vec2(0, -0.2));
@@ -401,11 +451,13 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
             }
           } else if (nextX >= 8) {
             mode = "arrived";
+            goatX = 8;
+            feetY = 0;
           } else {
             mode = "walk";
           }
         } else if (nextX >= 8 && feetY > -0.25) {
-          goatX = nextX;
+          goatX = 8;
           feetY = 0;
           mode = "arrived";
           goat.setPosition(new Vec2(goatX, 0.45));
@@ -432,7 +484,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       const reaction = item.joint.getReactionForce(1 / TIME_STEP).length();
       peakForce = Math.max(peakForce, reaction);
       force.set(item.end.piece.id, Math.max(force.get(item.end.piece.id) ?? 0, reaction));
-      if (reaction > BREAK_N) {
+      if (reaction > breakN && !(mode === "arrived" && !failed)) {
         if (item.end.piece.kind === "beam" && item.end.piece.broken == null) {
           item.end.piece.broken = item.end.side;
         }
@@ -514,7 +566,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
     if (climbing) {
       sinceWet += TIME_STEP;
-      const bankX = wetX < 4 ? -0.55 : 8.4;
+      const bankX = wetX < 4 ? -1 : 9;
       goatX += (bankX - goatX) * 0.14;
       feetY += (0.05 - feetY) * 0.22;
       goat.setPosition(new Vec2(goatX, feetY + 0.45));
@@ -531,6 +583,32 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
 
+    if (heavy) {
+      if (followOff) {
+        followY -= 0.12;
+        followMode = followY < waterY ? "swim" : "fall";
+      } else {
+        followX = Math.max(-2.7, goatX - 1.6);
+        followY = feetY;
+        followMode = mode;
+        if (!railed && followX > 0.4 && followX < 8 && mode !== "arrived") {
+          followOff = true;
+        }
+      }
+    }
+    if (mode === "arrived" && !failed && goatX >= 8) {
+      celebrate += TIME_STEP;
+      const hop = Math.abs(Math.sin((celebrate * Math.PI * 2) / 1.5)) * 0.22;
+      feetY = hop;
+      goat.setPosition(new Vec2(8, hop + 0.45));
+      goat.setLinearVelocity(new Vec2(0, 0));
+      if (heavy && !followOff) {
+        followX = 8 - 1.6;
+        followY = hop;
+        followMode = "arrived";
+      }
+    }
+
     if (step % 2 === 0) {
       capture(t);
     }
@@ -538,8 +616,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     if (failed) {
       sinceFail += TIME_STEP;
     }
-    const arrived = mode === "arrived" && goatX >= 8 && feetY > -0.3;
-    if (arrived && walkTime > 9) {
+    const arrived = mode === "arrived" && goatX >= 8 && !failed;
+    if (arrived && celebrate >= 1.5) {
       capture(t);
       break;
     }

@@ -37,6 +37,8 @@ export type KitRound = {
   runs: Record<string, number>;
   trial: string;
   say: string;
+  coming?: string;
+  marks?: number;
 };
 
 export type QueenPostKit = {

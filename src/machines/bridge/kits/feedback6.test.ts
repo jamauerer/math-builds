@@ -19,7 +19,7 @@ describe("feedback 6", () => {
     expect(end.steps).toBe(kitQuestionTotal(0, end.short) - 1);
     const done = answerEarn(end, end.current.answer, levels);
     expect(done.state.phase).toBe("done");
-    expect(done.state.earned.slice().sort()).toEqual(["bottom", "gussets"]);
+    expect(done.state.earned.slice().sort()).toEqual(["bottom", "gussets", "planks"]);
     expect(done.state.steps).toBeLessThanOrEqual(kitQuestionTotal(0, done.state.short));
     expect(done.state.round).toBe(0);
   });

@@ -107,6 +107,7 @@ export function GoatKit({
   round = null,
   picture = null,
   beam = null,
+  heavy = false,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -132,6 +133,7 @@ export function GoatKit({
   round?: number | null;
   picture?: string | null;
   beam?: string | null;
+  heavy?: boolean;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -172,12 +174,11 @@ export function GoatKit({
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
   const [lengths, setLengths] = useState<Record<string, string>>(() => {
-    if (round === 1) {
-      return { "bottom-a": "4", "bottom-b": "4" };
-    }
-    if (round === 2) {
-      const values = roundLengths(2) ?? {};
-      return Object.fromEntries(Object.entries(values).map(([id, value]) => [id, String(value)]));
+    if (round != null && Object.keys(drops).length === 0) {
+      const values = roundLengths(round);
+      if (values) {
+        return Object.fromEntries(Object.entries(values).map(([id, value]) => [id, String(value)]));
+      }
     }
     const base = Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) };
     if (beam) {
@@ -198,17 +199,31 @@ export function GoatKit({
   const [drag, setDrag] = useState<string | null>(null);
   const [result, setResult] = useState<CrossingResult | null>(() => {
     const fromDrops = Object.keys(drops).length > 0 ? numericLengths(drops) : null;
+    const startMass = heavy ? 80 : 40;
     if (start === "drive") {
-      return simulateCrossing(fromDrops ?? numericLengths(filledLengths()));
+      return simulateCrossing(fromDrops ?? roundLengths(round) ?? numericLengths(filledLengths()), startMass);
     }
     if (start === "wreck" || fault) {
-      return simulateCrossing(fromDrops ?? roundLengths(round) ?? scenarioLengths(start, fault));
+      return simulateCrossing(fromDrops ?? roundLengths(round) ?? scenarioLengths(start, fault), startMass);
     }
     return null;
   });
-  const [mass, setMass] = useState(40);
+  const [mass, setMass] = useState(heavy ? 80 : 40);
   const [badge, setBadge] = useState(start === "wreck");
-  const awarded = useRef(start === "drive");
+  const designAwarded = useRef(false);
+  const heavyAwarded = useRef(false);
+  useEffect(() => {
+    if (start !== "drive" || !result?.ok || import.meta.env.VITEST || designAwarded.current) {
+      return;
+    }
+    if (sessionStorage.getItem("mb-cross-award") === "1") {
+      return;
+    }
+    sessionStorage.setItem("mb-cross-award", "1");
+    designAwarded.current = true;
+    const heavyMarks = mass >= 80 ? (queenPost.rounds[2]?.marks ?? 0) : 0;
+    onMarks(marks + (queenPost.rounds[1]?.marks ?? queenPost.marks) + heavyMarks);
+  }, [start, result, mass, marks, onMarks]);
   const askedAt = useRef(Date.now());
   const levelsNow = liveLevels ?? savedLevels ?? {};
   const view = reveal ?? earn;
@@ -533,14 +548,29 @@ export function GoatKit({
 
   function sendGoat(nextMass = mass) {
     const numbers = numericLengths(lengths);
+    if (placed.bolts) {
+      numbers.bolts = 1;
+    }
+    if (placed["rail-a"] || placed.rails) {
+      numbers["rail-a"] = numbers["rail-a"] ?? 8;
+      numbers["rail-b"] = numbers["rail-b"] ?? 8;
+    }
     const crossing = simulateCrossing(numbers, nextMass);
     setMass(nextMass);
     setResult(crossing);
     setStage("drive");
     if (crossing.ok) {
-      if (!awarded.current) {
-        awarded.current = true;
-        onMarks(marks + queenPost.marks);
+      let add = 0;
+      if (!designAwarded.current) {
+        designAwarded.current = true;
+        add += queenPost.rounds[1]?.marks ?? queenPost.marks;
+      }
+      if (nextMass >= 80 && !heavyAwarded.current) {
+        heavyAwarded.current = true;
+        add += queenPost.rounds[2]?.marks ?? 0;
+      }
+      if (add > 0) {
+        onMarks(marks + add);
       }
       return;
     }
@@ -840,9 +870,26 @@ function Account({
   onUnits: (units: UnitSystem) => void;
   onProfile: () => void;
 }) {
+  const [shown, setShown] = useState(marks);
+  useEffect(() => {
+    if (import.meta.env.VITEST) {
+      setShown(marks);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setShown((current) => {
+        if (current === marks) {
+          window.clearInterval(timer);
+          return current;
+        }
+        return current < marks ? current + 1 : current - 1;
+      });
+    }, 70);
+    return () => window.clearInterval(timer);
+  }, [marks]);
   return (
     <>
-      <div className="gk-marks">
+      <div className="gk-marks" data-marks={shown}>
         <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
           <circle cx="14" cy="14" r="12" fill="#F2B544" />
           <circle cx="14" cy="14" r="8" fill="none" stroke="#9A6A12" strokeWidth="1.5" />
@@ -850,7 +897,7 @@ function Account({
             M
           </text>
         </svg>
-        {marks} marks
+        {shown} marks
         <div className="gk-unit-toggle" role="group" aria-label="Units">
           {(["us", "metric"] as const).map((choice) => (
             <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
@@ -1470,6 +1517,7 @@ function AssembleView({
   };
   const ordered = [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b)));
   const pulseId = ordered.find((id) => canPlace(id)) ?? null;
+  const laid = plankSlots().filter((slot) => placed[slot.id]).length;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -1478,7 +1526,7 @@ function AssembleView({
           lengths={numbers}
           drops
           preview={cut}
-          holes={round === 1}
+          holes={(queenPost.rounds[round]?.groups ?? []).includes("planks")}
           hot={guide?.piece ?? null}
           geometryLevel={geometryLevel}
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
@@ -1628,6 +1676,9 @@ function AssembleView({
             </div>
           );
         })}
+        {queenPost.rounds[round]?.coming ? (
+          <p className="gk-coming">Coming in round {round + 2}: {queenPost.rounds[round]?.coming}</p>
+        ) : null}
       </aside>
     </div>
   );
@@ -1664,22 +1715,26 @@ function DriveView({
   const frame = usePlayback(result, held, onSettled);
   const rows = pieceRows(lengths, result.cause, result.broke);
   const calm = rows.every((row) => row.state === "fit") && result.peakForce < 1000 * 0.6;
+  const madeIt = result.ok && frame.mode === "arrived";
+  const showButtons = import.meta.env.VITEST || frame.celebrate >= 1.5;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
         <CrossingPicture frame={frame} />
         <div className="gk-strip">
           <p>
-            {frame.goatX >= 8 ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
+            {madeIt ? "He made it. Not a drop on him." : frame.goatX >= 8 ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
           </p>
-          <div className="gk-actions">
-            <button className="gk-light" type="button" onClick={onHeavy}>
-              Add a heavier goat
-            </button>
-            <button className="gk-dark" type="button" data-action="primary" onClick={onNext}>
-              Next design
-            </button>
-          </div>
+          {showButtons ? (
+            <div className="gk-actions">
+              <button className="gk-light" type="button" onClick={onHeavy}>
+                Add a heavier goat
+              </button>
+              <button className="gk-dark" type="button" data-action="primary" onClick={onNext}>
+                Next design
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
       <aside className="gk-panel">
@@ -1884,12 +1939,18 @@ function scenarioLengths(start: Open, fault: "top" | "post" | "bottom" | null): 
 
 function roundLengths(round: number | null): Record<string, number> | null {
   if (round === 1) {
-    return { "bottom-a": 4, "bottom-b": 4 };
+    const lengths: Record<string, number> = { "bottom-a": 4, "bottom-b": 4 };
+    for (const slot of queenPost.slots) {
+      if (slot.kind === "plank") {
+        lengths[slot.id] = 1;
+      }
+    }
+    return lengths;
   }
   if (round === 2) {
     const lengths = numericLengths(filledLengths());
     for (const slot of queenPost.slots) {
-      if (slot.kind === "plank" || slot.kind === "rail" || slot.group === "bolts") {
+      if (slot.kind === "rail" || slot.group === "bolts") {
         delete lengths[slot.id];
       }
     }
