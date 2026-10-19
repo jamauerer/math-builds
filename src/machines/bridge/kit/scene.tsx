@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { formatLength, lengthAbbrev } from "../../../units";
-import { kitNode, nodePixel, queenPost, slotNodes, type KitSlot } from "../kits/kit";
+import { kitNode, nodePixel, plankStart, queenPost, slotNodes, type KitSlot } from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
 const ART = "/art";
@@ -19,6 +19,16 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
       top: node.h === 0 ? point.y - 3 : point.y - 13,
       width: 30,
       height: 27,
+    };
+  }
+  if (slot.kind === "plank") {
+    const width = Math.max(8, typed * queenPost.pxPerMetre);
+    return {
+      position: "absolute",
+      left: queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre,
+      top: queenPost.scene.deckY - 16,
+      width,
+      height: 16,
     };
   }
   if (slot.kind === "bolt") {
@@ -66,7 +76,7 @@ function slotLabelText(slot: KitSlot, placed: boolean, typed: number | undefined
   return { text: `? ${lengthAbbrev()}`, given: false };
 }
 
-function Blueprint({ missing }: { missing: KitSlot[] }) {
+function Blueprint({ missing, hot }: { missing: KitSlot[]; hot?: string | null }) {
   return (
     <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
       {missing.map((slot) => {
@@ -75,8 +85,28 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         }
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
-        return <line key={slot.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />;
+        const on = slot.id === hot;
+        return (
+          <line
+            key={slot.id}
+            x1={from.x}
+            y1={from.y}
+            x2={to.x}
+            y2={to.y}
+            stroke={on ? "#E0661A" : "#2E7FB0"}
+            strokeWidth={on ? 7 : 3}
+            strokeDasharray="9 7"
+          />
+        );
       })}
+      {hot?.startsWith("plank")
+        ? queenPost.slots
+            .filter((slot) => slot.id === hot)
+            .map((slot) => {
+              const x = queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre;
+              return <rect key={slot.id} x={x} y={queenPost.scene.deckY - 18} width={queenPost.pxPerMetre} height={18} fill="none" stroke="#E0661A" strokeWidth="4" strokeDasharray="6 4" />;
+            })
+        : null}
     </svg>
   );
 }
@@ -121,12 +151,16 @@ export function BridgeScene({
   goat,
   drops,
   geometryLevel = 4,
+  hot = null,
+  preview = false,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
   goat: { src: string; left: number; top: number; width: number; height: number };
   drops?: boolean;
   geometryLevel?: number;
+  hot?: string | null;
+  preview?: boolean;
 }) {
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
@@ -137,7 +171,7 @@ export function BridgeScene({
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
-      <Blueprint missing={missing} />
+      <Blueprint missing={missing} hot={hot} />
       <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} />
       {drops
         ? queenPost.slots
@@ -160,12 +194,13 @@ export function BridgeScene({
           })
         : null}
       {queenPost.slots
-        .filter((slot) => placed[slot.id])
+        .filter((slot) => placed[slot.id] || (preview && lengths[slot.id] != null && slot.kind !== "gusset" && slot.kind !== "bolt" && slot.kind !== "rail"))
         .map((slot) => {
-          const style = memberStyle(slot, lengths[slot.id] ?? slot.length ?? 1);
+          const typed = lengths[slot.id] ?? slot.length ?? 1;
+          const style = memberStyle(slot, typed);
           return (
             <span key={slot.id}>
-              <img className="gk-piece" alt="" src={art(slot.sprite)} style={style} />
+              <img className="gk-piece" alt="" data-piece={slot.id} data-length={typed} src={art(slot.sprite)} style={style} />
             </span>
           );
         })}

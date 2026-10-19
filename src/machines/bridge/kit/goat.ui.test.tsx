@@ -6,6 +6,7 @@ import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
 import { setUnitSystem } from "../../../units";
 import { answerEarn, openRun } from "../kits/earn";
+import { queenPost } from "../kits/kit";
 import { GoatKit } from "./GoatKit";
 import type { KitProfile } from "../../../storage/progress";
 
@@ -211,7 +212,8 @@ describe("goat bridge screens", () => {
           onUnits={() => undefined}
           start="assemble"
           level={4}
-          kitProfile={placedProfile}
+          guideMode="off"
+          kitProfile={{ ...placedProfile, built: true }}
         />,
       );
     });
@@ -231,6 +233,98 @@ describe("goat bridge screens", () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain("4");
     expect(lines[1]).toContain("3");
+    root.unmount();
+    container.remove();
+  });
+
+  it("hides length fields in pre-cut mode and shows them when measuring is level 5", async () => {
+    const low = document.createElement("div");
+    document.body.appendChild(low);
+    const lowRoot = createRoot(low);
+    await act(async () => {
+      lowRoot.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={2} kitProfile={placedProfile} />,
+      );
+    });
+    expect(low.querySelectorAll("input.gk-len")).toHaveLength(0);
+    expect(low.textContent).toContain("Bottom beams");
+    lowRoot.unmount();
+    low.remove();
+
+    const high = document.createElement("div");
+    document.body.appendChild(high);
+    const highRoot = createRoot(high);
+    await act(async () => {
+      highRoot.render(
+        <GoatKit map={createLearnerMap(skills)} marks={12} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={5} guideMode="off" kitProfile={{ ...placedProfile, built: true }} />,
+      );
+    });
+    expect(high.querySelectorAll("input.gk-len").length).toBeGreaterThan(0);
+    highRoot.unmount();
+    high.remove();
+  });
+
+  it("draws a beam at the typed length before anything else happens", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={5} guideMode="off" kitProfile={{ ...placedProfile, built: true }} />,
+      );
+    });
+    const input = container.querySelector('input[aria-label="Bottom beam length"]') as HTMLInputElement;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    await act(async () => {
+      setValue?.call(input, "40");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const beam = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
+    expect(beam.getAttribute("data-length")).toBe("40");
+    expect(parseFloat(beam.style.width)).toBe(2000);
+    root.unmount();
+    container.remove();
+  });
+
+  it("names the pieces still in the tray before the goat is sent", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={5} guideMode="off" kitProfile={{ ...placedProfile, built: true }} />,
+      );
+    });
+    const send = [...container.querySelectorAll("button")].find((button) => button.textContent === "Send the goat") as HTMLButtonElement;
+    await act(async () => {
+      send.click();
+    });
+    expect(container.textContent).toContain("You still have");
+    expect(container.textContent).toContain("braces");
+    expect(container.textContent).toContain("planks");
+    expect(container.textContent).toContain("Send him");
+    root.unmount();
+    container.remove();
+  });
+
+  it("shows a stare line after a dunk and does not change marks", async () => {
+    vi.useFakeTimers();
+    const onMarks = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit map={createLearnerMap(skills)} marks={12} onMarks={onMarks} units="us" onUnits={() => undefined} start="wreck" fault="top" level={4} kitProfile={placedProfile} />,
+      );
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1600);
+    });
+    const line = queenPost.dunks.find((item) => container.textContent?.includes(item));
+    expect(line).toBeTruthy();
+    expect(onMarks).not.toHaveBeenCalled();
+    vi.useRealTimers();
     root.unmount();
     container.remove();
   });

@@ -129,6 +129,19 @@ describe("goat bridge kit", () => {
     expect(wreckLines(lengths).find((item) => item.startsWith("Top beam"))).toContain("1 ft short");
   });
 
+  it("drops the goat at the first plank slot when the deck has no planks", () => {
+    const lengths = correctLengths();
+    for (const slot of queenPost.slots) {
+      if (slot.kind === "plank") {
+        delete lengths[slot.id];
+      }
+    }
+    const result = simulateCrossing(lengths);
+    expect(result.ok).toBe(false);
+    expect(result.goatY).toBeLessThan(0);
+    expect(result.goatX).toBeLessThan(1);
+  });
+
   it("drops the goat before the far bank when a bottom beam is 3 m", () => {
     const result = simulateCrossing({ ...correctLengths(), "bottom-a": 3 });
     expect(result.ok).toBe(false);

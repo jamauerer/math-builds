@@ -195,6 +195,8 @@ function rawHint(question: EarnQuestion): string {
       return "Hint: square both sides, add, then take the square root.";
     case "plain":
       return "";
+    case "count-planks":
+      return question.groupId === "planks" ? "Hint: the path is as long as the two beams together." : "Hint: count what is drawn.";
     default:
       return "Hint: count what is drawn.";
   }
@@ -211,6 +213,22 @@ export function earnHint(question: EarnQuestion): string {
 
 function wordPicture(question: EarnQuestion): EarnPicture {
   const fact = question.fact;
+  if (question.groupId === "planks") {
+    return {
+      banks: true,
+      ruler: false,
+      labels: [
+        { text: formatLength(4), x: 120, y: 36 },
+        { text: formatLength(4), x: 330, y: 36 },
+        { text: formatLength(1), x: 220, y: 118 },
+      ],
+      bits: [
+        { sprite: "beam-side.png", x: 48, y: 70, w: 200, h: 22 },
+        { sprite: "beam-side.png", x: 248, y: 70, w: 200, h: 22 },
+        { sprite: "plank-side.png", x: 200, y: 108, w: 54, h: 16 },
+      ],
+    };
+  }
   if (fact.kind === "split-gap") {
     const left = 48;
     const width = 200;
@@ -641,6 +659,9 @@ function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
     if (group.id === "bolts") {
       return { kind: "count-bolts", count: Math.min(10, 4 + bump * 2) };
     }
+    if (group.id === "planks") {
+      return { kind: "count-planks", count: group.count };
+    }
     return { kind: "count-rails", count: group.count + (bump === 0 ? 0 : 1) };
   }
   if (group.id === "bottom") {
@@ -658,6 +679,9 @@ function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
   }
   if (group.id === "bolts") {
     return { kind: "bolts-combine", plates: 3 + bump, each: 2 };
+  }
+  if (group.id === "planks") {
+    return { kind: "count-planks", count: group.count };
   }
   return { kind: "rail-both", side: queenPost.span - bump };
 }
@@ -733,6 +757,12 @@ function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion
                     word: `Each brace reaches ${three} across and stops the posts from folding. How many braces is that?`,
                     fact: { kind: "count-braces" as const, count: 2 },
                   }
+                : group.id === "planks"
+                  ? {
+                      answer: "8",
+                      word: `Each plank is ${one} long. The path is two beams of ${four} laid end to end. How many planks cover the path?`,
+                      fact: { kind: "count-planks" as const, count: 8 },
+                    }
                 : {
                     answer: "16",
                     word: `The deck is ${gap} long. The railing runs along both sides. How long is the railing altogether?`,

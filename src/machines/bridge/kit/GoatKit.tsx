@@ -42,7 +42,7 @@ import {
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import { knownLine, queenPost, typedLine, wreckLines } from "../kits/kit";
+import { knownLine, plankSlots, preCut, queenPost, stareLine, trayNote, typedLine, wreckLines } from "../kits/kit";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
@@ -90,6 +90,10 @@ export function GoatKit({
   unplaced = false,
   moment = null,
   drops = {},
+  guideMode = null,
+  checkOpen = false,
+  stareNow = false,
+  beam = null,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -108,6 +112,10 @@ export function GoatKit({
   unplaced?: boolean;
   moment?: string | null;
   drops?: Record<string, string>;
+  guideMode?: string | null;
+  checkOpen?: boolean;
+  stareNow?: boolean;
+  beam?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -137,9 +145,18 @@ export function GoatKit({
   const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
-  const [lengths, setLengths] = useState<Record<string, string>>(() =>
-    Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) },
+  const [lengths, setLengths] = useState<Record<string, string>>(() => {
+    const base = Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) };
+    if (beam) {
+      base["bottom-a"] = beam;
+    }
+    return base;
+  });
+  const [guideOn, setGuideOn] = useState(() =>
+    guideMode === "on" || guideMode === "1" ? true : guideMode === "off" || guideMode === "0" ? false : start === "assemble" && kitProfile?.built !== true,
   );
+  const [guideStep, setGuideStep] = useState(0);
+  const [showCheck, setShowCheck] = useState(checkOpen);
   const [placed, setPlaced] = useState<Record<string, boolean>>(() =>
     Object.keys(drops).length > 0
       ? Object.fromEntries(Object.keys(drops).map((id) => [id, true]))
@@ -329,15 +346,26 @@ export function GoatKit({
       setPlaced((current) => ({ ...current, rails: true, "rail-a": true, "rail-b": true }));
       return;
     }
-    if (drop === id) {
+    const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+    if (!preCut(measuring) && drop === id) {
       setPlaced((current) => ({ ...current, [id]: true }));
+      return;
+    }
+    if (preCut(measuring) && drop) {
+      const home = slotById(id);
+      const pieceLength = home?.length;
+      setPlaced((current) => ({ ...current, [id]: true, [drop]: true }));
+      if (pieceLength != null) {
+        setLengths((current) => ({ ...current, [drop]: String(pieceLength) }));
+      }
     }
   }
 
   function onTrayUp(event: ReactPointerEvent<HTMLElement>, id: string) {
     const target = document.elementFromPoint(event.clientX, event.clientY);
     const drop = target?.closest("[data-drop]")?.getAttribute("data-drop") ?? null;
-    if (needsLength(id) && !Number(lengths[id])) {
+    const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+    if (!preCut(measuring) && needsLength(id) && !Number(lengths[id])) {
       setDrag(null);
       return;
     }
@@ -361,11 +389,61 @@ export function GoatKit({
     if (!badge) {
       setBadge(true);
     }
+    if (start !== "wreck") {
+      onKitProfile?.({
+        grade: kitProfile?.grade ?? grade,
+        levels: kitProfile?.levels ?? savedLevels ?? {},
+        history: kitProfile?.history ?? [],
+        notes: kitProfile?.notes ?? [],
+        lastRunMs: kitProfile?.lastRunMs,
+        skills: kitProfile?.skills,
+        seenIntro: kitProfile?.seenIntro,
+        session: kitProfile?.session,
+        build: { lengths, placed },
+        built: true,
+        dunks: (kitProfile?.dunks ?? 0) + 1,
+      });
+    }
   }
+
+  function layPlank(id: string) {
+    const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+    const length = preCut(measuring) ? "1" : lengths.planks || "1";
+    setLengths((current) => ({ ...current, [id]: length }));
+    setPlaced((current) => ({ ...current, [id]: true }));
+  }
+
+  useEffect(() => {
+    if (!guideOn) {
+      return;
+    }
+    const step = queenPost.guide[guideStep];
+    if (!step) {
+      return;
+    }
+    const done = step.piece === "gussets" ? Boolean(placed.gussets) : Boolean(placed[step.piece]);
+    if (!done) {
+      return;
+    }
+    if (guideStep + 1 >= queenPost.guide.length) {
+      setGuideOn(false);
+      return;
+    }
+    setGuideStep(guideStep + 1);
+  }, [placed, guideOn, guideStep]);
 
   const shown = result;
   const active = stage === "wreck" ? "drive" : stage === "explain" || stage === "practice" ? "earn" : stage;
-  const trayLeft = TRAY.filter((id) => !placed[id]).length;
+  const leftIds = [
+    ...TRAY.filter((id) => !placed[id]),
+    ...plankSlots()
+      .map((slot) => slot.id)
+      .filter((id) => !placed[id]),
+  ];
+  const trayLeft = leftIds.length;
+  const measuringLevel = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+  const cut = !preCut(measuringLevel);
+  const guide = guideOn ? queenPost.guide[guideStep] : null;
 
   return (
     <div className="goat-kit" data-stage={stage}>
@@ -486,11 +564,25 @@ export function GoatKit({
               placed={placed}
               drag={drag}
               trayLeft={trayLeft}
+              leftNote={trayNote(leftIds)}
+              cut={cut}
+              guide={guide}
+              showCheck={showCheck}
               geometryLevel={savedLevels?.geometry ?? kitProfile?.levels.geometry ?? 4}
               onLength={(id, value) => setLengths((current) => ({ ...current, [id]: value }))}
               onDrag={setDrag}
               onUp={onTrayUp}
-              onSend={() => sendGoat(40)}
+              onLay={layPlank}
+              onSend={() => setShowCheck(true)}
+              onSendNow={() => {
+                setShowCheck(false);
+                sendGoat(40);
+              }}
+              onLook={() => setShowCheck(false)}
+              onGuide={() => {
+                setGuideStep(0);
+                setGuideOn(true);
+              }}
             />
           ) : null}
           {stage === "drive" && shown ? (
@@ -511,11 +603,9 @@ export function GoatKit({
               result={shown}
               lengths={lengths}
               badge={badge}
+              stareNow={stareNow}
               onAgain={() => setStage("drive")}
-              onBack={() => {
-                setPlaced({});
-                setStage("assemble");
-              }}
+              onBack={() => setStage("assemble")}
             />
           ) : null}
         </>
@@ -1015,21 +1105,37 @@ function AssembleView({
   placed,
   drag,
   trayLeft,
+  leftNote,
+  cut,
+  guide,
+  showCheck,
   geometryLevel,
   onLength,
   onDrag,
   onUp,
+  onLay,
   onSend,
+  onSendNow,
+  onLook,
+  onGuide,
 }: {
   lengths: Record<string, string>;
   placed: Record<string, boolean>;
   drag: string | null;
   trayLeft: number;
+  leftNote: string | null;
+  cut: boolean;
+  guide: { piece: string; say: string } | null;
+  showCheck: boolean;
   geometryLevel: number;
   onLength: (id: string, value: string) => void;
   onDrag: (id: string | null) => void;
   onUp: (event: ReactPointerEvent<HTMLElement>, id: string) => void;
+  onLay: (id: string) => void;
   onSend: () => void;
+  onSendNow: () => void;
+  onLook: () => void;
+  onGuide: () => void;
 }) {
   const numbers = numericLengths(lengths);
   const lines = TRAY.flatMap((id) => {
@@ -1037,6 +1143,10 @@ function AssembleView({
     const line = typedLine(slot?.name ?? id, lengths[id] ?? "");
     return line ? [{ id, line }] : [];
   });
+  const trayRows = [...TRAY, "planks"];
+  const rows = guide
+    ? trayRows.filter((id) => id === guide.piece || (guide.piece.startsWith("plank") && id === "planks") || (guide.piece === "gussets" && id === "gussets"))
+    : trayRows;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -1044,28 +1154,80 @@ function AssembleView({
           placed={placed}
           lengths={numbers}
           drops
+          preview={cut}
+          hot={guide?.piece ?? null}
           geometryLevel={geometryLevel}
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
         />
         <div className="gk-strip">
-          <p className="gk-known">{knownLine()}</p>
+          {guide ? <p className="gk-say">{guide.say}</p> : <p className="gk-known">{knownLine()}</p>}
           {lines.map((item) => (
             <p className="gk-work" key={item.id}>
               {item.line}
             </p>
           ))}
           <div className="gk-actions">
-            <button className="gk-send" type="button" disabled={trayLeft > 0} onClick={onSend}>
+            <button className="gk-send" type="button" onClick={onSend}>
               Send the goat
             </button>
             <span className="gk-caption">{trayLeft === 0 ? "The tray is empty." : `${trayLeft} pieces still in the tray`}</span>
+            {guide ? null : (
+              <button className="gk-again" type="button" onClick={onGuide}>
+                Show me again
+              </button>
+            )}
           </div>
         </div>
       </div>
+      {showCheck ? (
+        <div className="gk-check-card" role="dialog">
+          <p>Finished? If the bridge is right, the goat crosses. If it is wrong, he goes in the river.</p>
+          {leftNote ? <p className="gk-say">{leftNote}</p> : null}
+          <button className="gk-check" type="button" onClick={onSendNow}>
+            Send him
+          </button>
+          <button className="gk-light" type="button" onClick={onLook}>
+            Let me look again
+          </button>
+        </div>
+      ) : null}
       <aside className="gk-panel" data-drag={drag ?? ""}>
         <h2>Kit tray</h2>
-        <p className="gk-muted">Drag a piece onto its dotted line.</p>
-        {TRAY.map((id) => {
+        <p className="gk-muted">{guide ? "This piece next." : "Drag a piece onto its dotted line."}</p>
+        {rows.map((id) => {
+          if (id === "planks") {
+            const next = guide?.piece.startsWith("plank") ? guide.piece : plankSlots().find((slot) => !placed[slot.id])?.id;
+            const laid = plankSlots().filter((slot) => placed[slot.id]).length;
+            return (
+              <div
+                key="planks"
+                className="gk-row"
+                onPointerUp={() => {
+                  if (next) {
+                    onLay(next);
+                  }
+                }}
+              >
+                <img src={art("plank-side.png")} alt="" />
+                <div>
+                  <b>Plank ×8</b>
+                  <span>{laid} of 8 laid</span>
+                </div>
+                {cut ? (
+                  <input
+                    className={lengths.planks ? "gk-len" : "gk-len empty"}
+                    aria-label="Plank length"
+                    value={lengths.planks ?? ""}
+                    placeholder="?"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onChange={(event) => onLength("planks", event.target.value)}
+                  />
+                ) : (
+                  <span className="gk-printed">{formatLength(1)}</span>
+                )}
+              </div>
+            );
+          }
           const slot = id === "gussets" || id === "bolts" || id === "rails" ? null : slotById(id);
           const group = queenPost.groups.find((item) => item.id === (slot?.group ?? id));
           const sprite = slot?.sprite ?? group?.sprite ?? "beam-side.png";
@@ -1089,7 +1251,7 @@ function AssembleView({
                 <b>{name}</b>
                 <span>{placed[id] ? "on the bridge" : "in the tray"}</span>
               </div>
-              {slot && slot.length != null && !slot.bonus ? (
+              {cut && slot && slot.length != null && !slot.bonus ? (
                 <input
                   className={lengths[id] ? "gk-len" : "gk-len empty"}
                   aria-label={`${name} length`}
@@ -1098,6 +1260,8 @@ function AssembleView({
                   onPointerDown={(event) => event.stopPropagation()}
                   onChange={(event) => onLength(id, event.target.value)}
                 />
+              ) : !cut && slot && slot.length != null && !slot.bonus ? (
+                <span className="gk-printed">{formatLength(slot.length)}</span>
               ) : null}
             </div>
           );
@@ -1186,15 +1350,26 @@ function WreckView({
   result,
   lengths,
   badge,
+  stareNow,
   onAgain,
   onBack,
 }: {
   result: CrossingResult;
   lengths: Record<string, string>;
   badge: boolean;
+  stareNow?: boolean;
   onAgain: () => void;
   onBack: () => void;
 }) {
+  const [stare, setStare] = useState(stareNow === true);
+  useEffect(() => {
+    if (stareNow) {
+      return;
+    }
+    const timer = window.setTimeout(() => setStare(true), 1500);
+    return () => window.clearTimeout(timer);
+  }, [stareNow]);
+  const line = stareLine(numericLengths(lengths));
   const numbers = { ...numericLengths(filledLengths()), ...numericLengths(lengths) };
   const lines = wreckLines(numbers);
   const frame = result.frames[result.frames.length - 1];
@@ -1205,9 +1380,15 @@ function WreckView({
         <div className="gk-strip">
           <p>
             {numbers.top === 3
-              ? `Top beam was ${formatLength(3)}. The posts are ${formatLength(4)} apart. The right post had nothing to hold on to. The goat is fine. Mostly.`
-              : `${lines[0] ?? "A piece let go."} The goat is fine. Mostly.`}
+              ? `Top beam was ${formatLength(3)}. The posts are ${formatLength(4)} apart. The right post had nothing to hold on to.`
+              : (lines[0] ?? "A piece let go.")}
           </p>
+          {stare ? (
+            <div className="gk-stare">
+              <img src={art("goat-glare-1.png")} alt="" />
+              <p className="gk-say">{line}</p>
+            </div>
+          ) : null}
           <div className="gk-actions">
             <button className="gk-light" type="button" onClick={onAgain}>
               Watch it again
@@ -1509,6 +1690,17 @@ function ProfileView({
           <>
         <h1>Skills</h1>
         <p className="gk-sub">Marks never move these. Only answers do.</p>
+        <p className="gk-dunks">
+          <img src={art("goat-idle.png")} alt="" />
+          Goat dunks: {profile.dunks ?? 0}
+        </p>
+        <p>
+          Earned so far:{" "}
+          {queenPost.groups
+            .filter((group) => (profile.skills?.earned ?? []).includes(group.id))
+            .map((group) => group.name)
+            .join(", ") || "nothing yet"}
+        </p>
         <div className="gk-unit-toggle" role="group" aria-label="Units">
           {(["us", "metric"] as const).map((choice) => (
             <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>

@@ -33,6 +33,8 @@ export type KitProfile = {
   seenIntro?: boolean;
   session?: EarnState;
   build?: { lengths: Record<string, string>; placed: Record<string, boolean> };
+  built?: boolean;
+  dunks?: number;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -215,6 +217,8 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     seenIntro: record.seenIntro === true,
     session: sanitizeSession(record.session),
     build: sanitizeBuild(record.build),
+    built: record.built === true,
+    dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
   };
 }
 

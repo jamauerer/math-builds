@@ -1,6 +1,6 @@
 import { BoxShape, RevoluteJoint, Vec2, type Body, type Joint, type World } from "planck";
 import { createWorld, TIME_STEP } from "../../../engine/physics";
-import { kitNode, pieceEnd, queenPost, wreckLines, type KitSlot } from "./kit";
+import { kitNode, pieceEnd, plankCovers, queenPost, wreckLines, type KitSlot } from "./kit";
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
@@ -315,6 +315,17 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "walk";
         goat.setPosition(new Vec2(goatX, 0.45));
         goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
+      } else if (nextX < 8 && !plankCovers(lengths, nextX)) {
+        goat.setDynamic();
+        goat.setAwake(true);
+        goat.setLinearVelocity(new Vec2(0, -0.2));
+        goatDynamic = true;
+        mode = "startled";
+        failed = true;
+        goatX = nextX;
+        if (breakAt == null) {
+          breakAt = t;
+        }
       } else {
         const support = deckUnder(pieces, Math.min(nextX, 8.2));
         if (support) {

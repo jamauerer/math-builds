@@ -153,6 +153,10 @@ export function App() {
           unplaced={new URLSearchParams(window.location.search).get("placed") === "0"}
           moment={new URLSearchParams(window.location.search).get("moment")}
           drops={kitDrops(new URLSearchParams(window.location.search).get("drops"))}
+          guideMode={new URLSearchParams(window.location.search).get("guide")}
+          checkOpen={new URLSearchParams(window.location.search).get("check") === "1"}
+          stareNow={new URLSearchParams(window.location.search).get("stare") === "1"}
+          beam={new URLSearchParams(window.location.search).get("beam")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

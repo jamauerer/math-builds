@@ -18,7 +18,7 @@ export type KitSlot = {
   id: string;
   group: string;
   name: string;
-  kind: "beam" | "post" | "brace" | "gusset" | "bolt" | "rail";
+  kind: "beam" | "post" | "brace" | "gusset" | "bolt" | "rail" | "plank";
   sprite: string;
   from?: string;
   to?: string;
@@ -40,8 +40,107 @@ export type QueenPostKit = {
   scene: { width: number; height: number; originX: number; deckY: number };
   nodes: KitNode[];
   groups: KitGroup[];
+  guide: { piece: string; say: string }[];
+  dunks: string[];
   slots: KitSlot[];
 };
+
+export function preCut(measuringLevel: number): boolean {
+  return measuringLevel <= 3;
+}
+
+export function plankSlots(): KitSlot[] {
+  return queenPost.slots.filter((slot) => slot.kind === "plank");
+}
+
+export function plankStart(slot: KitSlot): number {
+  return Math.max(0, plankSlots().findIndex((item) => item.id === slot.id));
+}
+
+/** True when a placed plank covers this point along the deck. */
+export function plankCovers(lengths: Record<string, number>, x: number): boolean {
+  return plankSlots().some((slot) => {
+    const typed = lengths[slot.id];
+    if (typed == null) {
+      return false;
+    }
+    const start = plankStart(slot);
+    return x >= start - 0.02 && x <= start + typed + 0.02;
+  });
+}
+
+const TRAY_WORDS: Record<string, [string, string]> = {
+  bottom: ["bottom beam", "bottom beams"],
+  posts: ["post", "posts"],
+  top: ["top beam", "top beams"],
+  braces: ["brace", "braces"],
+  gussets: ["gusset", "gussets"],
+  bolts: ["bolt", "bolts"],
+  railing: ["railing", "railings"],
+  planks: ["plank", "planks"],
+};
+
+function trayGroup(id: string): string {
+  if (id.startsWith("plank")) {
+    return "planks";
+  }
+  if (id.startsWith("brace")) {
+    return "braces";
+  }
+  if (id.startsWith("bottom")) {
+    return "bottom";
+  }
+  if (id.startsWith("post")) {
+    return "posts";
+  }
+  if (id === "gussets" || id.startsWith("gusset")) {
+    return "gussets";
+  }
+  if (id === "bolts") {
+    return "bolts";
+  }
+  if (id === "rails" || id.startsWith("rail")) {
+    return "railing";
+  }
+  if (id === "top") {
+    return "top";
+  }
+  return id;
+}
+
+/** Names the pieces still sitting in the tray. */
+export function trayNote(ids: string[]): string | null {
+  const counts = new Map<string, number>();
+  for (const id of ids) {
+    const group = trayGroup(id);
+    counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+  const parts = [...counts.entries()].map(([group, count]) => {
+    const words = TRAY_WORDS[group] ?? [group, group];
+    return `${count} ${count === 1 ? words[0] : words[1]}`;
+  });
+  if (parts.length === 0) {
+    return null;
+  }
+  const list = parts.length === 1 ? parts[0] : parts.length === 2 ? `${parts[0]} and ${parts[1]}` : `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+  return `You still have ${list} in the tray.`;
+}
+
+export function stareLine(lengths: Record<string, number>): string {
+  const lines = queenPost.dunks;
+  const top = queenPost.slots.find((slot) => slot.id === "top");
+  if (lengths.top === 3 && top?.length === 4) {
+    return lines.find((line) => line.includes("needed a 4")) ?? lines[0];
+  }
+  const key = Object.entries(lengths)
+    .map(([id, value]) => `${id}:${value}`)
+    .join("|");
+  let hash = 0;
+  for (const char of key) {
+    hash = (hash + char.charCodeAt(0)) % lines.length;
+  }
+  return lines[hash] ?? lines[0];
+}
 
 export const queenPost = raw as QueenPostKit;
 

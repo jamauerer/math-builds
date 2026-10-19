@@ -81,7 +81,56 @@
       "blurb": "both sides of the deck",
       "lengthLabel": "",
       "bonus": true
+    },
+    {
+      "id": "planks",
+      "name": "Plank",
+      "count": 8,
+      "sprite": "plank-side.png",
+      "strand": "counting",
+      "blurb": "the path the goat walks",
+      "lengthLabel": "1 m"
     }
+  ],
+  "guide": [
+    { "piece": "bottom-a", "say": "Bottom beams: the goat walks on these. They rest on both banks." },
+    { "piece": "bottom-b", "say": "Bottom beams: the goat walks on these. They rest on both banks." },
+    { "piece": "post-a", "say": "Posts: they stand on the bottom beams and hold the top beam up." },
+    { "piece": "post-b", "say": "Posts: they stand on the bottom beams and hold the top beam up." },
+    { "piece": "top", "say": "Top beam: it ties the two posts together." },
+    { "piece": "brace-a", "say": "Braces: they stop the posts from folding over." },
+    { "piece": "brace-b", "say": "Braces: they stop the posts from folding over." },
+    { "piece": "gussets", "say": "Gussets: metal corners that hold the joint." },
+    { "piece": "plank-1", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-2", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-3", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-4", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-5", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-6", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-7", "say": "Planks: the path. No planks, no bridge." },
+    { "piece": "plank-8", "say": "Planks: the path. No planks, no bridge." }
+  ],
+  "dunks": [
+    "Nobody was hurt. Mostly.",
+    "That was a 3. It needed a 4.",
+    "I am a goat. I do not swim for fun.",
+    "Again. I have all day.",
+    "The river is cold. I checked.",
+    "My horns are fine. My pride is not.",
+    "That is not a bridge. That is a suggestion.",
+    "I looked at the water. The water looked back.",
+    "You can build it again. I will wait right here.",
+    "Short beams make short stories.",
+    "I prefer grass. This was not grass.",
+    "The fish were not expecting me.",
+    "We can call that a practice dunk.",
+    "I am still a goat. The bridge is not still a bridge.",
+    "Next time, count the planks.",
+    "I walked. Then I didn't.",
+    "Bring a towel and a longer beam.",
+    "The banks were right there.",
+    "I have four legs and none of them swim well.",
+    "Same goat. New bridge. Whenever you are ready."
   ],
   "slots": [
     {
@@ -238,6 +287,14 @@
       "to": "n8",
       "length": 8,
       "bonus": true
-    }
+    },
+    { "id": "plank-1", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-2", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-3", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-4", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-5", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-6", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-7", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
+    { "id": "plank-8", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 }
   ]
 }
