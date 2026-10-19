@@ -12,7 +12,7 @@ import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
-import type { GradeChoice } from "../engine/strand-placement";
+import { fitLevels, strandName, type GradeChoice } from "../engine/strand-placement";
 import type { EarnState } from "../machines/bridge/kits/earn";
 import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
 
@@ -209,11 +209,13 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
         help: item.help === true || undefined,
       }))
     : [];
+  const notes = Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [];
+  const clamped = clampStoredLevels(levels, notes);
   return {
     grade: grade === "unsure" || (typeof grade === "number" && grade >= 0 && grade <= 12) ? grade : null,
-    levels,
+    levels: clamped.levels,
     history,
-    notes: Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [],
+    notes: clamped.notes,
     lastRunMs: typeof record.lastRunMs === "number" && record.lastRunMs >= 0 ? record.lastRunMs : undefined,
     skills: sanitizeBook(record.skills),
     seenIntro: record.seenIntro === true,
@@ -222,6 +224,22 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     built: record.built === true,
     dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
   };
+}
+
+/** Pull any stored strand that sits more than one above the lowest arithmetic strand. Once. */
+export function clampStoredLevels(levels: Record<string, number>, notes: string[]): { levels: Record<string, number>; notes: string[] } {
+  if (Object.keys(levels).length === 0) {
+    return { levels, notes };
+  }
+  const fitted = fitLevels(levels);
+  const pulled = Object.keys(levels).filter((id) => levels[id] > fitted[id]);
+  if (pulled.length === 0) {
+    return { levels, notes };
+  }
+  const line = pulled.map((id) => `${strandName(id)} pulled down to level ${fitted[id]}`).join(". ");
+  const note = `${line}. That was more than one above the lowest arithmetic strand.`;
+  const already = notes.some((item) => item.includes("pulled down to level"));
+  return { levels: fitted, notes: already ? notes : [...notes, note] };
 }
 
 function sanitizeSession(raw: unknown): EarnState | undefined {
@@ -544,7 +562,14 @@ export function createProgressStore(skills: readonly Skill[], storage: KeyValueS
         return null;
       }
       try {
-        return sanitizeProgress(skills, JSON.parse(raw) as unknown);
+        const parsed = JSON.parse(raw) as { kitProfile?: { levels?: Record<string, number>; notes?: string[] } };
+        const stored = sanitizeProgress(skills, parsed);
+        const rawLevels = JSON.stringify(parsed.kitProfile?.levels ?? {});
+        const rawNotes = JSON.stringify(parsed.kitProfile?.notes ?? []);
+        if (rawLevels !== JSON.stringify(stored.kitProfile?.levels ?? {}) || rawNotes !== JSON.stringify(stored.kitProfile?.notes ?? [])) {
+          storage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        }
+        return stored;
       } catch {
         return null;
       }

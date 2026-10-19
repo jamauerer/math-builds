@@ -5,7 +5,8 @@ import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
-import { fitLevels } from "../../../engine/strand-placement";
+import { fitLevels, KIT_STRANDS, strandName } from "../../../engine/strand-placement";
+import { workedExample, type ExplainStep } from "./explain";
 import { queenPost, type KitGroup } from "./kit";
 import { pieceQuestion, strandWord } from "./pieces";
 import { tapeOnPosts } from "../../../pictures/tape";
@@ -17,6 +18,7 @@ import {
   flagWarmUp,
   KIT_SKILLS,
   markLearning,
+  markStruggling,
   newSkill,
   rememberAnswer,
   runPlan,
@@ -66,6 +68,7 @@ export type EarnQuestion = {
   hint?: string;
   picture?: EarnPicture;
   pictureCaption?: string;
+  truth?: number;
 };
 
 export type EarnState = {
@@ -455,6 +458,7 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     strandId: slot.strandId,
     level: slot.level,
     answer: item.answer,
+    truth: item.truth,
     skillId: slot.skillId,
     mixed: slot.mixed === true,
     hint: hint ? item.steps[0] : undefined,
@@ -462,17 +466,25 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
   };
 }
 
-function takePlan(groupId: string, slots: { skillId: string; strandId: string; level: number; mixed?: boolean }[], seed: number, seen: string[], hint: boolean): { current: EarnQuestion; upcoming: EarnQuestion[]; seed: number; seen: string[] } {
+function takePlan(
+  groupId: string,
+  slots: { skillId: string; strandId: string; level: number; mixed?: boolean }[],
+  seed: number,
+  seen: string[],
+  hint: boolean,
+  banned: Set<string> = new Set(),
+): { current: EarnQuestion; upcoming: EarnQuestion[]; seed: number; seen: string[] } {
   const questions: EarnQuestion[] = [];
   let cursor = seed;
   const prompts = new Set(seen);
   for (const slot of slots) {
     let question = slotQuestion(groupId, slot, cursor, hint);
-    while ((prompts.has(earnPrompt(question)) || outOfRange(question)) && cursor < seed + 40) {
+    while ((prompts.has(earnPrompt(question)) || banned.has(numberSignature(question)) || outOfRange(question)) && cursor < seed + 120) {
       cursor += 1;
       question = slotQuestion(groupId, slot, cursor, hint);
     }
     prompts.add(earnPrompt(question));
+    banned.add(numberSignature(question));
     questions.push(question);
     cursor += 1;
   }
@@ -758,40 +770,44 @@ export function startGuided(state: EarnState): EarnState {
   };
 }
 
-export function explainQuestion(question: EarnQuestion): { steps: string[]; why: string } {
+export function explainQuestion(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
+  return workedExample(question);
+}
+
+/** The numbers in a question, so a practice loop can refuse a repeat. */
+export function numberSignature(question: EarnQuestion): string {
   const fact = question.fact;
   if (fact.kind === "plain") {
-    return { steps: fact.steps, why: fact.why };
+    const bits = [fact.draw.a, fact.draw.b];
+    if (fact.draw.c != null && fact.draw.c !== -1) {
+      bits.push(fact.draw.c);
+    }
+    return bits
+      .map((value) => String(value))
+      .sort()
+      .join(",");
   }
-  const answer = question.answer;
-  if (fact.kind === "brace-hyp") {
-    return {
-      steps: ["Square the across side.", "Square the up side and add those squares.", `The square root is ${answer}.`],
-      why: "The long side of a right triangle is that square root.",
-    };
+  return (earnPrompt(question).match(/\d+(\.\d+)?/g) ?? []).sort().join(",");
+}
+
+/** 2.8 and 2.83 are both right for 2.828. Whole-number answers stay exact. */
+export function acceptsAnswer(given: string, expected: string, truth?: number): boolean {
+  const typed = given.trim();
+  const wanted = expected.trim();
+  if (typed === wanted) {
+    return true;
   }
-  if (fact.kind === "split-gap") {
-    return {
-      steps: ["Read the gap.", "Share it into equal beams.", `Each beam is ${answer}.`],
-      why: "Sharing a length into equal parts is dividing.",
-    };
+  if (truth == null && !wanted.includes(".")) {
+    return false;
   }
-  if (fact.kind === "between-posts") {
-    return {
-      steps: ["Read the two marks.", "Subtract the left mark from the right mark.", `The beam between them is ${answer}.`],
-      why: "The distance between two marks is the difference.",
-    };
+  const value = Number(typed);
+  const target = truth ?? Number(wanted);
+  if (!Number.isFinite(value) || !Number.isFinite(target)) {
+    return false;
   }
-  if (fact.kind.startsWith("count")) {
-    return {
-      steps: ["Count each piece once.", `You land on ${answer}.`],
-      why: "Count the pieces.",
-    };
-  }
-  return {
-    steps: ["Read each label.", "Combine the labels.", `That comes to ${answer}.`],
-    why: "The labels are the parts. The question asks for them together.",
-  };
+  const tenths = Math.round(target * 10) / 10;
+  const hundredths = Math.round(target * 100) / 100;
+  return Math.abs(value - tenths) < 1e-9 || Math.abs(value - hundredths) < 1e-9;
 }
 
 export function startPractice(state: EarnState): EarnState {
@@ -806,7 +822,8 @@ export function startPractice(state: EarnState): EarnState {
     level: state.current.level,
     mixed: false,
   }));
-  const plan = takePlan(group.id, slots, state.seed + 1, state.seen, false);
+  const banned = new Set<string>([numberSignature(state.current), ...state.practice.map((question) => numberSignature(question))]);
+  const plan = takePlan(group.id, slots, state.seed + 1, state.seen, false, banned);
   return {
     ...state,
     phase: "practice",
@@ -818,6 +835,61 @@ export function startPractice(state: EarnState): EarnState {
   };
 }
 
+/** Leave the practice loop for this piece at one level down, and log the skill as struggling. */
+export function easierPiece(state: EarnState, levels: Record<string, number>): EarnResult {
+  if (state.phase !== "explain") {
+    return { state, correct: false, levels, note: null, marksDelta: 0 };
+  }
+  const strand = state.current.strandId;
+  const from = Math.min(levels[strand] ?? state.current.level, state.current.level);
+  const nextLevel = Math.max(1, from - 1);
+  const nextLevels = fitLevels({ ...levels, [strand]: nextLevel });
+  const applied = nextLevels[strand] ?? nextLevel;
+  const book = state.current.skillId ? markStruggling(state.book, state.current.skillId) : state.book;
+  return {
+    correct: false,
+    levels: nextLevels,
+    note: `${strandName(strand)} is struggling and dropped to level ${applied}.`,
+    marksDelta: 0,
+    state: continuePiece({ ...state, book, current: { ...state.current, level: applied } }, applied),
+  };
+}
+
+/** A held Pythagoras explanation, after one failed practice round. */
+export function explainHold(strandId: string, level: number, roundsFailed = 1): EarnState {
+  const levels = fitLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, level])));
+  const base = blankEarn(levels, 1);
+  let chosen = plainQuestion(strandId, level, 1);
+  for (let seed = 1; seed < 40; seed += 1) {
+    const item = plainQuestion(strandId, level, seed);
+    if (item.draw.op === "hyp" && item.draw.a === 3 && item.draw.b === 4) {
+      chosen = item;
+      break;
+    }
+    chosen = item;
+  }
+  const group = queenPost.groups.find((item) => item.strand === strandId) ?? queenPost.groups[0];
+  const skill = currentSkill(base.book, strandId, level);
+  const question: EarnQuestion = {
+    groupId: group.id,
+    strandId,
+    level,
+    answer: chosen.answer,
+    truth: chosen.truth,
+    skillId: skill.id,
+    fact: { kind: "plain", prompt: chosen.prompt, steps: chosen.steps, why: chosen.why, draw: chosen.draw },
+  };
+  return {
+    ...base,
+    groupIndex: Math.max(0, queenPost.groups.findIndex((item) => item.id === group.id)),
+    phase: "explain",
+    returnPhase: "plain",
+    current: question,
+    upcoming: [],
+    roundsFailed,
+  };
+}
+
 export type EarnResult = {
   state: EarnState;
   correct: boolean;
@@ -826,6 +898,42 @@ export type EarnResult = {
   marksDelta: number;
   help?: boolean;
 };
+
+function continuePiece(state: EarnState, level: number): EarnState {
+  const group = groupAt(state.groupIndex);
+  const strand = state.current.strandId;
+  const skill = currentSkill(state.book, strand, level);
+  if (state.returnPhase === "word") {
+    return {
+      ...state,
+      phase: "word",
+      returnPhase: "word",
+      current: { ...wordFor(group, level, skill.id), strandId: strand, level },
+      upcoming: [],
+      roundsFailed: 0,
+      streak: 0,
+    };
+  }
+  const phase = state.returnPhase === "warmup" ? "warmup" : state.returnPhase === "guided" ? "guided" : "plain";
+  const count = phase === "warmup" ? WARMUP_COUNT : phase === "guided" ? 3 : Math.max(1, runLength(group.id, state.short));
+  const slots = Array.from({ length: count }, () => ({
+    skillId: skill.id,
+    strandId: strand,
+    level,
+    mixed: false,
+  }));
+  const plan = takePlan(group.id, slots, state.seed + 3, state.seen, phase === "guided");
+  return {
+    ...state,
+    phase,
+    current: plan.current,
+    upcoming: plan.upcoming,
+    seed: plan.seed,
+    seen: plan.seen,
+    roundsFailed: 0,
+    streak: 0,
+  };
+}
 
 function resume(state: EarnState, levels: Record<string, number>): EarnState {
   const group = groupAt(state.groupIndex);
@@ -898,19 +1006,22 @@ export function answerEarn(
       state: { ...state, book, phase: "explain", returnPhase, streak: 0, practiceIndex: 0 },
     };
   }
-  const correct = given.trim() === current.answer.trim();
+  const correct = acceptsAnswer(given, current.answer, current.truth);
   if (state.phase === "practice") {
     if (!correct) {
       const roundsFailed = state.roundsFailed + 1;
       if (roundsFailed >= 2) {
-        const nextLevel = Math.max(1, (levels[current.strandId] ?? current.level) - 1);
+        const from = levels[current.strandId] ?? current.level;
+        const nextLevel = Math.max(1, from - 1);
         const nextLevels = fitLevels({ ...levels, [current.strandId]: nextLevel });
+        const applied = nextLevels[current.strandId] ?? nextLevel;
+        const book = current.skillId ? markStruggling(state.book, current.skillId) : state.book;
         return {
           correct: false,
           levels: nextLevels,
-          note: `${current.strandId} dropped to level ${nextLevel} after two practice rounds.`,
+          note: `${current.strandId} dropped to level ${applied} after two practice rounds.`,
           marksDelta: 0,
-          state: resume({ ...state, roundsFailed, current: { ...state.current, level: nextLevel } }, nextLevels),
+          state: continuePiece({ ...state, book, roundsFailed, current: { ...state.current, level: applied } }, applied),
         };
       }
       return {

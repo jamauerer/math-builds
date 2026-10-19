@@ -7,6 +7,7 @@ export type PlainItem = {
   steps: string[];
   why: string;
   draw: PlainDraw;
+  truth?: number;
 };
 
 /** Same strand, level, and seed always return the same question. */
@@ -63,7 +64,13 @@ function compose(strandId: string, level: number, rng: Rng): PlainItem {
 }
 
 function item(prompt: string, answer: number | string, steps: string[], why: string, draw: PlainDraw): PlainItem {
-  return { prompt, answer: String(answer), steps, why, draw };
+  const numeric = typeof answer === "number" ? answer : Number(answer);
+  const whole = Number.isFinite(numeric) && Math.abs(numeric - Math.round(numeric)) < 1e-9;
+  const shown = whole || !Number.isFinite(numeric) ? String(answer) : (Math.round(numeric * 10) / 10).toFixed(1);
+  const asksRoot = /square root|hypotenuse/i.test(prompt);
+  const needsLine = !whole && Number.isFinite(numeric) && (shown.includes(".") || asksRoot);
+  const line = needsLine && !/round to one decimal/i.test(prompt) ? `${prompt} Round to one decimal.` : prompt;
+  return { prompt: line, answer: shown, steps, why, draw, truth: whole || !Number.isFinite(numeric) ? undefined : numeric };
 }
 
 function counting(level: number, rng: Rng): PlainItem {
@@ -174,11 +181,41 @@ function geometry(level: number, rng: Rng): PlainItem {
     const angle = intBetween(rng, 2, 8) * 5;
     return item(`A right triangle has an acute angle of ${angle} degrees. What is the other acute angle?`, 90 - angle, [`The two acute angles add to 90.`, `90 - ${angle} = ${90 - angle}.`], "The acute angles of a right triangle add to 90 degrees.", { op: "angle", a: angle, b: 90 });
   }
+  if (level >= 10 && level < 12) {
+    const pairs: readonly [number, number][] = [
+      [2, 3],
+      [2, 4],
+      [3, 5],
+      [4, 5],
+      [4, 6],
+      [5, 6],
+      [5, 7],
+      [6, 7],
+    ];
+    const pair = pairs[intBetween(rng, 0, pairs.length - 1)];
+    const across = pair[0];
+    const up = pair[1];
+    const truth = Math.hypot(across, up);
+    return item(
+      `A right triangle has legs ${across} and ${up}. How long is the hypotenuse?`,
+      truth,
+      [`Square ${across} and square ${up}.`, `Add the squares.`, `Round the square root to one decimal.`],
+      "The long side is the square root of the two short sides, squared and added.",
+      { op: "hyp", a: across, b: up },
+    );
+  }
   if (level >= 9) {
     const triples: readonly [number, number, number][] = [
       [3, 4, 5],
       [6, 8, 10],
       [5, 12, 13],
+      [9, 12, 15],
+      [8, 15, 17],
+      [7, 24, 25],
+      [20, 21, 29],
+      [12, 16, 20],
+      [9, 40, 41],
+      [12, 35, 37],
     ];
     const triple = triples[intBetween(rng, 0, triples.length - 1)];
     return item(

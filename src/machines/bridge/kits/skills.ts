@@ -21,6 +21,7 @@ export type SkillProgress = {
   recent: SkillRecent[];
   warmUp: boolean;
   sessionsSince: number;
+  struggling?: boolean;
 };
 
 export type SkillBook = {
@@ -393,6 +394,14 @@ export function rememberAnswer(book: SkillBook, skillId: string, prompt: string,
   };
 }
 
+export function markStruggling(book: SkillBook, skillId: string): SkillBook {
+  const progress = book.skills[skillId];
+  if (!progress) {
+    return book;
+  }
+  return { ...book, skills: { ...book.skills, [skillId]: { ...progress, struggling: true } } };
+}
+
 export function flagWarmUp(book: SkillBook, skillId: string): SkillBook {
   const progress = book.skills[skillId];
   if (!progress) {
@@ -501,6 +510,7 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
         : [],
       warmUp: item.warmUp === true,
       sessionsSince: typeof item.sessionsSince === "number" ? item.sessionsSince : 0,
+      struggling: item.struggling === true || undefined,
     };
   }
   return {
