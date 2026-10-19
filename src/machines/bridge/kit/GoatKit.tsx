@@ -7,15 +7,23 @@ import {
   beginAdaptive,
   fitLevels,
   gradeStartLevel,
-  gradeSystemFromUnits,
   withGradeBias,
   KIT_STRANDS,
   strandLine,
   strandName,
   type AdaptiveRun,
   type GradeChoice,
+  type GradeSystem,
 } from "../../../engine/strand-placement";
-import type { KitProfile } from "../../../storage/progress";
+import {
+  countryByCode,
+  countryFromLocale,
+  defaultsForCountry,
+  filterCountries,
+  flagEmoji,
+  gradeSystemLabel,
+} from "../../../locale/countries";
+import { profileGradeSystem, type KitProfile } from "../../../storage/progress";
 import {
   formatLength,
   formatWeight,
@@ -62,8 +70,16 @@ import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
-type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "where";
+type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "live" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "where";
 type Open = Stage | "faster";
+
+function needsCountry(profile: KitProfile | null | undefined): boolean {
+  return !profile?.country;
+}
+
+function needsGrade(profile: KitProfile | null | undefined): boolean {
+  return profile?.grade == null;
+}
 
 const TRAY = [
   "bottom-a",
@@ -111,6 +127,7 @@ export function GoatKit({
   picture = null,
   beam = null,
   heavy = false,
+  seedCountry = null,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -137,6 +154,7 @@ export function GoatKit({
   picture?: string | null;
   beam?: string | null;
   heavy?: boolean;
+  seedCountry?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -148,10 +166,10 @@ export function GoatKit({
   const [stage, setStage] = useState<Stage>(() => {
     const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
     if (opened === "where" && !hasPlacement) {
-      return "grade";
+      return needsCountry(kitProfile) && !seedCountry ? "live" : "grade";
     }
     if (!hasPlacement && !lesson && (opened === "earn" || start === "explain" || start === "practice")) {
-      return "grade";
+      return needsCountry(kitProfile) && !seedCountry ? "live" : "grade";
     }
     return opened;
   });
@@ -175,7 +193,61 @@ export function GoatKit({
   const [pulse, setPulse] = useState<string | null>(moment === "lit" ? piece : null);
   const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
+  const seeded = seedCountry && countryByCode(seedCountry) ? seedCountry.toUpperCase() : null;
+  const [gradeSystem, setGradeSystem] = useState<GradeSystem>(() => {
+    if (kitProfile?.gradeSystem) {
+      return kitProfile.gradeSystem;
+    }
+    if (seeded) {
+      return defaultsForCountry(seeded).gradeSystem;
+    }
+    return profileGradeSystem(kitProfile);
+  });
+  useEffect(() => {
+    if (kitProfile?.gradeSystem) {
+      setGradeSystem(kitProfile.gradeSystem);
+      return;
+    }
+    if (seeded) {
+      setGradeSystem(defaultsForCountry(seeded).gradeSystem);
+    }
+  }, [kitProfile?.gradeSystem, seeded]);
   const [typed, setTyped] = useState("");
+
+  function writeProfile(patch: Partial<KitProfile>) {
+    if (!onKitProfile) {
+      return;
+    }
+    onKitProfile({
+      grade: kitProfile?.grade ?? grade,
+      country: kitProfile?.country ?? seeded ?? undefined,
+      gradeSystem: kitProfile?.gradeSystem ?? gradeSystem,
+      kitVersion: queenPost.version,
+      levels: kitProfile?.levels ?? {},
+      history: kitProfile?.history ?? [],
+      notes: kitProfile?.notes ?? [],
+      lastRunMs: kitProfile?.lastRunMs,
+      skills: kitProfile?.skills,
+      seenIntro: kitProfile?.seenIntro,
+      session: kitProfile?.session,
+      build: kitProfile?.build,
+      built: kitProfile?.built,
+      dunks: kitProfile?.dunks,
+      ...patch,
+    });
+  }
+
+  function applyCountry(code: string, nextStage: Stage = "grade") {
+    const country = code.toUpperCase();
+    if (!countryByCode(country)) {
+      return;
+    }
+    const defaults = defaultsForCountry(country);
+    setGradeSystem(defaults.gradeSystem);
+    onUnits(defaults.units);
+    writeProfile({ country, gradeSystem: defaults.gradeSystem });
+    setStage(nextStage);
+  }
   const [lengths, setLengths] = useState<Record<string, string>>(() => {
     if (round != null && Object.keys(drops).length === 0) {
       const values = roundLengths(round);
@@ -263,7 +335,7 @@ export function GoatKit({
 
   function openEarn() {
     if (!hasPlacement) {
-      setStage("grade");
+      setStage(needsCountry(kitProfile) ? "live" : "grade");
       return;
     }
     if (!kitProfile?.seenIntro && !kitProfile?.session) {
@@ -402,29 +474,18 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct },
     ].slice(-80);
     if (stepped.levels) {
-      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystemFromUnits(units));
-      onKitProfile?.({
+      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem);
+      writeProfile({
         grade: grade ?? "unsure",
-        kitVersion: queenPost.version,
         levels,
         history,
-        notes: kitProfile?.notes ?? [],
-        lastRunMs: kitProfile?.lastRunMs,
         skills: skillsFromLevels(levels),
       });
       setEarn(blankEarn(levels));
       setStage("where");
       return;
     }
-    onKitProfile?.({
-      grade: grade ?? "unsure",
-      kitVersion: queenPost.version,
-      levels: kitProfile?.levels ?? {},
-      history,
-      notes: kitProfile?.notes ?? [],
-      lastRunMs: kitProfile?.lastRunMs,
-      skills: kitProfile?.skills,
-    });
+    writeProfile({ grade: grade ?? "unsure", history });
     setRun(stepped.run);
   }
 
@@ -442,27 +503,18 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct: false, help: true },
     ].slice(-80);
     if (stepped.levels) {
-      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystemFromUnits(units));
-      onKitProfile?.({
+      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem);
+      writeProfile({
         grade: grade ?? "unsure",
-        kitVersion: queenPost.version,
         levels,
         history,
-        notes: kitProfile?.notes ?? [],
         skills: skillsFromLevels(levels),
       });
       setEarn(blankEarn(levels));
       setStage("where");
       return;
     }
-    onKitProfile?.({
-      grade: grade ?? "unsure",
-      kitVersion: queenPost.version,
-      levels: kitProfile?.levels ?? {},
-      history,
-      notes: kitProfile?.notes ?? [],
-      skills: kitProfile?.skills,
-    });
+    writeProfile({ grade: grade ?? "unsure", history });
     setRun(stepped.run);
   }
 
@@ -647,15 +699,32 @@ export function GoatKit({
   return (
     <div className="goat-kit" data-stage={stage}>
       {stage === "pick" ? (
-        <Pick marks={marks} units={units} onUnits={onUnits} onProfile={() => setStage(kitProfile?.grade == null ? "grade" : "profile")} onOpen={openEarn} />
+        <Pick
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          onProfile={() => setStage(needsCountry(kitProfile) ? "live" : needsGrade(kitProfile) ? "grade" : "profile")}
+          onOpen={openEarn}
+        />
+      ) : stage === "live" ? (
+        <LivePick
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          onProfile={() => setStage("pick")}
+          selected={kitProfile?.country ?? seeded ?? countryFromLocale()}
+          onChoose={(code) => applyCountry(code, needsGrade(kitProfile) || start === "live" ? "grade" : "profile")}
+        />
       ) : stage === "grade" ? (
         <GradePick
           marks={marks}
           units={units}
           onUnits={onUnits}
+          gradeSystem={gradeSystem}
           onProfile={() => setStage("pick")}
           onChoose={(choice) => {
             setGrade(choice);
+            writeProfile({ grade: choice, gradeSystem });
             setRun(beginAdaptive(gradeStartLevel(choice)));
             setTyped("");
             setStage("place");
@@ -678,6 +747,7 @@ export function GoatKit({
           marks={marks}
           units={units}
           onUnits={onUnits}
+          gradeSystem={gradeSystem}
           levels={Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {})}
           onProfile={() => setStage("profile")}
           onStart={() => setStage(kitProfile?.seenIntro ? "earn" : "intro")}
@@ -687,8 +757,14 @@ export function GoatKit({
           marks={marks}
           units={units}
           onUnits={onUnits}
-          profile={screenProfile(unplaced, kitProfile, level, lesson)}
-          onRetake={() => setStage("grade")}
+          profile={screenProfile(unplaced, kitProfile, level, lesson, seeded)}
+          gradeSystem={gradeSystem}
+          onGradeSystem={(system) => {
+            setGradeSystem(system);
+            writeProfile({ gradeSystem: system });
+          }}
+          onCountry={() => setStage("live")}
+          onRetake={() => setStage(needsCountry(kitProfile) ? "live" : "grade")}
           onBack={() => setStage("pick")}
         />
       ) : (
@@ -726,7 +802,12 @@ export function GoatKit({
                 </button>
               ))}
             </div>
-            <Account marks={marks} units={units} onUnits={onUnits} onProfile={() => setStage(kitProfile?.grade == null ? "grade" : "profile")} />
+            <Account
+              marks={marks}
+              units={units}
+              onUnits={onUnits}
+              onProfile={() => setStage(needsCountry(kitProfile) ? "live" : needsGrade(kitProfile) ? "grade" : "profile")}
+            />
           </header>
           {stage === "intro" ? (
             <IntroView
@@ -2323,17 +2404,27 @@ function openingRun(start: Open): AdaptiveRun | null {
   return run;
 }
 
-function screenProfile(unplaced: boolean, profile: KitProfile | null, level: number | null, lesson?: string | null): KitProfile {
+function screenProfile(
+  unplaced: boolean,
+  profile: KitProfile | null,
+  level: number | null,
+  lesson?: string | null,
+  seedCountry?: string | null,
+): KitProfile {
   if (unplaced) {
     return { grade: null, levels: {}, history: [], notes: [] };
   }
   const base = profile ?? { grade: null, levels: {}, history: [], notes: [] };
+  const country = base.country ?? (seedCountry && countryByCode(seedCountry) ? seedCountry.toUpperCase() : undefined);
+  const gradeSystem = base.gradeSystem ?? (country ? defaultsForCountry(country).gradeSystem : undefined);
   if (lesson === "easier") {
     const rung = level ?? base.levels.geometry ?? 9;
     const using = strandLevels(rung, undefined) ?? {};
     const next = easierPiece(explainHold("geometry", rung, 1), using);
     return {
       ...base,
+      country,
+      gradeSystem,
       grade: base.grade ?? 3,
       levels: next.levels,
       notes: next.note ? [...base.notes.filter((item) => item !== next.note), next.note] : base.notes,
@@ -2342,29 +2433,94 @@ function screenProfile(unplaced: boolean, profile: KitProfile | null, level: num
   }
   if (level != null) {
     const levels = strandLevels(level, undefined) ?? {};
-    return { ...base, grade: base.grade ?? 3, levels, skills: skillsFromLevels(levels) };
+    return { ...base, country, gradeSystem, grade: base.grade ?? 3, levels, skills: skillsFromLevels(levels) };
   }
   if (Object.keys(base.levels).length === 0) {
-    return base;
+    return { ...base, country, gradeSystem };
   }
   const levels = fitLevels(base.levels);
-  return { ...base, levels, skills: base.skills ?? skillsFromLevels(levels) };
+  return { ...base, country, gradeSystem, levels, skills: base.skills ?? skillsFromLevels(levels) };
 }
 
-function GradePick({
+function LivePick({
   marks,
   units,
   onUnits,
   onProfile,
+  selected,
   onChoose,
 }: {
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   onProfile: () => void;
+  selected: string;
+  onChoose: (code: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const matches = filterCountries(query);
+  const highlighted = countryByCode(selected);
+  return (
+    <>
+      <header className="gk-header">
+        <button className="gk-codex" type="button" onClick={onProfile}>
+          Codex
+        </button>
+        <div>
+          <div className="gk-title">Where do you live?</div>
+          <div className="gk-sub">This sets your units and grade names. You can change them later.</div>
+        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
+      </header>
+      <div className="gk-pick">
+        <label className="gk-country-search">
+          <span>Search countries</span>
+          <input
+            aria-label="Search countries"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={highlighted ? `${flagEmoji(highlighted.code)} ${highlighted.name}` : "Country"}
+            autoFocus
+          />
+        </label>
+        <div className="gk-countries" role="listbox" aria-label="Countries">
+          {matches.map((country) => (
+            <button
+              key={country.code}
+              type="button"
+              role="option"
+              aria-selected={country.code === selected}
+              className={country.code === selected ? "on" : ""}
+              onClick={() => onChoose(country.code)}
+            >
+              <span className="gk-flag" aria-hidden="true">
+                {flagEmoji(country.code)}
+              </span>
+              <span>{country.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function GradePick({
+  marks,
+  units,
+  onUnits,
+  gradeSystem,
+  onProfile,
+  onChoose,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  gradeSystem: GradeSystem;
+  onProfile: () => void;
   onChoose: (grade: GradeChoice) => void;
 }) {
-  const europe = units === "metric";
+  const europe = gradeSystem === "europe";
   const grades: GradeChoice[] = europe
     ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, "unsure"]
     : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "unsure"];
@@ -2385,11 +2541,11 @@ function GradePick({
         </button>
         <div>
           <div className="gk-title">{europe ? "Which Klasse?" : "What grade are you in?"}</div>
-          <div className="gk-sub">Not sure is fine. This only picks where the questions start. Switch units to change the grade system.</div>
+          <div className="gk-sub">Not sure is fine. This only picks where the questions start. Using {gradeSystemLabel(gradeSystem)}.</div>
         </div>
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
       </header>
-      <div className="gk-pick">
+      <div className="gk-pick" data-grade-system={gradeSystem}>
         <div className="gk-grades">
           {grades.map((choice) => (
             <button key={String(choice)} type="button" onClick={() => onChoose(choice)}>
@@ -2479,6 +2635,7 @@ function WhereView({
   marks,
   units,
   onUnits,
+  gradeSystem,
   levels,
   onProfile,
   onStart,
@@ -2486,6 +2643,7 @@ function WhereView({
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
+  gradeSystem: GradeSystem;
   levels: Record<string, number>;
   onProfile: () => void;
   onStart: () => void;
@@ -2506,6 +2664,9 @@ function WhereView({
         <div className="gk-earn">
           <div className="gk-card">
             <h1 className="gk-prompt">Here is where you are</h1>
+            <p className="gk-sub" data-grade-system={gradeSystem}>
+              Using {gradeSystemLabel(gradeSystem)}.
+            </p>
             <ul className="gk-where">
               {KIT_STRANDS.map((id) => (
                 <li key={id}>{strandLine(id, levels[id] ?? 1)}</li>
@@ -2526,6 +2687,9 @@ function ProfileView({
   units,
   onUnits,
   profile,
+  gradeSystem,
+  onGradeSystem,
+  onCountry,
   onRetake,
   onBack,
 }: {
@@ -2533,9 +2697,25 @@ function ProfileView({
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   profile: KitProfile;
+  gradeSystem: GradeSystem;
+  onGradeSystem: (system: GradeSystem) => void;
+  onCountry: () => void;
   onRetake: () => void;
   onBack: () => void;
 }) {
+  const country = countryByCode(profile.country);
+  const gradeText =
+    profile.grade === "unsure"
+      ? "not sure"
+      : profile.grade === 0
+        ? gradeSystem === "europe"
+          ? "Vorschule"
+          : "K"
+        : profile.grade == null
+          ? "not set"
+          : gradeSystem === "europe"
+            ? `Klasse ${profile.grade}`
+            : String(profile.grade);
   return (
     <>
       <header className="gk-header">
@@ -2544,11 +2724,19 @@ function ProfileView({
         </button>
         <div>
           <div className="gk-title">Maya</div>
-          <div className="gk-sub">Grade {profile.grade === "unsure" ? "not sure" : profile.grade === 0 ? "K" : (profile.grade ?? "not set")}</div>
+          <div className="gk-sub">
+            {gradeSystemLabel(gradeSystem)} · {gradeText}
+          </div>
         </div>
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onBack} />
       </header>
       <div className="gk-pick">
+        <button className="gk-country-chip" type="button" onClick={onCountry}>
+          <span className="gk-flag" aria-hidden="true">
+            {country ? flagEmoji(country.code) : "🌍"}
+          </span>
+          <span>{country?.name ?? "Where do you live?"}</span>
+        </button>
         {Object.keys(profile.levels).length === 0 ? (
           <>
             <h1>Not placed yet, take the placement</h1>
@@ -2560,6 +2748,9 @@ function ProfileView({
           <>
         <h1>Here is where you are</h1>
         <p className="gk-sub">Marks never move these. Only answers do.</p>
+        <p className="gk-sub" data-grade-system={gradeSystem}>
+          Using {gradeSystemLabel(gradeSystem)}.
+        </p>
         {profile.notes.filter((note) => !/level\s+\d/i.test(note)).map((note) => (
           <p className="gk-note" key={note} data-log="level">
             {note}
@@ -2585,6 +2776,16 @@ function ProfileView({
           {(["us", "metric"] as const).map((choice) => (
             <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
               {systemLabel(choice)}
+            </button>
+          ))}
+        </div>
+        <div className="gk-unit-toggle" role="group" aria-label="Grade system">
+          {([
+            ["us", "US grades"],
+            ["europe", "Klasse"],
+          ] as const).map(([choice, label]) => (
+            <button key={choice} type="button" className={choice === gradeSystem ? "on" : ""} onClick={() => onGradeSystem(choice)}>
+              {label}
             </button>
           ))}
         </div>

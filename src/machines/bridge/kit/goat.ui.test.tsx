@@ -84,7 +84,7 @@ describe("goat bridge screens", () => {
           units="us"
           onUnits={() => undefined}
           start="pick"
-          kitProfile={{ grade: 3, levels: {}, history: [], notes: [] }}
+          kitProfile={{ grade: 3, country: "US", gradeSystem: "us", levels: {}, history: [], notes: [] }}
         />,
       );
     });

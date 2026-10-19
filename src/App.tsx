@@ -46,12 +46,13 @@ function kitLevel(value: string | null): number | null {
   return parsed;
 }
 
-function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" | "intro" | "where" {
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "live" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" | "intro" | "where" {
   if (
     value === "earn" ||
     value === "assemble" ||
     value === "drive" ||
     value === "wreck" ||
+    value === "live" ||
     value === "grade" ||
     value === "place" ||
     value === "place2" ||
@@ -167,6 +168,7 @@ export function App() {
           picture={new URLSearchParams(window.location.search).get("picture")}
           beam={new URLSearchParams(window.location.search).get("beam")}
           heavy={new URLSearchParams(window.location.search).get("heavy") === "1"}
+          seedCountry={new URLSearchParams(window.location.search).get("country")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

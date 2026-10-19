@@ -12,7 +12,8 @@ import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
-import { fitLevels, strandName, type GradeChoice } from "../engine/strand-placement";
+import { fitLevels, strandName, type GradeChoice, type GradeSystem } from "../engine/strand-placement";
+import { countryByCode, defaultsForCountry } from "../locale/countries";
 import type { EarnState } from "../machines/bridge/kits/earn";
 import { queenPost } from "../machines/bridge/kits/kit";
 import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
@@ -27,6 +28,8 @@ export type KitAttempt = {
 
 export type KitProfile = {
   grade: GradeChoice | null;
+  country?: string;
+  gradeSystem?: GradeSystem;
   levels: Record<string, number>;
   history: KitAttempt[];
   notes: string[];
@@ -187,6 +190,16 @@ export function blankKitProfile(): KitProfile {
   return { grade: null, levels: {}, history: [], notes: [], kitVersion: queenPost.version };
 }
 
+export function profileGradeSystem(profile: KitProfile | null | undefined): GradeSystem {
+  if (profile?.gradeSystem === "us" || profile?.gradeSystem === "europe") {
+    return profile.gradeSystem;
+  }
+  if (profile?.country) {
+    return defaultsForCountry(profile.country).gradeSystem;
+  }
+  return "us";
+}
+
 function sanitizeKitProfile(raw: unknown): KitProfile {
   const blank = blankKitProfile();
   if (!raw || typeof raw !== "object") {
@@ -214,8 +227,17 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
   const notes = Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [];
   const clamped = clampStoredLevels(levels, notes);
   const migrated = migrateKit(record, clamped.notes);
+  const country = typeof record.country === "string" && countryByCode(record.country) ? record.country.toUpperCase() : undefined;
+  const gradeSystem =
+    record.gradeSystem === "us" || record.gradeSystem === "europe"
+      ? record.gradeSystem
+      : country
+        ? defaultsForCountry(country).gradeSystem
+        : undefined;
   return {
-    grade: grade === "unsure" || (typeof grade === "number" && grade >= 0 && grade <= 12) ? grade : null,
+    grade: grade === "unsure" || (typeof grade === "number" && grade >= 0 && grade <= 13) ? grade : null,
+    country,
+    gradeSystem,
     levels: clamped.levels,
     history,
     notes: migrated.notes,

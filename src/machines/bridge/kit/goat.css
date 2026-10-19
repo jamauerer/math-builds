@@ -240,6 +240,69 @@
   padding: 0 6px;
 }
 
+.gk-country-search {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b6459;
+}
+
+.gk-country-search input {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1.5px solid #d9d4cb;
+  border-radius: 12px;
+  font-size: 18px;
+}
+
+.gk-countries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 8px 0 18px;
+}
+
+.gk-countries button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #d9d4cb;
+  background: #fff;
+  text-align: left;
+  font-weight: 600;
+}
+
+.gk-countries button.on {
+  border-color: #22201c;
+  background: #f7f4ee;
+}
+
+.gk-flag {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.gk-country-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid #d9d4cb;
+  background: #fff;
+  font-weight: 700;
+}
+
 .gk-grades {
   display: flex;
   flex-wrap: wrap;
