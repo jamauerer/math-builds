@@ -12,6 +12,13 @@ import { GoatKit } from "./machines/bridge/kit/GoatKit";
 import { PracticeQuiz } from "./ui/PlacementQuiz";
 import { Workshop } from "./workshop/Workshop";
 
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" {
+  if (value === "earn" || value === "assemble" || value === "drive" || value === "wreck") {
+    return value;
+  }
+  return "pick";
+}
+
 type Screen =
   | { name: "map" }
   | { name: "placement" }
@@ -70,6 +77,7 @@ export function App() {
           map={progress.map}
           marks={progress.sequence?.marks ?? 0}
           onMarks={(marks) => save({ ...progress, sequence: { ...(progress.sequence ?? blankSequence()), marks } })}
+          start={kitStage(new URLSearchParams(window.location.search).get("kit"))}
         />
       )}
       {screen.name === "practice" ? (

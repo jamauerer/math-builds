@@ -5,6 +5,7 @@ import { answerEarn, blankEarn, earnDone, type EarnState } from "../kits/earn";
 import { queenPost, wreckLines } from "../kits/kit";
 import { simulateCrossing, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
+import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, TrussThumb } from "./scene";
 
 type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck";
@@ -297,21 +298,33 @@ function Pick({ marks, onOpen }: { marks: number; onOpen: () => void }) {
               </div>
             </div>
           </button>
-          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Level 3 of 13" />
-          <LockedCard title="The Well Winch" note="Counting teeth, ratios, fractions of a turn. Later torque and clockwork." pill="Not started" />
-          <LockedCard title="The Mountain Ramp" note="Rise over run, angles, how steep a car can climb. Later speed and energy." pill="Not started" />
-          <LockedCard title="The Bicycle" note="Gear ratios, wheel size, how far one pedal turn takes you." pill="Opens at Ratios 3" locked />
-          <LockedCard title="The Catapult" note="Arm ratios, angles, how far it flies. Later trajectories." pill="Opens at Angles 1" locked />
+          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Level 3 of 13" thumb={teeter} />
+          <LockedCard title="The Well Winch" note="Counting teeth, ratios, fractions of a turn. Later torque and clockwork." pill="Not started" thumb={winch} />
+          <LockedCard title="The Mountain Ramp" note="Rise over run, angles, how steep a car can climb. Later speed and energy." pill="Not started" thumb={ramp} />
+          <LockedCard title="The Bicycle" note="Gear ratios, wheel size, how far one pedal turn takes you." pill="Opens at Ratios 3" locked thumb={bicycle} />
+          <LockedCard title="The Catapult" note="Arm ratios, angles, how far it flies. Later trajectories." pill="Opens at Angles 1" locked thumb={catapult} />
         </div>
       </div>
     </>
   );
 }
 
-function LockedCard({ title, note, pill, locked }: { title: string; note: string; pill: string; locked?: boolean }) {
+function LockedCard({
+  title,
+  note,
+  pill,
+  locked,
+  thumb,
+}: {
+  title: string;
+  note: string;
+  pill: string;
+  locked?: boolean;
+  thumb: string;
+}) {
   return (
     <button className={locked ? "gk-card-btn locked" : "gk-card-btn"} type="button">
-      <div className="gk-thumb" style={{ background: "#F7F3EC" }} />
+      <div className="gk-thumb" style={{ background: "#F7F3EC" }} dangerouslySetInnerHTML={{ __html: thumb }} />
       <div className="meta">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <h3>{title}</h3>
@@ -365,11 +378,11 @@ function EarnView({
             </button>
           </div>
           <div className="gk-keys">
-            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "⌫"].map((key) => (
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"].map((key) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => setTyped(key === "⌫" ? typed.slice(0, -1) : `${typed}${key}`)}
+                onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : `${typed}${key}`)}
               >
                 {key}
               </button>
@@ -593,11 +606,10 @@ function DriveView({
           <div key={member.name} className="gk-row earned">
             <div>
               <b>{member.name}</b>
-              <span>
+              <span className="gk-good">
                 {member.job}, fine
               </span>
             </div>
-            <span className="gk-good">fine</span>
           </div>
         ))}
         <p className="gk-note">Try the heavy goat. Something will go first. Guess which.</p>

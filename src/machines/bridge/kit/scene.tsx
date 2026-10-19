@@ -60,8 +60,11 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
         const label = slot.length == null ? "" : slot.length >= 2.8 && slot.length < 3 ? "2.8 m" : `${slot.length} m`;
-        const midX = (from.x + to.x) / 2;
-        const midY = (from.y + to.y) / 2;
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const span = Math.hypot(dx, dy) || 1;
+        const midX = (from.x + to.x) / 2 + (-dy / span) * 26;
+        const midY = (from.y + to.y) / 2 + (dx / span) * 26;
         return (
           <g key={slot.id}>
             <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />
