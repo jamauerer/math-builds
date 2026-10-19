@@ -1,4 +1,5 @@
 import { fitLevels, KIT_STRANDS } from "../../../engine/strand-placement";
+import { CURRICULUM_SKILLS } from "../../../skills";
 
 export type SkillStateName = "new" | "learning" | "practicing" | "mastered";
 
@@ -7,6 +8,9 @@ export type KitSkill = {
   strandId: string;
   level: number;
   name: string;
+  prereqs: string[];
+  notation: string;
+  learnPicture: string;
 };
 
 export type SkillRecent = {
@@ -39,160 +43,15 @@ export function isSmallPiece(groupId: string): boolean {
   return SMALL_PIECES.includes(groupId);
 }
 
-const WRITTEN: Record<string, string[][]> = {
-  counting: [
-    ["Count to 5", "Count to 10"],
-    ["Count on", "How many more"],
-    ["Count to 20", "Compare counts"],
-    ["Count to 100", "Skip count"],
-    ["Count facts", "Groups of ten"],
-    ["Count a remainder", "Leftover objects"],
-    ["Count a fraction", "Parts of a set"],
-    ["Count a percent", "Percent of a count"],
-    ["Count below zero", "Directed counts"],
-    ["Count an area", "Count a perimeter"],
-    ["Count along a line", "Equal steps"],
-    ["Count a rate", "Count a change"],
-    ["Count precisely", "Count a scale"],
-  ],
-  measuring: [
-    ["Measure with a ruler", "Compare two lengths"],
-    ["Measure to 10", "Gaps on a tape"],
-    ["Measure to 20", "Which mark is farther"],
-    ["Measure to 100", "The gap between marks"],
-    ["Length facts", "Convert a length"],
-    ["Split a length", "Remainder of a length"],
-    ["A fraction of a length", "Measure a part"],
-    ["Percent of a length", "A percent longer"],
-    ["A length below zero", "Directed distance"],
-    ["Area of a rectangle", "Perimeter"],
-    ["Length of a line", "Slope as a length"],
-    ["Length of a curve", "Arc length"],
-    ["Precise measure", "Scale a drawing"],
-  ],
-  adding: [
-    ["Add small numbers", "Subtract small numbers"],
-    ["Add within 10", "Subtract within 10"],
-    ["Add to 20", "Subtract from 20"],
-    ["Add to 100", "Subtract from 100"],
-    ["Addition facts", "Subtraction facts"],
-    ["Add across a ten", "Subtract across a ten"],
-    ["Add fractions", "Subtract fractions"],
-    ["Add percents", "Subtract percents"],
-    ["Add negatives", "Subtract negatives"],
-    ["Add an area", "Add a perimeter"],
-    ["Add along a line", "Find the intercept"],
-    ["Add a rate", "Add a change"],
-    ["Add precisely", "Subtract precisely"],
-  ],
-  multiplying: [
-    ["Groups of 2", "Count by twos"],
-    ["Multiply within 10", "Groups of 5"],
-    ["Multiply to 20", "Groups of 4"],
-    ["Times tables to 5", "Times tables to 10", "Multiply by 10", "Two-digit times one-digit"],
-    ["Multiplication facts", "Groups of 10"],
-    ["Multiply with a remainder", "Partial groups"],
-    ["Multiply a fraction", "A fraction of a group"],
-    ["Multiply a percent", "Percent of a group"],
-    ["Multiply negatives", "Groups below zero"],
-    ["Area by multiplying", "An array"],
-    ["Multiply on a line", "Scale factor"],
-    ["Multiply a rate", "Growth"],
-    ["Multiply precisely", "Powers"],
-  ],
-  dividing: [
-    ["Share small numbers", "Split in half"],
-    ["Divide within 10", "Share equally"],
-    ["Divide to 20", "Fair shares"],
-    ["Divide to 100", "Equal shares"],
-    ["Division facts", "Share a total"],
-    ["Divide with a remainder", "Leftover"],
-    ["Divide a fraction", "Share a fraction"],
-    ["Divide a percent", "Percent shares"],
-    ["Divide negatives", "Share a debt"],
-    ["Share an area", "Share a perimeter"],
-    ["Divide a line", "A rate"],
-    ["Divide a curve", "Average rate"],
-    ["Divide precisely", "A scale"],
-  ],
-  fractions: [
-    ["Half of a whole", "Fair parts"],
-    ["Thirds and halves", "Parts of a plank"],
-    ["Fractions to 20", "Compare parts"],
-    ["Fractions to 100", "Equal parts"],
-    ["Fraction facts", "Simplify a fraction"],
-    ["Mixed numbers", "A remainder as a fraction"],
-    ["Fractions of a deck", "Add fractions"],
-    ["A percent as a fraction", "Decimal parts"],
-    ["Fractions below zero", "Directed parts"],
-    ["Fraction of an area", "Part of a perimeter"],
-    ["Fraction of a line", "Slope as a fraction"],
-    ["Fraction of a curve", "Rate as a fraction"],
-    ["Precise fractions", "A scale factor"],
-  ],
-  ratios: [
-    ["Compare two counts", "More and less"],
-    ["Ratios within 10", "For each one"],
-    ["Ratios to 20", "Bolts for each plate"],
-    ["Ratios to 100", "Per gusset"],
-    ["Ratio facts", "Equivalent ratios"],
-    ["A remainder ratio", "Leftover ratio"],
-    ["A ratio as a fraction", "Part per whole"],
-    ["Percent", "Percent of a count"],
-    ["A ratio below zero", "Directed ratio"],
-    ["Ratio of areas", "Ratio of perimeters"],
-    ["Ratio of a line", "Slope"],
-    ["Ratio of a curve", "A rate"],
-    ["Precise ratios", "A scale"],
-  ],
-  geometry: [
-    ["Count the sides", "Name the figure"],
-    ["Count the corners", "The longer side"],
-    ["Which side is longest", "Sides to 20"],
-    ["Count the triangles", "Angles to 100"],
-    ["Right angles", "Angle facts"],
-    ["Across and up", "Which is longer"],
-    ["A fraction of a triangle", "Parts of a triangle"],
-    ["A percent of an area", "Percent of a triangle"],
-    ["Pythagoras", "The hypotenuse"],
-    ["Area of a triangle", "Perimeter of a triangle"],
-    ["Lines and angles", "Parallel lines"],
-    ["Curves", "An arc"],
-    ["Similarity", "A precise angle"],
-  ],
-  algebra: [
-    ["A missing number", "What is missing"],
-    ["Find the gap", "Unknown within 10"],
-    ["Unknown to 20", "Balance to 20"],
-    ["Unknown to 100", "Solve to 100"],
-    ["Equation facts", "What is x"],
-    ["A remainder equation", "Unknown remainder"],
-    ["A fraction equation", "Unknown part"],
-    ["A percent equation", "Unknown percent"],
-    ["A negative equation", "Unknown below zero"],
-    ["An area equation", "Unknown side"],
-    ["A line equation", "Slope and intercept"],
-    ["A curve equation", "Rate of change"],
-    ["Solve for x", "A precise equation"],
-  ],
-};
-
-function pair(strandId: string, level: number): string[] {
-  const row = WRITTEN[strandId];
-  return row?.[level - 1] ?? [`${strandId} ${level}`, `${strandId} ${level} again`];
-}
-
-export const KIT_SKILLS: KitSkill[] = KIT_STRANDS.flatMap((strandId) =>
-  Array.from({ length: 13 }, (_, index) => {
-    const level = index + 1;
-    return pair(strandId, level).map((name, order) => ({
-      id: `${strandId}-${level}-${order + 1}`,
-      strandId,
-      level,
-      name,
-    }));
-  }).flat(),
-);
+export const KIT_SKILLS: KitSkill[] = CURRICULUM_SKILLS.map((skill) => ({
+  id: skill.id,
+  strandId: skill.strandId,
+  level: skill.level,
+  name: skill.name,
+  prereqs: skill.prereqs,
+  notation: skill.notation,
+  learnPicture: skill.learnPicture,
+}));
 
 export function skillById(id: string): KitSkill | undefined {
   return KIT_SKILLS.find((skill) => skill.id === id);
@@ -210,31 +69,76 @@ export function skillsFromLevels(levels: Record<string, number> | null): SkillBo
     const placed = fitted?.[skill.strandId] ?? 1;
     skills[skill.id] = blankProgress(skill.level < placed ? "mastered" : "new");
   }
+  // Same-level prereqs on other strands start as learning so an earlier kit piece can open.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const skill of KIT_SKILLS) {
+      const placed = fitted?.[skill.strandId] ?? 1;
+      if (skill.level !== placed) {
+        continue;
+      }
+      for (const id of skill.prereqs) {
+        const prereq = KIT_SKILLS.find((item) => item.id === id);
+        // Same-strand prereqs stay new until their Learn card; only cross-strand ones bootstrap.
+        if (!prereq || prereq.strandId === skill.strandId || prereq.level !== placed || skills[id]?.state !== "new") {
+          continue;
+        }
+        const ready = prereq.prereqs.every((pid) => {
+          const state = skills[pid]?.state;
+          return state === "mastered" || state === "learning" || state === "practicing";
+        });
+        if (ready) {
+          skills[id] = blankProgress("learning");
+          changed = true;
+        }
+      }
+    }
+  }
   return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0 };
 }
 
 export function workingLevel(book: SkillBook, strandId: string, placed?: number): number {
-  for (let level = 1; level <= 13; level += 1) {
+  const levels = [...new Set(KIT_SKILLS.filter((skill) => skill.strandId === strandId).map((skill) => skill.level))].sort((a, b) => a - b);
+  for (const level of levels) {
     const at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
     if (at.some((skill) => book.skills[skill.id]?.state !== "mastered")) {
-      return placed != null ? Math.min(level, placed) : level;
+      if (placed == null || level <= placed) {
+        return level;
+      }
+      // Strand has no skill at the placed rung; open the first real skill above it.
+      const hasAtPlaced = levels.includes(placed);
+      return hasAtPlaced ? Math.min(level, placed) : level;
     }
   }
-  return Math.min(13, Math.max(1, placed ?? 1));
+  return Math.min(13, Math.max(1, placed ?? levels[0] ?? 1));
+}
+
+export function prereqsMet(book: SkillBook, skill: KitSkill): boolean {
+  return skill.prereqs.every((id) => {
+    const state = book.skills[id]?.state;
+    return state === "learning" || state === "practicing" || state === "mastered";
+  });
 }
 
 export function newSkill(book: SkillBook, strandId: string, level: number): KitSkill | null {
   return (
-    KIT_SKILLS.find((skill) => skill.strandId === strandId && skill.level === level && book.skills[skill.id]?.state === "new") ??
-    null
+    KIT_SKILLS.find(
+      (skill) => skill.strandId === strandId && skill.level === level && book.skills[skill.id]?.state === "new" && prereqsMet(book, skill),
+    ) ?? null
   );
 }
 
 export function currentSkill(book: SkillBook, strandId: string, level: number): KitSkill {
-  const at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
+  let at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
+  if (at.length === 0) {
+    const levels = KIT_SKILLS.filter((skill) => skill.strandId === strandId).map((skill) => skill.level);
+    const nearest = levels.sort((a, b) => Math.abs(a - level) - Math.abs(b - level))[0] ?? 1;
+    at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === nearest);
+  }
   const rank: SkillStateName[] = ["learning", "practicing", "new", "mastered"];
   for (const state of rank) {
-    const found = at.find((skill) => book.skills[skill.id]?.state === state);
+    const found = at.find((skill) => book.skills[skill.id]?.state === state && (state !== "new" || prereqsMet(book, skill)));
     if (found) {
       return found;
     }
@@ -277,7 +181,10 @@ export function warmUpPlan(book: SkillBook, count = 3, pieceStrand = "dividing",
   const piece = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === pieceLevel && legal(skill));
   let fill = mastered.length > 0 ? mastered : piece;
   if (fill.length === 0) {
-    fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === 1);
+    fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && legal(skill));
+  }
+  if (fill.length === 0) {
+    fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand);
   }
   let cursor = 0;
   while (slots.length < count && fill.length > 0) {

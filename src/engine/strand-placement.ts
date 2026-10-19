@@ -28,12 +28,41 @@ const MAX_QUESTIONS = 12;
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 13;
 
-/** Kindergarten is 0. Grade 12 starts at the top rung. "Not sure" starts in the middle. */
+/** Kindergarten is 0. Grade 12 starts at the top rung. "Not sure" starts in the middle.
+ * Europe uses Klasse numbers the same way: Klasse 1 starts at level 2.
+ */
 export function gradeStartLevel(grade: GradeChoice): number {
   if (grade === "unsure") {
     return 5;
   }
   return Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, grade + 1));
+}
+
+export type GradeSystem = "us" | "europe";
+
+/** Starting levels from the curriculum grade map. Europe lifts dividing and fractions from Klasse 4 on. */
+export function gradeStartLevels(grade: GradeChoice, system: GradeSystem = "us"): Record<string, number> {
+  const start = gradeStartLevel(grade);
+  const levels: Record<string, number> = {};
+  for (const id of KIT_STRANDS) {
+    levels[id] = start;
+  }
+  return withGradeBias(levels, grade, system);
+}
+
+/** Europe Klasse 4+ lifts dividing and fractions one level after placement settles. */
+export function withGradeBias(levels: Record<string, number>, grade: GradeChoice, system: GradeSystem = "us"): Record<string, number> {
+  if (system !== "europe" || typeof grade !== "number" || grade < 4) {
+    return fitLevels(levels);
+  }
+  const next = { ...levels };
+  next.dividing = Math.min(MAX_LEVEL, (next.dividing ?? MIN_LEVEL) + 1);
+  next.fractions = Math.min(MAX_LEVEL, (next.fractions ?? MIN_LEVEL) + 1);
+  return fitLevels(next);
+}
+
+export function gradeSystemFromUnits(units: "us" | "metric"): GradeSystem {
+  return units === "metric" ? "europe" : "us";
 }
 
 /**

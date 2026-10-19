@@ -962,6 +962,13 @@
   background: #fff;
 }
 
+.gk-skill-level h3 {
+  margin: 0.4rem 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
 .gk-skill-board {
   display: flex;
   flex-direction: column;

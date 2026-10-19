@@ -1,0 +1,1666 @@
+{
+  "version": 1,
+  "source": "docs/curriculum.md",
+  "skills": [
+    {
+      "id": "counting.1.to-10",
+      "strand": "counting",
+      "level": 1,
+      "name": "Count to 10",
+      "notation": "\"How many?\" with 1 to 10 bolts",
+      "answer": "whole",
+      "learnPicture": "bolts in a row",
+      "kitUse": "gussets, bolts",
+      "prereqs": []
+    },
+    {
+      "id": "counting.1.compare",
+      "strand": "counting",
+      "level": 1,
+      "name": "More or fewer",
+      "notation": "\"Which has more?\" two groups, tap one",
+      "answer": "choice",
+      "learnPicture": "two rows of bolts",
+      "kitUse": "",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "counting.1.numerals",
+      "strand": "counting",
+      "level": 1,
+      "name": "Read a number",
+      "notation": "\"Tap 7\" from 0 to 10",
+      "answer": "choice",
+      "learnPicture": "numerals with dots under them",
+      "kitUse": "",
+      "prereqs": []
+    },
+    {
+      "id": "counting.2.to-100",
+      "strand": "counting",
+      "level": 2,
+      "name": "Count to 100",
+      "notation": "\"How many?\" with bolts in rows of 10",
+      "answer": "whole",
+      "learnPicture": "rows of 10 bolts",
+      "kitUse": "bolts",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "counting.2.skip-2-5-10",
+      "strand": "counting",
+      "level": 2,
+      "name": "Skip count by 2, 5, 10",
+      "notation": "\"2, 4, 6, ?, 10\"",
+      "answer": "whole",
+      "learnPicture": "bolts in pairs, hands of 5, rows of 10",
+      "kitUse": "planks",
+      "prereqs": [
+        "counting.2.to-100"
+      ]
+    },
+    {
+      "id": "counting.2.place-value",
+      "strand": "counting",
+      "level": 2,
+      "name": "Tens and ones",
+      "notation": "\"47 = ? tens and ? ones\"",
+      "answer": "whole",
+      "learnPicture": "bundles of 10 planks and loose planks",
+      "kitUse": "",
+      "prereqs": [
+        "counting.2.to-100"
+      ]
+    },
+    {
+      "id": "counting.3.to-1000",
+      "strand": "counting",
+      "level": 3,
+      "name": "Numbers to 1000",
+      "notation": "\"Tap the bigger number: 348 or 384\"",
+      "answer": "choice",
+      "learnPicture": "hundreds squares, tens rods, ones",
+      "kitUse": "",
+      "prereqs": [
+        "counting.2.place-value"
+      ]
+    },
+    {
+      "id": "counting.3.round-10",
+      "strand": "counting",
+      "level": 3,
+      "name": "Round to the nearest 10",
+      "notation": "\"Round 47 to the nearest 10\"",
+      "answer": "whole",
+      "learnPicture": "tape measure with 40 and 50 marked",
+      "kitUse": "measuring the gap",
+      "prereqs": [
+        "counting.2.place-value"
+      ]
+    },
+    {
+      "id": "counting.4.round-100",
+      "strand": "counting",
+      "level": 4,
+      "name": "Round to the nearest 100 or 1000",
+      "notation": "\"Round 2,348 to the nearest 100\"",
+      "answer": "whole",
+      "learnPicture": "number line with 2300 and 2400",
+      "kitUse": "",
+      "prereqs": [
+        "counting.3.round-10"
+      ]
+    },
+    {
+      "id": "counting.4.even-odd",
+      "strand": "counting",
+      "level": 4,
+      "name": "Even and odd",
+      "notation": "\"Is 37 even or odd?\"",
+      "answer": "choice",
+      "learnPicture": "bolts paired up with one left over",
+      "kitUse": "",
+      "prereqs": [
+        "counting.2.skip-2-5-10"
+      ]
+    },
+    {
+      "id": "counting.5.factors",
+      "strand": "counting",
+      "level": 5,
+      "name": "Factors and multiples",
+      "notation": "\"List the factors of 12\" or \"Is 24 a multiple of 6?\"",
+      "answer": "choice",
+      "learnPicture": "12 bolts arranged as 1x12, 2x6, 3x4",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "counting.5.primes",
+      "strand": "counting",
+      "level": 5,
+      "name": "Prime or not",
+      "notation": "\"Is 17 prime?\"",
+      "answer": "choice",
+      "learnPicture": "bolts that only make one row",
+      "kitUse": "",
+      "prereqs": [
+        "counting.5.factors"
+      ]
+    },
+    {
+      "id": "counting.6.negatives",
+      "strand": "counting",
+      "level": 6,
+      "name": "Negative numbers on a line",
+      "notation": "\"Which is colder, -3 or -7?\"",
+      "answer": "choice",
+      "learnPicture": "thermometer and number line through zero",
+      "kitUse": "",
+      "prereqs": [
+        "counting.3.to-1000"
+      ]
+    },
+    {
+      "id": "counting.7.integers-add",
+      "strand": "counting",
+      "level": 7,
+      "name": "Add and subtract integers",
+      "notation": "\"-3 + 8 = ?\" and \"4 - 9 = ?\"",
+      "answer": "whole",
+      "learnPicture": "number line jumps left and right",
+      "kitUse": "",
+      "prereqs": [
+        "counting.6.negatives"
+      ]
+    },
+    {
+      "id": "counting.8.integers-multiply",
+      "strand": "counting",
+      "level": 8,
+      "name": "Multiply and divide integers",
+      "notation": "\"-3 x 4 = ?\" and \"-12 / -3 = ?\"",
+      "answer": "whole",
+      "learnPicture": "sign rule table",
+      "kitUse": "",
+      "prereqs": [
+        "counting.7.integers-add"
+      ]
+    },
+    {
+      "id": "counting.9.exponents",
+      "strand": "counting",
+      "level": 9,
+      "name": "Powers and roots",
+      "notation": "\"2^5 = ?\" and \"sqrt(81) = ?\"",
+      "answer": "whole",
+      "learnPicture": "squares of dots: 1, 4, 9, 16",
+      "kitUse": "brace at level 9",
+      "prereqs": [
+        "multiplying.5.multi-digit"
+      ]
+    },
+    {
+      "id": "counting.10.scientific",
+      "strand": "counting",
+      "level": 10,
+      "name": "Scientific notation",
+      "notation": "\"Write 4,500 as a x 10^n\"",
+      "answer": "expression",
+      "learnPicture": "place value sliding",
+      "kitUse": "",
+      "prereqs": [
+        "counting.9.exponents"
+      ]
+    },
+    {
+      "id": "adding.1.to-5",
+      "strand": "adding",
+      "level": 1,
+      "name": "Add within 5",
+      "notation": "\"2 + 3 = ?\"",
+      "answer": "whole",
+      "learnPicture": "two groups of bolts pushed together",
+      "kitUse": "",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "adding.1.take-away-5",
+      "strand": "adding",
+      "level": 1,
+      "name": "Take away within 5",
+      "notation": "\"5 - 2 = ?\"",
+      "answer": "whole",
+      "learnPicture": "bolts, some crossed out",
+      "kitUse": "",
+      "prereqs": [
+        "adding.1.to-5"
+      ]
+    },
+    {
+      "id": "adding.2.to-20",
+      "strand": "adding",
+      "level": 2,
+      "name": "Add within 20",
+      "notation": "\"8 + 7 = ?\"",
+      "answer": "whole",
+      "learnPicture": "make a ten: 8 + 2, then 5 more",
+      "kitUse": "top beam word problem (posts at 2 and 6)",
+      "prereqs": [
+        "adding.1.to-5"
+      ]
+    },
+    {
+      "id": "adding.2.subtract-20",
+      "strand": "adding",
+      "level": 2,
+      "name": "Subtract within 20",
+      "notation": "\"15 - 9 = ?\"",
+      "answer": "whole",
+      "learnPicture": "count back on the tape, or count up from 9",
+      "kitUse": "",
+      "prereqs": [
+        "adding.2.to-20"
+      ]
+    },
+    {
+      "id": "adding.2.missing",
+      "strand": "adding",
+      "level": 2,
+      "name": "Missing number",
+      "notation": "\"6 + ? = 13\"",
+      "answer": "whole",
+      "learnPicture": "balance scale with bolts",
+      "kitUse": "",
+      "prereqs": [
+        "adding.2.to-20"
+      ]
+    },
+    {
+      "id": "adding.3.to-100",
+      "strand": "adding",
+      "level": 3,
+      "name": "Add within 100",
+      "notation": "\"47 + 36 = ?\"",
+      "answer": "whole",
+      "learnPicture": "tens and ones added separately",
+      "kitUse": "",
+      "prereqs": [
+        "adding.2.to-20",
+        "counting.2.place-value"
+      ]
+    },
+    {
+      "id": "adding.3.subtract-100",
+      "strand": "adding",
+      "level": 3,
+      "name": "Subtract within 100",
+      "notation": "\"82 - 47 = ?\"",
+      "answer": "whole",
+      "learnPicture": "borrowing shown with a rod broken into ones",
+      "kitUse": "",
+      "prereqs": [
+        "adding.3.to-100"
+      ]
+    },
+    {
+      "id": "adding.3.three-numbers",
+      "strand": "adding",
+      "level": 3,
+      "name": "Add three numbers",
+      "notation": "\"4 + 9 + 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "pairs that make 10 found first",
+      "kitUse": "gussets plus bolts",
+      "prereqs": [
+        "adding.2.to-20"
+      ]
+    },
+    {
+      "id": "adding.4.to-1000",
+      "strand": "adding",
+      "level": 4,
+      "name": "Add and subtract within 1000",
+      "notation": "\"358 + 467 = ?\" and \"703 - 258 = ?\"",
+      "answer": "whole",
+      "learnPicture": "column addition with carries",
+      "kitUse": "",
+      "prereqs": [
+        "adding.3.to-100"
+      ]
+    },
+    {
+      "id": "adding.4.estimate",
+      "strand": "adding",
+      "level": 4,
+      "name": "Estimate a sum",
+      "notation": "\"About how much is 298 + 403?\"",
+      "answer": "choice",
+      "learnPicture": "rounding both first",
+      "kitUse": "",
+      "prereqs": [
+        "counting.3.round-10"
+      ]
+    },
+    {
+      "id": "adding.5.big-numbers",
+      "strand": "adding",
+      "level": 5,
+      "name": "Add and subtract to 1,000,000",
+      "notation": "\"48,275 + 9,648 = ?\"",
+      "answer": "whole",
+      "learnPicture": "column method",
+      "kitUse": "",
+      "prereqs": [
+        "adding.4.to-1000"
+      ]
+    },
+    {
+      "id": "adding.5.decimals-tenths",
+      "strand": "adding",
+      "level": 5,
+      "name": "Add tenths",
+      "notation": "\"3.4 + 2.8 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "tape measure in tenths",
+      "kitUse": "brace at level 9 uses it",
+      "prereqs": [
+        "fractions.5.decimals-tenths"
+      ]
+    },
+    {
+      "id": "adding.6.decimals",
+      "strand": "adding",
+      "level": 6,
+      "name": "Add and subtract decimals",
+      "notation": "\"12.75 - 3.9 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "line up the point",
+      "kitUse": "",
+      "prereqs": [
+        "adding.5.decimals-tenths"
+      ]
+    },
+    {
+      "id": "adding.6.fractions-like",
+      "strand": "adding",
+      "level": 6,
+      "name": "Add fractions, same denominator",
+      "notation": "\"3/8 + 2/8 = ?\"",
+      "answer": "fraction",
+      "learnPicture": "planks split in eighths",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.unit"
+      ]
+    },
+    {
+      "id": "adding.7.fractions-unlike",
+      "strand": "adding",
+      "level": 7,
+      "name": "Add fractions, different denominators",
+      "notation": "\"1/2 + 1/3 = ?\"",
+      "answer": "fraction",
+      "learnPicture": "two planks resplit into sixths",
+      "kitUse": "",
+      "prereqs": [
+        "adding.6.fractions-like",
+        "multiplying.5.lcm"
+      ]
+    },
+    {
+      "id": "adding.7.mixed",
+      "strand": "adding",
+      "level": 7,
+      "name": "Add mixed numbers",
+      "notation": "\"2 1/4 + 1 3/4 = ?\"",
+      "answer": "fraction or whole",
+      "learnPicture": "whole planks and parts",
+      "kitUse": "",
+      "prereqs": [
+        "adding.7.fractions-unlike"
+      ]
+    },
+    {
+      "id": "adding.8.integers-mixed",
+      "strand": "adding",
+      "level": 8,
+      "name": "Add positives and negatives with decimals",
+      "notation": "\"-2.5 + 6.75 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "number line",
+      "kitUse": "",
+      "prereqs": [
+        "counting.7.integers-add",
+        "adding.6.decimals"
+      ]
+    },
+    {
+      "id": "multiplying.3.equal-groups",
+      "strand": "multiplying",
+      "level": 3,
+      "name": "Equal groups as repeated adding",
+      "notation": "\"3 x 4 = ?\" with 3 rows of 4 shown",
+      "answer": "whole",
+      "learnPicture": "3 rows of 4 bolts",
+      "kitUse": "bolts: 2 per gusset",
+      "prereqs": [
+        "adding.2.to-20"
+      ]
+    },
+    {
+      "id": "multiplying.3.doubles",
+      "strand": "multiplying",
+      "level": 3,
+      "name": "Times 2",
+      "notation": "\"2 x 7 = ?\"",
+      "answer": "whole",
+      "learnPicture": "pairs",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.3.equal-groups"
+      ]
+    },
+    {
+      "id": "multiplying.4.tables-5",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "Times tables to 5",
+      "notation": "\"4 x 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows of bolts",
+      "kitUse": "bolts",
+      "prereqs": [
+        "multiplying.3.equal-groups"
+      ]
+    },
+    {
+      "id": "multiplying.4.tables-10",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "Times tables to 10",
+      "notation": "\"7 x 8 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows of bolts, the 10x10 grid",
+      "kitUse": "planks: 8 planks x 1 ft",
+      "prereqs": [
+        "multiplying.4.tables-5"
+      ]
+    },
+    {
+      "id": "multiplying.4.by-10-100",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "Multiply by 10 and 100",
+      "notation": "\"34 x 10 = ?\"",
+      "answer": "whole",
+      "learnPicture": "digits slide left",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "multiplying.5.two-by-one",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Two-digit by one-digit",
+      "notation": "\"47 x 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "40 x 6 and 7 x 6 added",
+      "kitUse": "beam weight: 12 lb per ft x length",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "multiplying.5.multi-digit",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Multi-digit",
+      "notation": "\"123 x 45 = ?\"",
+      "answer": "whole",
+      "learnPicture": "area model, four boxes",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.5.two-by-one"
+      ]
+    },
+    {
+      "id": "multiplying.5.lcm",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Least common multiple",
+      "notation": "\"LCM of 4 and 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "two skip count rows meeting",
+      "kitUse": "",
+      "prereqs": [
+        "counting.5.factors"
+      ]
+    },
+    {
+      "id": "multiplying.6.decimals",
+      "strand": "multiplying",
+      "level": 6,
+      "name": "Multiply decimals",
+      "notation": "\"2.5 x 4 = ?\" and \"1.2 x 0.3 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "area model with tenths",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.5.two-by-one",
+        "fractions.5.decimals-tenths"
+      ]
+    },
+    {
+      "id": "multiplying.6.fractions",
+      "strand": "multiplying",
+      "level": 6,
+      "name": "Multiply fractions",
+      "notation": "\"2/3 x 3/4 = ?\"",
+      "answer": "fraction",
+      "learnPicture": "a plank cut two ways",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.unit"
+      ]
+    },
+    {
+      "id": "multiplying.7.mixed",
+      "strand": "multiplying",
+      "level": 7,
+      "name": "Multiply mixed numbers and fractions by wholes",
+      "notation": "\"1 1/2 x 4 = ?\"",
+      "answer": "whole or fraction",
+      "learnPicture": "whole planks and halves",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.6.fractions"
+      ]
+    },
+    {
+      "id": "multiplying.8.integers",
+      "strand": "multiplying",
+      "level": 8,
+      "name": "Multiply integers and decimals with signs",
+      "notation": "\"-1.5 x 4 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "sign rule",
+      "kitUse": "",
+      "prereqs": [
+        "counting.8.integers-multiply"
+      ]
+    },
+    {
+      "id": "multiplying.9.exponent-rules",
+      "strand": "multiplying",
+      "level": 9,
+      "name": "Exponent rules",
+      "notation": "\"2^3 x 2^4 = 2^?\"",
+      "answer": "whole",
+      "learnPicture": "stacks of 2s",
+      "kitUse": "",
+      "prereqs": [
+        "counting.9.exponents"
+      ]
+    },
+    {
+      "id": "dividing.3.share",
+      "strand": "dividing",
+      "level": 3,
+      "name": "Share equally",
+      "notation": "\"8 / 2 = ?\" with 8 bolts in 2 rows",
+      "answer": "whole",
+      "learnPicture": "bolts dealt into rows",
+      "kitUse": "bottom beams: 8 ft / 2",
+      "prereqs": [
+        "multiplying.3.equal-groups"
+      ]
+    },
+    {
+      "id": "dividing.4.facts-5",
+      "strand": "dividing",
+      "level": 4,
+      "name": "Division facts to 5",
+      "notation": "\"20 / 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows of bolts, count a row",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.4.tables-5"
+      ]
+    },
+    {
+      "id": "dividing.4.facts-10",
+      "strand": "dividing",
+      "level": 4,
+      "name": "Division facts to 10",
+      "notation": "\"56 / 8 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows of bolts",
+      "kitUse": "bottom beams, planks: 8 ft / 8",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "dividing.4.fact-families",
+      "strand": "dividing",
+      "level": 4,
+      "name": "Fact families",
+      "notation": "\"7 x 6 = 42, so 42 / 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "the same rows read both ways",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.4.facts-10"
+      ]
+    },
+    {
+      "id": "dividing.5.remainders",
+      "strand": "dividing",
+      "level": 5,
+      "name": "Division with remainders",
+      "notation": "\"47 / 5 = ? r ?\"",
+      "answer": "whole, remainder",
+      "learnPicture": "rows of bolts with leftovers",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.4.facts-10"
+      ]
+    },
+    {
+      "id": "dividing.5.by-10-100",
+      "strand": "dividing",
+      "level": 5,
+      "name": "Divide by 10 and 100",
+      "notation": "\"340 / 10 = ?\"",
+      "answer": "whole",
+      "learnPicture": "digits slide right",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.4.by-10-100"
+      ]
+    },
+    {
+      "id": "dividing.6.long",
+      "strand": "dividing",
+      "level": 6,
+      "name": "Long division",
+      "notation": "\"936 / 4 = ?\"",
+      "answer": "whole",
+      "learnPicture": "the four steps, one at a time",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.5.remainders"
+      ]
+    },
+    {
+      "id": "dividing.6.decimals",
+      "strand": "dividing",
+      "level": 6,
+      "name": "Divide to a decimal",
+      "notation": "\"7 / 2 = ?\" and \"4.8 / 4 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "tape measure in tenths",
+      "kitUse": "brace at level 9: 5.66 / 2",
+      "prereqs": [
+        "dividing.6.long",
+        "fractions.5.decimals-tenths"
+      ]
+    },
+    {
+      "id": "dividing.7.fractions",
+      "strand": "dividing",
+      "level": 7,
+      "name": "Divide by a fraction",
+      "notation": "\"3 / (1/2) = ?\" and \"2/3 / 4 = ?\"",
+      "answer": "whole or fraction",
+      "learnPicture": "how many halves fit in 3 planks",
+      "kitUse": "",
+      "prereqs": [
+        "multiplying.6.fractions"
+      ]
+    },
+    {
+      "id": "dividing.7.gcf",
+      "strand": "dividing",
+      "level": 7,
+      "name": "Greatest common factor",
+      "notation": "\"GCF of 24 and 36 = ?\"",
+      "answer": "whole",
+      "learnPicture": "factor rows",
+      "kitUse": "",
+      "prereqs": [
+        "counting.5.factors"
+      ]
+    },
+    {
+      "id": "dividing.8.integers",
+      "strand": "dividing",
+      "level": 8,
+      "name": "Divide integers and decimals with signs",
+      "notation": "\"-15 / 2.5 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "sign rule",
+      "kitUse": "",
+      "prereqs": [
+        "counting.8.integers-multiply"
+      ]
+    },
+    {
+      "id": "fractions.2.halves",
+      "strand": "fractions",
+      "level": 2,
+      "name": "Halves and quarters",
+      "notation": "\"Tap the plank cut in half\"",
+      "answer": "choice",
+      "learnPicture": "planks cut in 2 and 4",
+      "kitUse": "",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "fractions.3.name",
+      "strand": "fractions",
+      "level": 3,
+      "name": "Name a fraction",
+      "notation": "\"What part is colored?\"",
+      "answer": "fraction",
+      "learnPicture": "plank in thirds, 2 colored",
+      "kitUse": "planks: 3 of 8 laid",
+      "prereqs": [
+        "fractions.2.halves"
+      ]
+    },
+    {
+      "id": "fractions.4.unit",
+      "strand": "fractions",
+      "level": 4,
+      "name": "Unit fractions on a line",
+      "notation": "\"Where is 1/4 on the tape?\"",
+      "answer": "choice",
+      "learnPicture": "tape measure split in 4",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.3.name"
+      ]
+    },
+    {
+      "id": "fractions.4.equivalent",
+      "strand": "fractions",
+      "level": 4,
+      "name": "Equivalent fractions",
+      "notation": "\"2/4 = ?/8\"",
+      "answer": "whole",
+      "learnPicture": "one plank, two cuts",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.unit"
+      ]
+    },
+    {
+      "id": "fractions.4.compare",
+      "strand": "fractions",
+      "level": 4,
+      "name": "Compare fractions",
+      "notation": "\"Which is bigger, 2/3 or 3/5?\"",
+      "answer": "choice",
+      "learnPicture": "two planks side by side",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.equivalent"
+      ]
+    },
+    {
+      "id": "fractions.5.of-a-number",
+      "strand": "fractions",
+      "level": 5,
+      "name": "Fraction of a number",
+      "notation": "\"3/4 of 12 = ?\"",
+      "answer": "whole",
+      "learnPicture": "12 planks, 9 colored",
+      "kitUse": "planks laid",
+      "prereqs": [
+        "dividing.4.facts-10"
+      ]
+    },
+    {
+      "id": "fractions.5.decimals-tenths",
+      "strand": "fractions",
+      "level": 5,
+      "name": "Tenths and hundredths as decimals",
+      "notation": "\"3/10 = 0.?\"",
+      "answer": "decimal",
+      "learnPicture": "tape measure in tenths",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.unit"
+      ]
+    },
+    {
+      "id": "fractions.5.simplify",
+      "strand": "fractions",
+      "level": 5,
+      "name": "Simplify a fraction",
+      "notation": "\"6/8 = ?\"",
+      "answer": "fraction",
+      "learnPicture": "regroup the cuts",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.7.gcf or counting.5.factors"
+      ]
+    },
+    {
+      "id": "fractions.6.to-decimal",
+      "strand": "fractions",
+      "level": 6,
+      "name": "Fraction to decimal",
+      "notation": "\"3/4 = 0.?\"",
+      "answer": "decimal",
+      "learnPicture": "3/4 of a tape in hundredths",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.6.decimals"
+      ]
+    },
+    {
+      "id": "fractions.6.improper",
+      "strand": "fractions",
+      "level": 6,
+      "name": "Improper and mixed",
+      "notation": "\"7/4 = 1 ?/4\"",
+      "answer": "fraction",
+      "learnPicture": "one whole plank and 3 quarters",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.4.unit"
+      ]
+    },
+    {
+      "id": "fractions.7.decimal-compare",
+      "strand": "fractions",
+      "level": 7,
+      "name": "Order decimals and fractions",
+      "notation": "\"Order 0.6, 2/3, 0.65\"",
+      "answer": "choice",
+      "learnPicture": "all on one tape",
+      "kitUse": "",
+      "prereqs": [
+        "fractions.6.to-decimal"
+      ]
+    },
+    {
+      "id": "fractions.8.repeating",
+      "strand": "fractions",
+      "level": 8,
+      "name": "Repeating decimals",
+      "notation": "\"1/3 = 0.?\"",
+      "answer": "decimal",
+      "learnPicture": "long division that never ends",
+      "kitUse": "",
+      "prereqs": [
+        "dividing.6.decimals"
+      ]
+    },
+    {
+      "id": "ratios.6.write",
+      "strand": "ratios",
+      "level": 6,
+      "name": "Write a ratio",
+      "notation": "\"3 bolts for every 2 planks: 3:2. 9 bolts, how many planks?\"",
+      "answer": "whole",
+      "learnPicture": "rows of bolts and planks",
+      "kitUse": "bolts per gusset",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "ratios.6.unit-rate",
+      "strand": "ratios",
+      "level": 6,
+      "name": "Unit rate",
+      "notation": "\"12 lb for 4 ft, how many lb per ft?\"",
+      "answer": "whole",
+      "learnPicture": "beam split in 4",
+      "kitUse": "beam weight per ft",
+      "prereqs": [
+        "dividing.4.facts-10"
+      ]
+    },
+    {
+      "id": "ratios.7.percent",
+      "strand": "ratios",
+      "level": 7,
+      "name": "Percent of a number",
+      "notation": "\"25% of 80 = ?\"",
+      "answer": "whole",
+      "learnPicture": "100 bolts, 25 colored",
+      "kitUse": "load meter: 40 lb of 180",
+      "prereqs": [
+        "fractions.5.of-a-number"
+      ]
+    },
+    {
+      "id": "ratios.7.scale",
+      "strand": "ratios",
+      "level": 7,
+      "name": "Scale drawings",
+      "notation": "\"1 cm on the plan = 2 ft. 4 cm = ? ft\"",
+      "answer": "whole",
+      "learnPicture": "blueprint next to bridge",
+      "kitUse": "blueprint",
+      "prereqs": [
+        "ratios.6.unit-rate"
+      ]
+    },
+    {
+      "id": "ratios.7.proportion",
+      "strand": "ratios",
+      "level": 7,
+      "name": "Solve a proportion",
+      "notation": "\"3/4 = x/12\"",
+      "answer": "whole",
+      "learnPicture": "two equal plank splits",
+      "kitUse": "teeter totter counterweights",
+      "prereqs": [
+        "fractions.4.equivalent"
+      ]
+    },
+    {
+      "id": "ratios.8.percent-change",
+      "strand": "ratios",
+      "level": 8,
+      "name": "Percent increase and decrease",
+      "notation": "\"80 lb up 25% = ?\"",
+      "answer": "whole",
+      "learnPicture": "load meter growing",
+      "kitUse": "heavy goat: 40 lb to 80 lb",
+      "prereqs": [
+        "ratios.7.percent"
+      ]
+    },
+    {
+      "id": "ratios.8.rates",
+      "strand": "ratios",
+      "level": 8,
+      "name": "Speed, distance, time",
+      "notation": "\"1 ft per second for 8 ft = ? s\"",
+      "answer": "whole",
+      "learnPicture": "goat on the tape with a clock",
+      "kitUse": "goat crossing time",
+      "prereqs": [
+        "ratios.6.unit-rate"
+      ]
+    },
+    {
+      "id": "ratios.9.slope",
+      "strand": "ratios",
+      "level": 9,
+      "name": "Slope as rise over run",
+      "notation": "\"Rise 3, run 12, slope = ?\"",
+      "answer": "fraction or decimal",
+      "learnPicture": "ramp drawn on a grid",
+      "kitUse": "mountain ramp",
+      "prereqs": [
+        "ratios.7.proportion"
+      ]
+    },
+    {
+      "id": "ratios.10.similar",
+      "strand": "ratios",
+      "level": 10,
+      "name": "Similar triangles",
+      "notation": "\"Triangles are similar, 3:4 and 6:?\"",
+      "answer": "whole",
+      "learnPicture": "two braces, small and large",
+      "kitUse": "",
+      "prereqs": [
+        "ratios.7.proportion",
+        "geometry.8.triangles"
+      ]
+    },
+    {
+      "id": "measuring.1.longer",
+      "strand": "measuring",
+      "level": 1,
+      "name": "Longer or shorter",
+      "notation": "\"Which beam is longer?\"",
+      "answer": "choice",
+      "learnPicture": "two beams",
+      "kitUse": "pre-cut pieces",
+      "prereqs": []
+    },
+    {
+      "id": "measuring.2.units",
+      "strand": "measuring",
+      "level": 2,
+      "name": "Measure with a tape",
+      "notation": "\"How long is the beam?\" with the tape under it",
+      "answer": "whole",
+      "learnPicture": "tape measure, whole units",
+      "kitUse": "every length in Assemble",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "measuring.2.gap",
+      "strand": "measuring",
+      "level": 2,
+      "name": "Length between two marks",
+      "notation": "\"Posts at 2 and 6. How far apart?\"",
+      "answer": "whole",
+      "learnPicture": "two posts on the tape",
+      "kitUse": "top beam",
+      "prereqs": [
+        "adding.2.subtract-20"
+      ]
+    },
+    {
+      "id": "measuring.3.perimeter",
+      "strand": "measuring",
+      "level": 3,
+      "name": "Perimeter",
+      "notation": "\"Sides 3, 4, 3, 4. Perimeter = ?\"",
+      "answer": "whole",
+      "learnPicture": "railing around a deck",
+      "kitUse": "railing: both sides of 8 ft",
+      "prereqs": [
+        "adding.3.three-numbers"
+      ]
+    },
+    {
+      "id": "measuring.3.weight",
+      "strand": "measuring",
+      "level": 3,
+      "name": "Weight in lb or kg",
+      "notation": "\"Which is heavier?\" and \"40 lb + 40 lb = ?\"",
+      "answer": "whole",
+      "learnPicture": "goat on a scale",
+      "kitUse": "load meter",
+      "prereqs": [
+        "adding.3.to-100"
+      ]
+    },
+    {
+      "id": "measuring.4.area",
+      "strand": "measuring",
+      "level": 4,
+      "name": "Area of a rectangle",
+      "notation": "\"4 by 6 = ? square ft\"",
+      "answer": "whole",
+      "learnPicture": "planks laid in a grid",
+      "kitUse": "deck area",
+      "prereqs": [
+        "multiplying.4.tables-10"
+      ]
+    },
+    {
+      "id": "measuring.4.convert",
+      "strand": "measuring",
+      "level": 4,
+      "name": "Convert units",
+      "notation": "\"3 ft = ? in\" or \"2 m = ? cm\"",
+      "answer": "whole",
+      "learnPicture": "tape with both scales",
+      "kitUse": "US and metric toggle",
+      "prereqs": [
+        "multiplying.4.by-10-100"
+      ]
+    },
+    {
+      "id": "measuring.5.decimal-length",
+      "strand": "measuring",
+      "level": 5,
+      "name": "Lengths to a tenth",
+      "notation": "\"2.8 ft on the tape\"",
+      "answer": "decimal",
+      "learnPicture": "tape in tenths",
+      "kitUse": "brace 2.83",
+      "prereqs": [
+        "fractions.5.decimals-tenths"
+      ]
+    },
+    {
+      "id": "measuring.5.time",
+      "strand": "measuring",
+      "level": 5,
+      "name": "Elapsed time",
+      "notation": "\"Started at 2:45, took 35 min, ends at ?\"",
+      "answer": "choice",
+      "learnPicture": "clock",
+      "kitUse": "",
+      "prereqs": [
+        "adding.3.to-100"
+      ]
+    },
+    {
+      "id": "measuring.6.volume",
+      "strand": "measuring",
+      "level": 6,
+      "name": "Volume of a box",
+      "notation": "\"3 x 4 x 2 = ? cubic ft\"",
+      "answer": "whole",
+      "learnPicture": "stacked bricks",
+      "kitUse": "abutments",
+      "prereqs": [
+        "measuring.4.area"
+      ]
+    },
+    {
+      "id": "measuring.6.angles",
+      "strand": "measuring",
+      "level": 6,
+      "name": "Measure an angle",
+      "notation": "\"What angle is the brace?\"",
+      "answer": "choice",
+      "learnPicture": "protractor on the truss",
+      "kitUse": "braces",
+      "prereqs": [
+        "geometry.4.angles-names"
+      ]
+    },
+    {
+      "id": "measuring.7.circles",
+      "strand": "measuring",
+      "level": 7,
+      "name": "Circumference and area of a circle",
+      "notation": "\"Radius 2, circumference = ?\"",
+      "answer": "decimal",
+      "learnPicture": "a wheel rolled out on the tape",
+      "kitUse": "bicycle, gears",
+      "prereqs": [
+        "multiplying.6.decimals"
+      ]
+    },
+    {
+      "id": "measuring.8.compound",
+      "strand": "measuring",
+      "level": 8,
+      "name": "Area of compound shapes",
+      "notation": "\"L shape made of two rectangles\"",
+      "answer": "whole",
+      "learnPicture": "deck plus landing",
+      "kitUse": "",
+      "prereqs": [
+        "measuring.4.area"
+      ]
+    },
+    {
+      "id": "geometry.1.shapes",
+      "strand": "geometry",
+      "level": 1,
+      "name": "Name a shape",
+      "notation": "\"Tap the triangle\"",
+      "answer": "choice",
+      "learnPicture": "shapes made of beams",
+      "kitUse": "",
+      "prereqs": []
+    },
+    {
+      "id": "geometry.2.sides",
+      "strand": "geometry",
+      "level": 2,
+      "name": "Count sides and corners",
+      "notation": "\"How many corners?\"",
+      "answer": "whole",
+      "learnPicture": "a gusset plate, a truss panel",
+      "kitUse": "gussets at corners",
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "geometry.3.triangles-count",
+      "strand": "geometry",
+      "level": 3,
+      "name": "Count the triangles",
+      "notation": "\"How many triangles in the truss?\"",
+      "answer": "whole",
+      "learnPicture": "the truss",
+      "kitUse": "brace at level 3",
+      "prereqs": [
+        "geometry.1.shapes"
+      ]
+    },
+    {
+      "id": "geometry.4.angles-names",
+      "strand": "geometry",
+      "level": 4,
+      "name": "Right, acute, obtuse",
+      "notation": "\"Is this angle right, acute or obtuse?\"",
+      "answer": "choice",
+      "learnPicture": "brace against post",
+      "kitUse": "brace",
+      "prereqs": [
+        "geometry.2.sides"
+      ]
+    },
+    {
+      "id": "geometry.4.symmetry",
+      "strand": "geometry",
+      "level": 4,
+      "name": "Lines of symmetry",
+      "notation": "\"Tap the line of symmetry\"",
+      "answer": "choice",
+      "learnPicture": "the truss, folded",
+      "kitUse": "",
+      "prereqs": [
+        "geometry.1.shapes"
+      ]
+    },
+    {
+      "id": "geometry.5.longest-side",
+      "strand": "geometry",
+      "level": 5,
+      "name": "Longest side of a right triangle",
+      "notation": "\"Which is longer, the brace or the post?\"",
+      "answer": "choice",
+      "learnPicture": "brace, post, beam as a triangle",
+      "kitUse": "brace at level 5",
+      "prereqs": [
+        "geometry.4.angles-names"
+      ]
+    },
+    {
+      "id": "geometry.6.angle-sum",
+      "strand": "geometry",
+      "level": 6,
+      "name": "Angles in a triangle add to 180",
+      "notation": "\"Two angles are 90 and 45. The third = ?\"",
+      "answer": "whole",
+      "learnPicture": "the brace triangle",
+      "kitUse": "brace at level 6",
+      "prereqs": [
+        "measuring.6.angles"
+      ]
+    },
+    {
+      "id": "geometry.7.coordinates",
+      "strand": "geometry",
+      "level": 7,
+      "name": "Points on a grid",
+      "notation": "\"Which point is (3, 2)?\"",
+      "answer": "choice",
+      "learnPicture": "truss nodes on a grid",
+      "kitUse": "blueprint nodes",
+      "prereqs": [
+        "counting.6.negatives"
+      ]
+    },
+    {
+      "id": "geometry.8.triangles",
+      "strand": "geometry",
+      "level": 8,
+      "name": "Triangle types and congruence",
+      "notation": "\"Are these two braces the same triangle?\"",
+      "answer": "choice",
+      "learnPicture": "two braces mirrored",
+      "kitUse": "braces",
+      "prereqs": [
+        "geometry.6.angle-sum"
+      ]
+    },
+    {
+      "id": "geometry.9.pythagoras",
+      "strand": "geometry",
+      "level": 9,
+      "name": "Pythagoras",
+      "notation": "\"Legs 3 and 4. Hypotenuse = ?\"",
+      "answer": "decimal (1 place) or whole",
+      "learnPicture": "real squares drawn on each leg",
+      "kitUse": "brace at level 9: sqrt(2^2 + 2^2)",
+      "prereqs": [
+        "counting.9.exponents"
+      ]
+    },
+    {
+      "id": "geometry.9.distance",
+      "strand": "geometry",
+      "level": 9,
+      "name": "Distance between two points",
+      "notation": "\"(0,0) to (6,8) = ?\"",
+      "answer": "whole or decimal",
+      "learnPicture": "triangle under the line",
+      "kitUse": "",
+      "prereqs": [
+        "geometry.9.pythagoras",
+        "geometry.7.coordinates"
+      ]
+    },
+    {
+      "id": "geometry.10.area-triangle",
+      "strand": "geometry",
+      "level": 10,
+      "name": "Area of a triangle and trapezoid",
+      "notation": "\"Base 8, height 2, area = ?\"",
+      "answer": "whole",
+      "learnPicture": "truss panel",
+      "kitUse": "truss panel",
+      "prereqs": [
+        "measuring.4.area"
+      ]
+    },
+    {
+      "id": "geometry.11.trig-ratios",
+      "strand": "geometry",
+      "level": 11,
+      "name": "Sine, cosine, tangent",
+      "notation": "\"tan(45) = ?\" and \"The brace makes 45 degrees with a 2 ft run. Rise = ?\"",
+      "answer": "decimal",
+      "learnPicture": "brace triangle with the angle marked",
+      "kitUse": "brace at level 11",
+      "prereqs": [
+        "geometry.9.pythagoras"
+      ]
+    },
+    {
+      "id": "geometry.11.proofs",
+      "strand": "geometry",
+      "level": 11,
+      "name": "Why it holds",
+      "notation": "\"Which fact proves the braces are equal?\"",
+      "answer": "choice",
+      "learnPicture": "two triangles with marks",
+      "kitUse": "",
+      "prereqs": [
+        "geometry.8.triangles"
+      ]
+    },
+    {
+      "id": "geometry.12.circles",
+      "strand": "geometry",
+      "level": 12,
+      "name": "Arcs and sectors",
+      "notation": "\"Angle 90 of radius 4, arc length = ?\"",
+      "answer": "decimal",
+      "learnPicture": "gear tooth arc",
+      "kitUse": "gears",
+      "prereqs": [
+        "measuring.7.circles"
+      ]
+    },
+    {
+      "id": "geometry.13.vectors",
+      "strand": "geometry",
+      "level": 13,
+      "name": "Forces as vectors",
+      "notation": "\"Push 30 at 45 degrees, horizontal part = ?\"",
+      "answer": "decimal",
+      "learnPicture": "force arrows on the truss",
+      "kitUse": "who is working hardest",
+      "prereqs": [
+        "geometry.11.trig-ratios"
+      ]
+    },
+    {
+      "id": "algebra.6.unknown",
+      "strand": "algebra",
+      "level": 6,
+      "name": "A letter for a number",
+      "notation": "\"x + 5 = 12, x = ?\"",
+      "answer": "whole",
+      "learnPicture": "balance scale with bolts",
+      "kitUse": "top beam as x",
+      "prereqs": [
+        "adding.2.missing"
+      ]
+    },
+    {
+      "id": "algebra.6.patterns",
+      "strand": "algebra",
+      "level": 6,
+      "name": "Continue a pattern",
+      "notation": "\"3, 7, 11, 15, ?\"",
+      "answer": "whole",
+      "learnPicture": "planks laid in a growing pattern",
+      "kitUse": "",
+      "prereqs": [
+        "counting.2.skip-2-5-10"
+      ]
+    },
+    {
+      "id": "algebra.7.one-step",
+      "strand": "algebra",
+      "level": 7,
+      "name": "One-step equations",
+      "notation": "\"4x = 28\" and \"x - 9 = 15\"",
+      "answer": "whole",
+      "learnPicture": "balance, same move on both sides",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.6.unknown"
+      ]
+    },
+    {
+      "id": "algebra.7.expressions",
+      "strand": "algebra",
+      "level": 7,
+      "name": "Evaluate an expression",
+      "notation": "\"2x + 3 when x = 5\"",
+      "answer": "whole",
+      "learnPicture": "substitute the bolt count",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.6.unknown"
+      ]
+    },
+    {
+      "id": "algebra.8.two-step",
+      "strand": "algebra",
+      "level": 8,
+      "name": "Two-step equations",
+      "notation": "\"2x + 3 = 11, x = ?\"",
+      "answer": "whole",
+      "learnPicture": "balance in two moves",
+      "kitUse": "brace length as x",
+      "prereqs": [
+        "algebra.7.one-step"
+      ]
+    },
+    {
+      "id": "algebra.8.inequalities",
+      "strand": "algebra",
+      "level": 8,
+      "name": "Inequalities",
+      "notation": "\"Which x make 3x < 12?\"",
+      "answer": "choice",
+      "learnPicture": "number line shaded",
+      "kitUse": "load limit: 40x < 180",
+      "prereqs": [
+        "algebra.7.one-step"
+      ]
+    },
+    {
+      "id": "algebra.9.linear",
+      "strand": "algebra",
+      "level": 9,
+      "name": "y = mx + b",
+      "notation": "\"y = 2x + 1. When x = 4, y = ?\"",
+      "answer": "whole",
+      "learnPicture": "ramp line on a grid",
+      "kitUse": "ramp",
+      "prereqs": [
+        "algebra.7.expressions",
+        "ratios.9.slope"
+      ]
+    },
+    {
+      "id": "algebra.9.graph-line",
+      "strand": "algebra",
+      "level": 9,
+      "name": "Read a line from a graph",
+      "notation": "\"What is the slope of this line?\"",
+      "answer": "fraction or decimal",
+      "learnPicture": "grid with the ramp",
+      "kitUse": "ramp",
+      "prereqs": [
+        "algebra.9.linear"
+      ]
+    },
+    {
+      "id": "algebra.10.systems",
+      "strand": "algebra",
+      "level": 10,
+      "name": "Two equations, two unknowns",
+      "notation": "\"x + y = 10, x - y = 2\"",
+      "answer": "whole pair",
+      "learnPicture": "two lines crossing",
+      "kitUse": "teeter totter: two weights",
+      "prereqs": [
+        "algebra.9.linear"
+      ]
+    },
+    {
+      "id": "algebra.10.distribute",
+      "strand": "algebra",
+      "level": 10,
+      "name": "Distribute and factor",
+      "notation": "\"3(x + 4) = ?\" and \"6x + 9 = 3(?)\"",
+      "answer": "expression",
+      "learnPicture": "area model",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.8.two-step"
+      ]
+    },
+    {
+      "id": "algebra.11.quadratics",
+      "strand": "algebra",
+      "level": 11,
+      "name": "Quadratics",
+      "notation": "\"x^2 - 5x + 6 = 0, x = ?\"",
+      "answer": "whole pair",
+      "learnPicture": "parabola, the catapult arc",
+      "kitUse": "catapult",
+      "prereqs": [
+        "algebra.10.distribute",
+        "counting.9.exponents"
+      ]
+    },
+    {
+      "id": "algebra.11.functions",
+      "strand": "algebra",
+      "level": 11,
+      "name": "Function notation",
+      "notation": "\"f(x) = x^2 + 1, f(3) = ?\"",
+      "answer": "whole",
+      "learnPicture": "input and output machine",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.7.expressions"
+      ]
+    },
+    {
+      "id": "algebra.12.exponential",
+      "strand": "algebra",
+      "level": 12,
+      "name": "Exponential growth",
+      "notation": "\"Doubles every hour, 5 at start, after 4 hours = ?\"",
+      "answer": "whole",
+      "learnPicture": "doubling bolts",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.11.functions"
+      ]
+    },
+    {
+      "id": "algebra.12.rational",
+      "strand": "algebra",
+      "level": 12,
+      "name": "Rational expressions",
+      "notation": "\"Simplify (x^2 - 9)/(x - 3)\"",
+      "answer": "expression",
+      "learnPicture": "factor and cancel",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.10.distribute"
+      ]
+    },
+    {
+      "id": "algebra.13.trig-functions",
+      "strand": "algebra",
+      "level": 13,
+      "name": "Trig functions and radians",
+      "notation": "\"sin(pi/6) = ?\"",
+      "answer": "fraction or decimal",
+      "learnPicture": "unit circle as a wheel",
+      "kitUse": "bicycle crank",
+      "prereqs": [
+        "geometry.11.trig-ratios"
+      ]
+    },
+    {
+      "id": "algebra.13.sequences",
+      "strand": "algebra",
+      "level": 13,
+      "name": "Sequences and sums",
+      "notation": "\"Sum of 1 to 100 = ?\"",
+      "answer": "whole",
+      "learnPicture": "planks stacked in a staircase",
+      "kitUse": "",
+      "prereqs": [
+        "algebra.6.patterns"
+      ]
+    }
+  ],
+  "pieces": [
+    {
+      "piece": "Bottom beams",
+      "strand": "dividing",
+      "questions": "share equally (3), facts (4), decimals (6), x in an equation (8)"
+    },
+    {
+      "piece": "Posts",
+      "strand": "measuring",
+      "questions": "measure with the tape (2), convert units (4), decimal length (5)"
+    },
+    {
+      "piece": "Top beam",
+      "strand": "adding",
+      "questions": "difference of two marks (2), to 100 (3), decimals (6), x (6 and up)"
+    },
+    {
+      "piece": "Braces",
+      "strand": "geometry",
+      "questions": "count triangles (3), angle names (4), longest side (5), angle sum (6), Pythagoras (9), trig (11)"
+    },
+    {
+      "piece": "Gussets",
+      "strand": "counting",
+      "questions": "count to 10 (1), corners (2), factors (5)"
+    },
+    {
+      "piece": "Bolts",
+      "strand": "multiplying",
+      "questions": "equal groups (3), tables (4), two-digit (5), ratio (6)"
+    },
+    {
+      "piece": "Planks",
+      "strand": "fractions",
+      "questions": "halves (2), name (3), fraction of a number (5), area of the deck (measuring 4)"
+    },
+    {
+      "piece": "Railing",
+      "strand": "measuring",
+      "questions": "perimeter (3), compound area (8)"
+    },
+    {
+      "piece": "Heavy goat",
+      "strand": "ratios",
+      "questions": "percent (7), percent change (8), inequality (algebra 8)"
+    }
+  ]
+}

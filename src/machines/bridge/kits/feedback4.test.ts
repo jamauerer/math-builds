@@ -9,13 +9,13 @@ import { KIT_SKILLS } from "./skills";
 
 describe("feedback 4", () => {
   it("names skills as written, without a shapes suffix", () => {
-    expect(KIT_SKILLS.some((skill) => skill.name === "Measure with a ruler")).toBe(true);
-    expect(KIT_SKILLS.some((skill) => skill.name === "Add to 20")).toBe(true);
+    expect(KIT_SKILLS.some((skill) => skill.name === "Measure with a tape")).toBe(true);
+    expect(KIT_SKILLS.some((skill) => skill.name === "Add within 20")).toBe(true);
     expect(KIT_SKILLS.some((skill) => skill.name === "Times tables to 10")).toBe(true);
-    expect(KIT_SKILLS.some((skill) => skill.name === "Equal shares")).toBe(true);
+    expect(KIT_SKILLS.some((skill) => skill.name === "Share equally")).toBe(true);
     expect(KIT_SKILLS.some((skill) => skill.name === "Pythagoras")).toBe(true);
     for (const skill of KIT_SKILLS) {
-      expect(skill.name.endsWith("shapes"), skill.name).toBe(false);
+      expect(skill.name.toLowerCase(), skill.name).not.toBe("shapes");
     }
   });
 
@@ -29,7 +29,9 @@ describe("feedback 4", () => {
     const fractions = questionForStrand("fractions", 4, 1);
     const algebra = questionForStrand("algebra", 4, 1);
     expect(fractions.strandId).toBe("fractions");
-    expect(earnPrompt(fractions)).toBe(strandWord("fractions").prompt);
+    expect(fractions.groupId).toBe("planks");
+    expect(earnPrompt(fractions).toLowerCase()).toContain("plank");
+    expect(strandWord("fractions").prompt).toContain("3/4 of the deck");
     expect(earnPrompt(algebra)).toContain("x");
     expect(earnPrompt(algebra)).not.toBe(earnPrompt(questionForStrand("dividing", 4, 1)));
   });

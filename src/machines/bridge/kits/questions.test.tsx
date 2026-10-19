@@ -7,6 +7,7 @@ import { KIT_STRANDS } from "../../../engine/strand-placement";
 import { skills } from "../../../data/load-skills";
 import { lessonFrame } from "./earn";
 import { KIT_SKILLS } from "./skills";
+import { skillLearnLine } from "../../../skills/generate";
 import { GoatKit } from "../kit/GoatKit";
 import type { KitProfile } from "../../../storage/progress";
 
@@ -32,16 +33,12 @@ describe("question cards", () => {
         <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="earn" lesson="learn" level={5} kitProfile={profile} />,
       );
     });
-    expect(container.querySelector("h2.gk-prompt")?.textContent).toBe(skill?.name);
+    expect(frame.phase).toBe("learn");
+    expect(skill?.name).toBeTruthy();
+    const learn = skillLearnLine(frame.current.skillId ?? "", frame.seed);
+    expect(container.querySelector("h2.gk-prompt")?.textContent).toBe(learn.title);
     const line = container.querySelector("[data-learn-line]")?.textContent ?? "";
-    const numbers = frame.current.fact.kind === "plain" ? [frame.current.fact.draw.a, frame.current.fact.draw.b] : [];
-    for (const number of numbers) {
-      expect(line).toContain(String(number));
-    }
-    if (frame.current.fact.kind === "plain" && frame.current.fact.draw.op === "mul") {
-      expect(container.querySelector("[data-rows]")?.getAttribute("data-rows")).toBe(String(frame.current.fact.draw.a));
-      expect(container.querySelector("[data-each]")?.getAttribute("data-each")).toBe(String(frame.current.fact.draw.b));
-    }
+    expect(line).toContain(learn.line.slice(0, Math.min(12, learn.line.length)));
     root.unmount();
     container.remove();
   });

@@ -25,7 +25,8 @@
       "sprite": "beam-side.png",
       "strand": "dividing",
       "blurb": "the bridge rests on these",
-      "lengthLabel": "4 m"
+      "lengthLabel": "4 m",
+      "questions": "share equally (3), facts (4), decimals (6), x in an equation (8)"
     },
     {
       "id": "posts",
@@ -34,7 +35,8 @@
       "sprite": "post.png",
       "strand": "measuring",
       "blurb": "hold the top beam up",
-      "lengthLabel": "2 m"
+      "lengthLabel": "2 m",
+      "questions": "measure with the tape (2), convert units (4), decimal length (5)"
     },
     {
       "id": "gussets",
@@ -43,7 +45,8 @@
       "sprite": "gusset-small.png",
       "strand": "counting",
       "blurb": "joins pieces at the corners",
-      "lengthLabel": ""
+      "lengthLabel": "",
+      "questions": "count to 10 (1), corners (2), factors (5)"
     },
     {
       "id": "top",
@@ -52,7 +55,8 @@
       "sprite": "beam-side.png",
       "strand": "adding",
       "blurb": "ties the two posts",
-      "lengthLabel": "4 m"
+      "lengthLabel": "4 m",
+      "questions": "difference of two marks (2), to 100 (3), decimals (6), x (6 and up)"
     },
     {
       "id": "braces",
@@ -61,7 +65,8 @@
       "sprite": "beam-half.png",
       "strand": "geometry",
       "blurb": "stop the posts folding",
-      "lengthLabel": "2.83 m"
+      "lengthLabel": "2.83 m",
+      "questions": "count triangles (3), angle names (4), longest side (5), angle sum (6), Pythagoras (9), trig (11)"
     },
     {
       "id": "bolts",
@@ -71,7 +76,8 @@
       "strand": "multiplying",
       "blurb": "two at every gusset",
       "lengthLabel": "",
-      "bonus": true
+      "bonus": true,
+      "questions": "equal groups (3), tables (4), two-digit (5), ratio (6)"
     },
     {
       "id": "railing",
@@ -81,16 +87,18 @@
       "strand": "measuring",
       "blurb": "both sides of the deck",
       "lengthLabel": "",
-      "bonus": true
+      "bonus": true,
+      "questions": "perimeter (3), compound area (8)"
     },
     {
       "id": "planks",
       "name": "Plank",
       "count": 8,
       "sprite": "plank-side.png",
-      "strand": "counting",
+      "strand": "fractions",
       "blurb": "the path the goat walks",
-      "lengthLabel": "1 m"
+      "lengthLabel": "1 m",
+      "questions": "halves (2), name (3), fraction of a number (5), area of the deck (measuring 4)"
     }
   ],
   "rounds": [

@@ -13,6 +13,7 @@ export type KitGroup = {
   blurb: string;
   strand: string;
   lengthLabel: string;
+  questions?: string;
   bonus?: boolean;
 };
 

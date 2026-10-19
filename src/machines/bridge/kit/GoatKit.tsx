@@ -7,6 +7,8 @@ import {
   beginAdaptive,
   fitLevels,
   gradeStartLevel,
+  gradeSystemFromUnits,
+  withGradeBias,
   KIT_STRANDS,
   strandLine,
   strandName,
@@ -54,6 +56,7 @@ import {
 import { causeHint, causeText, knownLine, pieceGroup, pieceRows, plankSlots, preCut, queenPost, rowLabel, stareLine, testedRound, trayNote, typedLine } from "../kits/kit";
 import type { ExplainStep } from "../kits/explain";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
+import { skillLearnLine } from "../../../skills/generate";
 import { framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
@@ -229,7 +232,7 @@ export function GoatKit({
   const view = reveal ?? earn;
   const earnedGroups =
     moment === "lit" && piece ? [...new Set([...view.earned, piece])] : view.earned;
-  const promptKey = `${view.phase}:${view.groupIndex}:${view.runGot}:${view.practiceIndex}:${view.current.answer}`;
+  const promptKey = `${view.phase}:${view.groupIndex}:${view.runGot}:${view.practiceIndex}:${view.current?.answer ?? ""}`;
 
   useEffect(() => {
     askedAt.current = Date.now();
@@ -399,16 +402,17 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct },
     ].slice(-80);
     if (stepped.levels) {
+      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystemFromUnits(units));
       onKitProfile?.({
         grade: grade ?? "unsure",
         kitVersion: queenPost.version,
-        levels: stepped.levels,
+        levels,
         history,
         notes: kitProfile?.notes ?? [],
         lastRunMs: kitProfile?.lastRunMs,
-        skills: skillsFromLevels(stepped.levels),
+        skills: skillsFromLevels(levels),
       });
-      setEarn(blankEarn(stepped.levels));
+      setEarn(blankEarn(levels));
       setStage("where");
       return;
     }
@@ -438,15 +442,16 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct: false, help: true },
     ].slice(-80);
     if (stepped.levels) {
+      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystemFromUnits(units));
       onKitProfile?.({
         grade: grade ?? "unsure",
         kitVersion: queenPost.version,
-        levels: stepped.levels,
+        levels,
         history,
         notes: kitProfile?.notes ?? [],
-        skills: skillsFromLevels(stepped.levels),
+        skills: skillsFromLevels(levels),
       });
-      setEarn(blankEarn(stepped.levels));
+      setEarn(blankEarn(levels));
       setStage("where");
       return;
     }
@@ -1049,7 +1054,7 @@ function EarnView({
   earned: string[];
 }) {
   const question = earn.phase === "done" ? null : currentQuestion(earn);
-  const groupId = question?.groupId ?? earn.current.groupId;
+  const groupId = question?.groupId ?? earn.current?.groupId;
   const picture = question ? earnPicture(question) : null;
   const hint = question ? earnHint(question) : "";
   const keys = question ? keysFor(question.answer, question.truth) : [];
@@ -1075,8 +1080,9 @@ function EarnView({
   if (earn.phase === "learn") {
     const explained = explainQuestion(earn.current);
     const skill = KIT_SKILLS.find((item) => item.id === earn.current.skillId);
-    const draw = earn.current.fact.kind === "plain" ? earn.current.fact.draw : null;
-    const line = draw ? notationLine(draw, earn.current.answer) : `${earnPrompt(earn.current).replace("?", earn.current.answer)}`;
+    const learn = earn.current.skillId ? skillLearnLine(earn.current.skillId, earn.seed) : null;
+    const draw = learn?.draw ?? (earn.current.fact.kind === "plain" ? earn.current.fact.draw : null);
+    const line = learn?.line ?? (draw ? notationLine(draw, earn.current.answer) : `${earnPrompt(earn.current).replace("?", earn.current.answer)}`);
     return (
       <div className="gk-body">
         <div className="gk-earn">
@@ -1085,7 +1091,7 @@ function EarnView({
               <span>Learn</span>
             </div>
             <h2 className="gk-prompt" data-skill={skill?.id ?? ""}>
-              {skill?.name}
+              {learn?.title ?? skill?.name}
             </h2>
             <LearnSketch draw={draw} line={line} />
             <p>{explained.why}</p>
@@ -1102,7 +1108,18 @@ function EarnView({
     );
   }
   if (!question) {
-    return null;
+    return (
+      <div className="gk-body">
+        <div className="gk-earn">
+          <div className="gk-card">
+            <p>Loading the next question.</p>
+          </div>
+          <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
+          <RoundMark round={earn.round} />
+        </div>
+        <KitPanel earned={earned} pulse={pulse} />
+      </div>
+    );
   }
   if (earn.phase === "explain") {
     const explained = explainQuestion(question);
@@ -2347,7 +2364,19 @@ function GradePick({
   onProfile: () => void;
   onChoose: (grade: GradeChoice) => void;
 }) {
-  const grades: GradeChoice[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "unsure"];
+  const europe = units === "metric";
+  const grades: GradeChoice[] = europe
+    ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, "unsure"]
+    : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "unsure"];
+  function gradeLabel(choice: GradeChoice): string {
+    if (choice === "unsure") {
+      return "Not sure";
+    }
+    if (europe) {
+      return choice === 0 ? "Vorschule" : `Klasse ${choice}`;
+    }
+    return choice === 0 ? "K" : String(choice);
+  }
   return (
     <>
       <header className="gk-header">
@@ -2355,8 +2384,8 @@ function GradePick({
           Codex
         </button>
         <div>
-          <div className="gk-title">What grade are you in?</div>
-          <div className="gk-sub">Not sure is fine. This only picks where the questions start.</div>
+          <div className="gk-title">{europe ? "Which Klasse?" : "What grade are you in?"}</div>
+          <div className="gk-sub">Not sure is fine. This only picks where the questions start. Switch units to change the grade system.</div>
         </div>
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
       </header>
@@ -2364,7 +2393,7 @@ function GradePick({
         <div className="gk-grades">
           {grades.map((choice) => (
             <button key={String(choice)} type="button" onClick={() => onChoose(choice)}>
-              {choice === 0 ? "K" : choice === "unsure" ? "Not sure" : choice}
+              {gradeLabel(choice)}
             </button>
           ))}
         </div>
@@ -2559,30 +2588,37 @@ function ProfileView({
             </button>
           ))}
         </div>
-        <div className="gk-skill-board">
+        <div className="gk-skill-board" data-profile="skills">
           {KIT_STRANDS.map((id) => {
-            const level = profile.levels[id] ?? 1;
-            const skills = KIT_SKILLS.filter((skill) => skill.strandId === id && skill.level === level);
+            const levels = [...new Set(KIT_SKILLS.filter((skill) => skill.strandId === id).map((skill) => skill.level))].sort((a, b) => a - b);
             return (
               <section key={id}>
                 <h2>{strandName(id)}</h2>
-                <div className="gk-skill-grid">
-                  {skills.map((skill) => {
-                    const progress = profile.skills?.skills[skill.id];
-                    const state = progress?.state ?? "new";
-                    return (
-                      <div key={skill.id} className={`gk-skill ${state}`}>
-                        <b>{skill.name}</b>
-                        <span>{progress?.struggling ? "struggling" : state}</span>
-                        {progress?.recent.slice(-10).map((item, index) => (
-                          <small key={`${item.prompt}-${index}`}>
-                            {item.prompt} {item.help ? "asked for help" : item.correct ? "right" : "wrong"}
-                          </small>
-                        ))}
+                {levels.map((level) => {
+                  const skills = KIT_SKILLS.filter((skill) => skill.strandId === id && skill.level === level);
+                  return (
+                    <div key={`${id}-${level}`} className="gk-skill-level">
+                      <h3>Level {level}</h3>
+                      <div className="gk-skill-grid">
+                        {skills.map((skill) => {
+                          const progress = profile.skills?.skills[skill.id];
+                          const state = progress?.state ?? "new";
+                          return (
+                            <div key={skill.id} className={`gk-skill ${state}`}>
+                              <b>{skill.name}</b>
+                              <span>{progress?.struggling ? "struggling" : state}</span>
+                              {progress?.recent.slice(-10).map((item, index) => (
+                                <small key={`${item.prompt}-${index}`}>
+                                  {item.prompt} {item.help ? "asked for help" : item.correct ? "right" : "wrong"}
+                                </small>
+                              ))}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </section>
             );
           })}

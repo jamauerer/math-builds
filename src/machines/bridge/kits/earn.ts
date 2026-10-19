@@ -1,6 +1,8 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
+import { skillExplain, skillQuestion } from "../../../skills/generate";
+import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
 import { pictureAgrees } from "../../../pictures/check";
@@ -469,17 +471,17 @@ export function kitQuestionTotal(round = 0, short = false): number {
 }
 
 function slotQuestion(groupId: string, slot: { skillId: string; strandId: string; level: number; mixed?: boolean }, seed: number, hint: boolean): EarnQuestion {
-  const item = plainQuestion(slot.strandId, slot.level, seed);
+  const fromSkill = curriculumSkill(slot.skillId) ? skillQuestion(slot.skillId, seed) : plainQuestion(slot.strandId, slot.level, seed);
   return {
     groupId,
     strandId: slot.strandId,
     level: slot.level,
-    answer: item.answer,
-    truth: item.truth,
+    answer: fromSkill.answer,
+    truth: fromSkill.truth,
     skillId: slot.skillId,
     mixed: slot.mixed === true,
-    hint: hint ? item.steps[0] : undefined,
-    fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
+    hint: hint ? fromSkill.steps[0] : undefined,
+    fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
   };
 }
 
@@ -866,7 +868,13 @@ export function startGuided(state: EarnState, levels?: Record<string, number>): 
 }
 
 export function explainQuestion(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
-  return workedExample(question);
+  const base = workedExample(question);
+  if (!question.skillId || !curriculumSkill(question.skillId)) {
+    return base;
+  }
+  const explained = skillExplain(question.skillId, earnPrompt(question), question.answer);
+  // Keep worked steps so every prompt number stays visible; attach the curriculum why line.
+  return { ...base, why: explained.why };
 }
 
 /** The numbers in a question, so a practice loop can refuse a repeat. */
