@@ -271,20 +271,45 @@ function poseStyle(pose: PiecePose): CSSProperties {
   };
 }
 
-function goatSprite(mode: GoatMode, walkFrame: number): { src: string; width: number; height: number } {
-  if (mode === "idle") {
-    return { src: "goat-idle.png", width: 149, height: 150 };
-  }
+function fit(src: string, width: number, height: number) {
+  return { src, width: Math.round(width * 0.5), height: Math.round(height * 0.5) };
+}
+
+export function goatSprite(mode: GoatMode, walkFrame: number): { src: string; width: number; height: number } {
   if (mode === "arrived") {
     return { src: "goat-arrived.png", width: 149, height: 150 };
   }
-  if (mode === "startled") {
-    return { src: "goat-startled.png", width: 149, height: 150 };
+  if (mode === "walk") {
+    return { src: `goat-walk-${walkFrame}.png`, width: 145, height: 150 };
   }
-  if (mode === "wet") {
-    return { src: "goat-wet.png", width: 160, height: 121 };
+  if (mode === "slip") {
+    return fit("goat-slip.png", 282, 266);
   }
-  return { src: `goat-walk-${walkFrame}.png`, width: 145, height: 150 };
+  if (mode === "flail") {
+    return fit("goat-flail.png", 350, 275);
+  }
+  if (mode === "fall") {
+    return fit("goat-fall.png", 288, 277);
+  }
+  if (mode === "tumble") {
+    return fit("goat-tumble.png", 211, 290);
+  }
+  if (mode === "splash") {
+    return fit("goat-splash-in.png", 367, 265);
+  }
+  if (mode === "swim") {
+    return fit(`goat-swim-${walkFrame}.png`, 306, 184);
+  }
+  if (mode === "drip") {
+    return fit("goat-drip.png", 295, 311);
+  }
+  if (mode === "shake") {
+    return fit("goat-shake.png", 418, 326);
+  }
+  if (mode === "glare") {
+    return fit(walkFrame === 2 ? "goat-glare-2.png" : "goat-glare-1.png", walkFrame === 2 ? 347 : 353, walkFrame === 2 ? 293 : 322);
+  }
+  return { src: "goat-idle.png", width: 149, height: 150 };
 }
 
 export function frameNear(frames: CrossingFrame[], metres: number): CrossingFrame {

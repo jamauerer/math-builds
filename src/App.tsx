@@ -156,6 +156,7 @@ export function App() {
           guideMode={new URLSearchParams(window.location.search).get("guide")}
           checkOpen={new URLSearchParams(window.location.search).get("check") === "1"}
           stareNow={new URLSearchParams(window.location.search).get("stare") === "1"}
+          pose={new URLSearchParams(window.location.search).get("pose")}
           beam={new URLSearchParams(window.location.search).get("beam")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {

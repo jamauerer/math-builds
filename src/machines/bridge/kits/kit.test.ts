@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { setUnitSystem, lengthAbbrev } from "../../../units";
 import { answerEarn, blankEarn, earnAtWord, earnHint, earnPrompt, kitQuestionTotal, openRun, speedLine, startPractice } from "./earn";
 import { queenPost, correctLengths, wreckLines } from "./kit";
+import { goatSprite } from "../kit/scene";
 import { simulateCrossing } from "./simulate";
 
 describe("goat bridge kit", () => {
@@ -118,7 +119,8 @@ describe("goat bridge kit", () => {
     const lengths = { ...correctLengths(), top: 3 };
     const result = simulateCrossing(lengths);
     expect(result.ok).toBe(false);
-    expect(result.goatY).toBeLessThan(0);
+    expect(result.frames.some((frame) => frame.goatY < 0)).toBe(true);
+    expect(result.frames.at(-1)?.mode).toBe("glare");
     expect(result.bodies.some((body) => body.id.includes("beam") || body.id === "top" || body.id.startsWith("bottom"))).toBe(true);
     expect(result.bodies.some((body) => (body.id === "top" || body.id.startsWith("bottom")) && body.y < 0)).toBe(true);
     setUnitSystem("metric");
@@ -138,14 +140,27 @@ describe("goat bridge kit", () => {
     }
     const result = simulateCrossing(lengths);
     expect(result.ok).toBe(false);
-    expect(result.goatY).toBeLessThan(0);
+    expect(result.frames.some((frame) => frame.goatY < 0 && frame.goatX < 1)).toBe(true);
     expect(result.goatX).toBeLessThan(1);
+    expect(result.frames.at(-1)?.mode).toBe("glare");
   });
 
   it("drops the goat before the far bank when a bottom beam is 3 m", () => {
     const result = simulateCrossing({ ...correctLengths(), "bottom-a": 3 });
     expect(result.ok).toBe(false);
     expect(result.goatX).toBeLessThan(8);
-    expect(result.goatY).toBeLessThan(0);
+    expect(result.frames.some((frame) => frame.goatY < 0)).toBe(true);
+    expect(result.frames.at(-1)?.mode).toBe("glare");
+  });
+
+  it("renders a slip, then a swim, then a glare on a wreck run", () => {
+    const result = simulateCrossing({ ...correctLengths(), top: 3 });
+    const sources = result.frames.map((frame) => goatSprite(frame.mode, frame.walkFrame).src);
+    const slip = sources.findIndex((src) => src.includes("goat-slip"));
+    const swim = sources.findIndex((src) => src.includes("goat-swim"));
+    const glare = sources.findIndex((src) => src.includes("goat-glare"));
+    expect(slip).toBeGreaterThanOrEqual(0);
+    expect(swim).toBeGreaterThan(slip);
+    expect(glare).toBeGreaterThan(swim);
   });
 });

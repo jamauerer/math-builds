@@ -28,7 +28,7 @@ export type PiecePose = {
 
 export type SplashMark = { x: number; y: number };
 
-export type GoatMode = "idle" | "walk" | "arrived" | "startled" | "wet";
+export type GoatMode = "idle" | "walk" | "arrived" | "slip" | "flail" | "fall" | "tumble" | "splash" | "swim" | "drip" | "shake" | "glare";
 
 export type CrossingFrame = {
   t: number;
@@ -39,6 +39,22 @@ export type CrossingFrame = {
   pieces: PiecePose[];
   splashes: SplashMark[];
 };
+
+export function framePose(frames: CrossingFrame[], pose: string): CrossingFrame | null {
+  if (pose === "slip") {
+    return frames.find((frame) => frame.mode === "slip") ?? null;
+  }
+  if (pose === "air") {
+    return frames.find((frame) => frame.mode === "tumble") ?? frames.find((frame) => frame.mode === "fall") ?? null;
+  }
+  if (pose === "swim") {
+    return frames.find((frame) => frame.mode === "swim") ?? null;
+  }
+  if (pose === "glare") {
+    return [...frames].reverse().find((frame) => frame.mode === "glare") ?? null;
+  }
+  return null;
+}
 
 export type CrossingResult = {
   ok: boolean;
@@ -274,14 +290,21 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let mode: GoatMode = "idle";
   let walkTime = 0;
   let sinceFail = 0;
+  let sinceWet = 0;
+  let swimTime = 0;
+  let glareTime = 0;
+  let splashHold = 0;
+  let climbing = false;
 
   const capture = (t: number) => {
+    const cycle =
+      mode === "swim" ? 1 + (Math.floor(swimTime * 6) % 5) : mode === "glare" ? 1 + (Math.floor(glareTime / 0.8) % 2) : 1 + (Math.floor(walkTime * 8) % 5);
     frames.push({
       t,
       goatX,
       goatY: feetY,
       mode,
-      walkFrame: 1 + (Math.floor(walkTime * 8) % 5),
+      walkFrame: cycle,
       pieces: pieces.map((piece) => {
         const pos = piece.body.getPosition();
         return {
@@ -319,8 +342,9 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         goat.setDynamic();
         goat.setAwake(true);
         goat.setLinearVelocity(new Vec2(0, -0.2));
+        goat.setAngularVelocity(2.6);
         goatDynamic = true;
-        mode = "startled";
+        mode = "slip";
         failed = true;
         goatX = nextX;
         if (breakAt == null) {
@@ -334,20 +358,21 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
           goat.setPosition(new Vec2(goatX, feetY + 0.28));
           goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
           support.piece.body.applyForce(new Vec2(0, -massKg * 10), new Vec2(Math.min(goatX, 8), feetY), true);
-          if (feetY < RIVER_Y) {
-            mode = "wet";
-          } else if (feetY < -0.2) {
-            mode = "startled";
-          } else if (nextX >= 8) {
-            mode = "arrived";
-          } else {
-            mode = "walk";
-          }
-          if (feetY < -0.55) {
+          if (support.y < -0.2) {
+            goat.setDynamic();
+            goat.setAwake(true);
+            goat.setLinearVelocity(new Vec2(WALK_SPEED, -0.4));
+            goat.setAngularVelocity(2.6);
+            goatDynamic = true;
+            mode = "slip";
             failed = true;
             if (breakAt == null) {
               breakAt = t;
             }
+          } else if (nextX >= 8) {
+            mode = "arrived";
+          } else {
+            mode = "walk";
           }
         } else if (nextX >= 8 && feetY > -0.25) {
           goatX = nextX;
@@ -358,8 +383,9 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
           goat.setDynamic();
           goat.setAwake(true);
           goat.setLinearVelocity(new Vec2(WALK_SPEED, -0.2));
+          goat.setAngularVelocity(2.6);
           goatDynamic = true;
-          mode = "startled";
+          mode = "slip";
           failed = true;
           if (breakAt == null) {
             breakAt = t;
@@ -405,24 +431,57 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
 
-    if (goatDynamic) {
+    if (goatDynamic && !climbing) {
       const pos = goat.getPosition();
       goatX = pos.x;
       feetY = pos.y - 0.28;
-      if (feetY < RIVER_Y && !soaked.has("goat")) {
+      const angle = Math.abs(Math.atan2(Math.sin(goat.getAngle()), Math.cos(goat.getAngle())));
+      const inWater = feetY < RIVER_Y;
+      if (inWater && !soaked.has("goat")) {
         soaked.add("goat");
         splashes.push({ x: goatX, y: RIVER_Y });
-        goat.setLinearDamping(16);
-        goat.setAngularDamping(16);
-        const velocity = goat.getLinearVelocity();
-        goat.setLinearVelocity(new Vec2(velocity.x * 0.15, Math.min(0, velocity.y) * 0.05));
+        splashHold = 0.12;
+        goat.setLinearDamping(8);
+        goat.setAngularDamping(8);
       }
-      mode = feetY < RIVER_Y ? "wet" : "startled";
-    } else if (feetY < RIVER_Y) {
-      mode = "wet";
-      if (!soaked.has("goat")) {
-        soaked.add("goat");
-        splashes.push({ x: goatX, y: RIVER_Y });
+      if (inWater) {
+        sinceWet += TIME_STEP;
+      }
+      if (sinceWet >= 1.5) {
+        climbing = true;
+      } else if (splashHold > 0) {
+        mode = "splash";
+        splashHold -= TIME_STEP;
+      } else if (inWater) {
+        mode = "swim";
+        swimTime += TIME_STEP;
+        goatX += 0.28 * TIME_STEP;
+        feetY = RIVER_Y - 0.35;
+        goat.setPosition(new Vec2(goatX, feetY + 0.28));
+        goat.setLinearVelocity(new Vec2(0, 0));
+        goat.setAngularVelocity(0);
+      } else if (feetY > -0.35) {
+        mode = angle > 0.45 ? "flail" : "slip";
+      } else {
+        mode = angle > 0.9 ? "tumble" : "fall";
+      }
+    }
+    if (climbing) {
+      sinceWet += TIME_STEP;
+      const bankX = goatX < 4 ? -0.55 : 8.4;
+      goatX += (bankX - goatX) * 0.14;
+      feetY += (0.05 - feetY) * 0.22;
+      goat.setPosition(new Vec2(goatX, feetY + 0.45));
+      goat.setLinearVelocity(new Vec2(0, 0));
+      goat.setAngularVelocity(0);
+      const climb = sinceWet - 1.5;
+      if (climb < 0.4) {
+        mode = "drip";
+      } else if (climb < 0.8) {
+        mode = "shake";
+      } else {
+        mode = "glare";
+        glareTime = climb - 0.8;
       }
     }
 
@@ -438,7 +497,11 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       capture(t);
       break;
     }
-    if (failed && sinceFail > 2 && (mode === "wet" || soaked.size > 0)) {
+    if (mode === "glare" && glareTime >= 0.8) {
+      capture(t);
+      break;
+    }
+    if (failed && sinceWet === 0 && sinceFail > 6) {
       capture(t);
       break;
     }

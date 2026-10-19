@@ -44,7 +44,7 @@ import {
 } from "../kits/earn";
 import { knownLine, plankSlots, preCut, queenPost, stareLine, trayNote, typedLine, wreckLines } from "../kits/kit";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
-import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
+import { framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
@@ -93,6 +93,7 @@ export function GoatKit({
   guideMode = null,
   checkOpen = false,
   stareNow = false,
+  pose = null,
   beam = null,
   kitProfile = null,
   onKitProfile,
@@ -115,6 +116,7 @@ export function GoatKit({
   guideMode?: string | null;
   checkOpen?: boolean;
   stareNow?: boolean;
+  pose?: string | null;
   beam?: string | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
@@ -604,6 +606,7 @@ export function GoatKit({
               lengths={lengths}
               badge={badge}
               stareNow={stareNow}
+              pose={pose}
               onAgain={() => setStage("drive")}
               onBack={() => setStage("assemble")}
             />
@@ -1351,6 +1354,7 @@ function WreckView({
   lengths,
   badge,
   stareNow,
+  pose,
   onAgain,
   onBack,
 }: {
@@ -1358,21 +1362,32 @@ function WreckView({
   lengths: Record<string, string>;
   badge: boolean;
   stareNow?: boolean;
+  pose?: string | null;
   onAgain: () => void;
   onBack: () => void;
 }) {
-  const [stare, setStare] = useState(stareNow === true);
+  const resting = result.frames[result.frames.length - 1];
+  const held = pose ? framePose(result.frames, pose) : stareNow ? framePose(result.frames, "glare") : null;
+  const [blink, setBlink] = useState<CrossingFrame | null>(resting ?? null);
   useEffect(() => {
-    if (stareNow) {
+    if (held || import.meta.env.VITEST || !resting || resting.mode !== "glare") {
       return;
     }
-    const timer = window.setTimeout(() => setStare(true), 1500);
-    return () => window.clearTimeout(timer);
-  }, [stareNow]);
+    const started = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const elapsed = (now - started) / 1000;
+      setBlink({ ...resting, walkFrame: 1 + (Math.floor(elapsed / 0.8) % 2) });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [held, resting]);
+  const frame = held ?? (import.meta.env.VITEST ? resting : blink);
   const line = stareLine(numericLengths(lengths));
   const numbers = { ...numericLengths(filledLengths()), ...numericLengths(lengths) };
   const lines = wreckLines(numbers);
-  const frame = result.frames[result.frames.length - 1];
+  const glaring = frame?.mode === "glare";
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -1383,9 +1398,8 @@ function WreckView({
               ? `Top beam was ${formatLength(3)}. The posts are ${formatLength(4)} apart. The right post had nothing to hold on to.`
               : (lines[0] ?? "A piece let go.")}
           </p>
-          {stare ? (
+          {glaring ? (
             <div className="gk-stare">
-              <img src={art("goat-glare-1.png")} alt="" />
               <p className="gk-say">{line}</p>
             </div>
           ) : null}
