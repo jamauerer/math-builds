@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { kitNode, nodePixel, queenPost, type KitSlot } from "../kits/kit";
+import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
 const ART = "/art";
 
@@ -84,13 +85,11 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
 export function BridgeScene({
   placed,
   lengths,
-  wreck,
   goat,
   drops,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
-  wreck?: boolean;
   goat: { src: string; left: number; top: number; width: number; height: number };
   drops?: boolean;
 }) {
@@ -102,7 +101,7 @@ export function BridgeScene({
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
-      {!wreck ? <Blueprint missing={missing} /> : null}
+      <Blueprint missing={missing} />
       {drops
         ? queenPost.slots
             .filter((slot) => slot.structural && !placed[slot.id])
@@ -123,20 +122,17 @@ export function BridgeScene({
             );
           })
         : null}
-      {wreck ? <WreckArt /> : null}
-      {!wreck
-        ? queenPost.slots
-            .filter((slot) => placed[slot.id])
-            .map((slot) => (
-              <img
-                key={slot.id}
-                className="gk-piece"
-                alt=""
-                src={art(slot.sprite)}
-                style={memberStyle(slot, lengths[slot.id] ?? slot.length ?? 1)}
-              />
-            ))
-        : null}
+      {queenPost.slots
+        .filter((slot) => placed[slot.id])
+        .map((slot) => (
+          <img
+            key={slot.id}
+            className="gk-piece"
+            alt=""
+            src={art(slot.sprite)}
+            style={memberStyle(slot, lengths[slot.id] ?? slot.length ?? 1)}
+          />
+        ))}
       {goat.src.startsWith("goat-walk") ? (
         <div className="gk-frames" style={{ left: goat.left, top: goat.top, width: goat.width, height: goat.height }}>
           {[1, 2, 3, 4, 5].map((frame) => (
@@ -146,7 +142,7 @@ export function BridgeScene({
       ) : (
         <img src={art(goat.src)} alt="" style={{ position: "absolute", left: goat.left, top: goat.top, width: goat.width, height: goat.height }} />
       )}
-      {!wreck ? <Ruler /> : null}
+      <Ruler />
     </div>
   );
 }
@@ -168,32 +164,91 @@ function Ruler() {
   );
 }
 
-function WreckArt() {
+function spriteFor(pose: PiecePose): string {
+  if (pose.broken === "left") {
+    return "beam-broken-left.png";
+  }
+  if (pose.broken === "right") {
+    return "beam-broken-right.png";
+  }
+  if (pose.kind === "post") {
+    return "post.png";
+  }
+  if (pose.kind === "brace") {
+    return "beam-half.png";
+  }
+  return "beam-side.png";
+}
+
+function poseStyle(pose: PiecePose): CSSProperties {
+  const px = queenPost.scene.originX + queenPost.pxPerMetre * pose.x;
+  const py = queenPost.scene.deckY - queenPost.pxPerMetre * pose.y;
+  const along = pose.length * queenPost.pxPerMetre;
+  const vertical = pose.kind === "post";
+  const width = vertical ? 32 : along;
+  const height = vertical ? along : pose.kind === "brace" ? 15 : 22;
+  const rotation = vertical ? -pose.angle + Math.PI / 2 : -pose.angle;
+  return {
+    position: "absolute",
+    left: px - width / 2,
+    top: py - height / 2,
+    width,
+    height,
+    transform: `rotate(${rotation}rad)`,
+    transformOrigin: "center center",
+  };
+}
+
+function goatSprite(mode: GoatMode, walkFrame: number): { src: string; width: number; height: number } {
+  if (mode === "idle") {
+    return { src: "goat-idle.png", width: 149, height: 150 };
+  }
+  if (mode === "arrived") {
+    return { src: "goat-arrived.png", width: 149, height: 150 };
+  }
+  if (mode === "startled") {
+    return { src: "goat-startled.png", width: 149, height: 150 };
+  }
+  if (mode === "wet") {
+    return { src: "goat-wet.png", width: 160, height: 121 };
+  }
+  return { src: `goat-walk-${walkFrame}.png`, width: 145, height: 150 };
+}
+
+export function frameNear(frames: CrossingFrame[], metres: number): CrossingFrame {
+  let best = frames[0];
+  let bestDist = Infinity;
+  for (const frame of frames) {
+    const dist = Math.abs(frame.goatX - metres);
+    if (dist < bestDist) {
+      best = frame;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/** Pieces and the goat drawn from one simulation frame. The camera does not move. */
+export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
+  const goat = goatSprite(frame.mode, frame.walkFrame);
+  const left = queenPost.scene.originX + queenPost.pxPerMetre * frame.goatX - goat.width / 2;
+  const top = queenPost.scene.deckY - queenPost.pxPerMetre * frame.goatY - goat.height;
   return (
-    <>
-      <img className="gk-piece" alt="" src={art("beam-side.png")} style={{ left: 292, top: 355, width: 200, height: 22 }} />
-      <img className="gk-piece" alt="" src={art("post.png")} style={{ left: 376, top: 255, width: 32, height: 100 }} />
-      <img className="gk-piece" alt="" src={art("beam-half.png")} style={{ left: 292, top: 344, width: 141, height: 15, transform: "rotate(-45deg)", transformOrigin: "0 50%" }} />
-      <img className="gk-piece" alt="" src={art("beam-side.png")} style={{ left: 392, top: 247, width: 150, height: 16 }} />
-      <img className="gk-piece" alt="" src={art("gusset-small.png")} style={{ left: 377, top: 352, width: 30, height: 27 }} />
-      <img className="gk-piece" alt="" src={art("gusset-small.png")} style={{ left: 477, top: 352, width: 30, height: 27 }} />
-      <img className="gk-piece" alt="" src={art("gusset-small.png")} style={{ left: 377, top: 242, width: 30, height: 27 }} />
-      <img className="gk-piece" alt="" src={art("beam-broken-left.png")} style={{ left: 486, top: 359, width: 150, height: 32, transform: "rotate(28deg)" }} />
-      <img className="gk-piece" alt="" src={art("beam-broken-right.png")} style={{ left: 622, top: 415, width: 120, height: 31, transform: "rotate(-40deg)" }} />
-      <img className="gk-piece" alt="" src={art("post.png")} style={{ left: 602, top: 395, width: 32, height: 100, transform: "rotate(62deg)" }} />
-      <img className="gk-piece" alt="" src={art("gusset-small.png")} style={{ left: 642, top: 475, width: 30, height: 27, transform: "rotate(20deg)" }} />
-      <img className="gk-piece" alt="" src={art("bolt.png")} style={{ left: 542, top: 505, width: 30, height: 17, transform: "rotate(-30deg)" }} />
-      <img className="gk-piece" alt="" src={art("splash.png")} style={{ left: 402, top: 465, width: 320, height: 130, opacity: 0.9 }} />
-      <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <line x1="542" y1="255" x2="592" y2="255" stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />
-        <g transform="translate(520 228)">
-          <rect width="78" height="22" rx="11" fill="#fff" stroke="#B4432B" />
-          <text x="39" y="15" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#B4432B">
-            1 m short
-          </text>
-        </g>
-      </svg>
-    </>
+    <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode}>
+      <img className="banks" src={art("banks.png")} alt="" />
+      <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
+      <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
+      <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
+      {frame.pieces.map((pose) => (
+        <img key={pose.id} className="gk-piece" alt="" src={art(spriteFor(pose))} style={poseStyle(pose)} />
+      ))}
+      {frame.splashes.map((splash) => {
+        const x = queenPost.scene.originX + queenPost.pxPerMetre * splash.x - 160;
+        const y = queenPost.scene.deckY - queenPost.pxPerMetre * splash.y - 40;
+        return <img key={`${splash.x.toFixed(2)}`} className="gk-piece" alt="" src={art("splash.png")} style={{ left: x, top: y, width: 320, height: 130, opacity: 0.9 }} />;
+      })}
+      <img src={art(goat.src)} alt="" style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
+    </div>
   );
 }
 

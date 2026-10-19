@@ -12,6 +12,21 @@ import { GoatKit } from "./machines/bridge/kit/GoatKit";
 import { PracticeQuiz } from "./ui/PlacementQuiz";
 import { Workshop } from "./workshop/Workshop";
 
+function seekMetre(value: string | null): number | null {
+  if (value == null || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function kitFault(value: string | null): "top" | "post" | "bottom" | null {
+  if (value === "top" || value === "post" || value === "bottom") {
+    return value;
+  }
+  return null;
+}
+
 function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" {
   if (value === "earn" || value === "assemble" || value === "drive" || value === "wreck") {
     return value;
@@ -78,6 +93,8 @@ export function App() {
           marks={progress.sequence?.marks ?? 0}
           onMarks={(marks) => save({ ...progress, sequence: { ...(progress.sequence ?? blankSequence()), marks } })}
           start={kitStage(new URLSearchParams(window.location.search).get("kit"))}
+          seek={seekMetre(new URLSearchParams(window.location.search).get("at"))}
+          fault={kitFault(new URLSearchParams(window.location.search).get("fault"))}
         />
       )}
       {screen.name === "practice" ? (

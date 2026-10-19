@@ -1,12 +1,12 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { LearnerMap } from "../../../engine/placement";
 import { answerEarn, blankEarn, earnDone, type EarnState } from "../kits/earn";
 import { queenPost, wreckLines } from "../kits/kit";
-import { simulateCrossing, type CrossingResult } from "../kits/simulate";
+import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
-import { art, BridgeScene, TrussThumb } from "./scene";
+import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
 type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck";
 
@@ -37,24 +37,28 @@ export function GoatKit({
   marks,
   onMarks,
   start = "pick",
+  seek = null,
+  fault = null,
 }: {
   map: LearnerMap;
   marks: number;
   onMarks: (marks: number) => void;
   start?: Stage;
+  seek?: number | null;
+  fault?: "top" | "post" | "bottom" | null;
 }) {
   const [stage, setStage] = useState<Stage>(start);
   const [earn, setEarn] = useState<EarnState>(() => blankEarn(map, 7));
   const [typed, setTyped] = useState("");
-  const [lengths, setLengths] = useState<Record<string, string>>(start === "wreck" ? { top: "3" } : {});
+  const [lengths, setLengths] = useState<Record<string, string>>(() => faultLengths(start, fault));
   const [placed, setPlaced] = useState<Record<string, boolean>>({});
   const [drag, setDrag] = useState<string | null>(null);
   const [result, setResult] = useState<CrossingResult | null>(() => {
     if (start === "drive") {
       return simulateCrossing(numericLengths(filledLengths()));
     }
-    if (start === "wreck") {
-      return simulateCrossing({ ...numericLengths(filledLengths()), top: 3 });
+    if (start === "wreck" || fault) {
+      return simulateCrossing(scenarioLengths(start, fault));
     }
     return null;
   });
@@ -116,18 +120,17 @@ export function GoatKit({
     const crossing = simulateCrossing(numbers, nextMass);
     setMass(nextMass);
     setResult(crossing);
+    setStage("drive");
     if (crossing.ok) {
       if (!awarded.current) {
         awarded.current = true;
         onMarks(marks + queenPost.marks);
       }
-      setStage("drive");
       return;
     }
     if (!badge) {
       setBadge(true);
     }
-    setStage("wreck");
   }
 
   const shown = result;
@@ -194,14 +197,24 @@ export function GoatKit({
             />
           ) : null}
           {stage === "drive" && shown ? (
-            <DriveView result={shown} onHeavy={() => sendGoat(mass * 2)} onNext={() => setStage("pick")} />
+            <DriveView
+              result={shown}
+              seek={seek}
+              onHeavy={() => sendGoat(mass * 2)}
+              onNext={() => setStage("pick")}
+              onSettled={() => {
+                if (!shown.ok) {
+                  setStage("wreck");
+                }
+              }}
+            />
           ) : null}
           {stage === "wreck" && shown ? (
             <WreckView
               result={shown}
               lengths={lengths}
               badge={badge}
-              onAgain={() => sendGoat(mass)}
+              onAgain={() => setStage("drive")}
               onBack={() => {
                 setPlaced({});
                 setStage("assemble");
@@ -563,21 +576,23 @@ function onTrayUpSafe(
 
 function DriveView({
   result,
+  seek,
   onHeavy,
   onNext,
+  onSettled,
 }: {
   result: CrossingResult;
+  seek: number | null;
   onHeavy: () => void;
   onNext: () => void;
+  onSettled: () => void;
 }) {
+  const held = seek == null ? null : frameNear(result.frames, seek);
+  const frame = usePlayback(result, held, onSettled);
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
-        <BridgeScene
-          placed={allPlaced()}
-          lengths={numericLengths(filledLengths())}
-          goat={{ src: "goat-walk-3.png", left: 462, top: 205, width: 145, height: 150 }}
-        />
+        <CrossingPicture frame={frame} />
         <div className="gk-strip">
           <p>Every piece fit. The goat is halfway, the posts are holding, nothing is bending.</p>
           <div className="gk-actions">
@@ -635,18 +650,19 @@ function WreckView({
   onAgain: () => void;
   onBack: () => void;
 }) {
-  const lines = wreckLines(numericLengths({ ...filledLengths(), ...lengths, top: lengths.top ?? "3" }));
+  const numbers = { ...numericLengths(filledLengths()), ...numericLengths(lengths) };
+  const lines = wreckLines(numbers);
+  const frame = result.frames[result.frames.length - 1];
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
-        <BridgeScene
-          placed={{}}
-          lengths={{}}
-          wreck
-          goat={{ src: "goat-wet.png", left: 482, top: 445, width: 160, height: 121 }}
-        />
+        {frame ? <CrossingPicture frame={frame} /> : null}
         <div className="gk-strip">
-          <p>Top beam was {lengths.top ?? "3"} m. The posts are 4 m apart. The right post had nothing to hold on to. The goat is fine. Mostly.</p>
+          <p>
+            {numbers.top === 3
+              ? "Top beam was 3 m. The posts are 4 m apart. The right post had nothing to hold on to. The goat is fine. Mostly."
+              : `${lines[0] ?? "A piece let go."} The goat is fine. Mostly.`}
+          </p>
           <div className="gk-actions">
             <button className="gk-light" type="button" onClick={onAgain}>
               Watch it again
@@ -687,6 +703,62 @@ function WreckView({
   );
 }
 
+function usePlayback(result: CrossingResult, held: CrossingFrame | null, onSettled: () => void): CrossingFrame {
+  const [frame, setFrame] = useState<CrossingFrame>(held ?? result.frames[0]);
+  const settled = useRef(onSettled);
+  settled.current = onSettled;
+  useEffect(() => {
+    if (held || import.meta.env.VITEST) {
+      setFrame(held ?? result.frames[0]);
+      return;
+    }
+    let raf = 0;
+    let done = false;
+    const started = performance.now();
+    const last = result.frames[result.frames.length - 1];
+    const tick = (now: number) => {
+      const elapsed = (now - started) / 1000;
+      let chosen = result.frames[0];
+      for (const item of result.frames) {
+        if (item.t <= elapsed) {
+          chosen = item;
+        } else {
+          break;
+        }
+      }
+      setFrame(chosen);
+      if (!last || elapsed < last.t) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      if (!result.ok && !done) {
+        done = true;
+        settled.current();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [held, result]);
+  return frame;
+}
+
+function faultLengths(start: Stage, fault: "top" | "post" | "bottom" | null): Record<string, string> {
+  if (fault === "post") {
+    return { "post-a": "1" };
+  }
+  if (fault === "bottom") {
+    return { "bottom-a": "3" };
+  }
+  if (fault === "top" || start === "wreck") {
+    return { top: "3" };
+  }
+  return {};
+}
+
+function scenarioLengths(start: Stage, fault: "top" | "post" | "bottom" | null): Record<string, number> {
+  return { ...numericLengths(filledLengths()), ...numericLengths(faultLengths(start, fault)) };
+}
+
 function filledLengths(): Record<string, string> {
   const lengths: Record<string, string> = {};
   for (const slot of queenPost.slots) {
@@ -708,10 +780,3 @@ function numericLengths(lengths: Record<string, string | number>): Record<string
   return numbers;
 }
 
-function allPlaced(): Record<string, boolean> {
-  const placed: Record<string, boolean> = {};
-  for (const slot of queenPost.slots) {
-    placed[slot.id] = true;
-  }
-  return placed;
-}

@@ -3,9 +3,11 @@ import { createWorld, TIME_STEP } from "../../../engine/physics";
 import { kitNode, pieceEnd, queenPost, wreckLines, type KitSlot } from "./kit";
 
 const JOIN_M = 0.15;
-const BREAK_N = 400000;
+const BREAK_N = 1000;
 const GOAT_MASS = 40;
 const WALK_SPEED = 1;
+const RIVER_Y = -1;
+const DECK_Y = 0;
 
 export type MemberReport = {
   id: string;
@@ -14,12 +16,28 @@ export type MemberReport = {
   job: string;
 };
 
-export type CrossingSample = {
-  t: number;
+export type PiecePose = {
+  id: string;
   x: number;
   y: number;
-  failed: boolean;
-  wet: boolean;
+  angle: number;
+  length: number;
+  kind: string;
+  broken: "left" | "right" | null;
+};
+
+export type SplashMark = { x: number; y: number };
+
+export type GoatMode = "idle" | "walk" | "arrived" | "startled" | "wet";
+
+export type CrossingFrame = {
+  t: number;
+  goatX: number;
+  goatY: number;
+  mode: GoatMode;
+  walkFrame: number;
+  pieces: PiecePose[];
+  splashes: SplashMark[];
 };
 
 export type CrossingResult = {
@@ -31,40 +49,73 @@ export type CrossingResult = {
   loadPercent: number;
   members: MemberReport[];
   wreck: string[];
-  samples: CrossingSample[];
+  frames: CrossingFrame[];
+  bodies: { id: string; y: number }[];
   breakAt: number | null;
 };
 
-type EndPoint = {
-  slotId: string;
+type Piece = {
+  id: string;
   body: Body;
+  half: number;
+  thick: number;
+  length: number;
+  kind: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  broken: "left" | "right" | null;
+};
+
+type EndPoint = {
+  piece: Piece;
   local: Vec2;
   x: number;
   y: number;
+  side: "left" | "right";
 };
 
-function addBeam(world: World, slot: KitSlot, typed: number): { body: Body; ends: EndPoint[] } | null {
+function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; ends: EndPoint[] } | null {
   if (!slot.from || !slot.to || slot.kind === "gusset" || slot.kind === "bolt") {
     return null;
   }
   const from = kitNode(slot.from);
   const end = pieceEnd(slot, typed);
-  const length = Math.max(0.2, Math.hypot(end.m - from.m, end.h - from.h));
+  const length = Math.max(0.25, Math.hypot(end.m - from.m, end.h - from.h));
   const angle = Math.atan2(end.h - from.h, end.m - from.m);
+  const thick = slot.kind === "post" ? 0.18 : 0.12;
   const body = world.createDynamicBody({
     position: new Vec2((from.m + end.m) / 2, (from.h + end.h) / 2),
     angle,
-    linearDamping: 0.8,
-    angularDamping: 0.9,
+    linearDamping: 0.35,
+    angularDamping: 0.45,
     allowSleep: false,
   });
-  const thickness = slot.kind === "post" ? 0.16 : 0.1;
-  body.createFixture(new BoxShape(length / 2, thickness / 2), { density: 12, friction: 0.9 });
-  return {
+  body.createFixture(new BoxShape(length / 2, thick / 2), {
+    density: slot.kind === "brace" ? 6 : 10,
+    friction: 0.8,
+    filterCategoryBits: 0x0002,
+    filterMaskBits: 0x0001,
+  });
+  const piece: Piece = {
+    id: slot.id,
     body,
+    half: length / 2,
+    thick,
+    length,
+    kind: slot.kind,
+    ax: from.m,
+    ay: from.h,
+    bx: end.m,
+    by: end.h,
+    broken: null,
+  };
+  return {
+    piece,
     ends: [
-      { slotId: slot.id, body, local: new Vec2(-length / 2, 0), x: from.m, y: from.h },
-      { slotId: slot.id, body, local: new Vec2(length / 2, 0), x: end.m, y: end.h },
+      { piece, local: new Vec2(-length / 2, 0), x: from.m, y: from.h, side: "left" },
+      { piece, local: new Vec2(length / 2, 0), x: end.m, y: end.h, side: "right" },
     ],
   };
 }
@@ -82,6 +133,46 @@ function jobFor(slotId: string): string {
   return "holding";
 }
 
+function closestOnSegment(ax: number, ay: number, bx: number, by: number, px: number, py: number) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const length2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length2));
+  const x = ax + t * dx;
+  const y = ay + t * dy;
+  return { t, x, y, dist: Math.hypot(px - x, py - y) };
+}
+
+function deckUnder(pieces: Piece[], x: number): { piece: Piece; y: number } | null {
+  let best: { piece: Piece; y: number } | null = null;
+  for (const piece of pieces) {
+    if (piece.kind !== "beam" || !piece.id.startsWith("bottom")) {
+      continue;
+    }
+    const pos = piece.body.getPosition();
+    const angle = piece.body.getAngle();
+    const cosine = Math.cos(angle);
+    const sine = Math.sin(angle);
+    const dx = x - pos.x;
+    const dy = 0 - pos.y;
+    const localX = dx * cosine + dy * sine;
+    if (localX < -piece.half - 0.05 || localX > piece.half + 0.05) {
+      continue;
+    }
+    const clamped = Math.max(-piece.half, Math.min(piece.half, localX));
+    const centerY = pos.y + clamped * sine;
+    const surface = centerY + Math.cos(angle) * (piece.thick / 2);
+    const centerX = pos.x + clamped * cosine;
+    if (Math.abs(centerX - x) > 0.35) {
+      continue;
+    }
+    if (!best || surface > best.y) {
+      best = { piece, y: surface };
+    }
+  }
+  return best;
+}
+
 export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_MASS): CrossingResult {
   const world = createWorld(10);
   const banks: { id: string; body: Body; x: number; y: number }[] = [];
@@ -89,152 +180,255 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     { id: "n0", x: 0, y: 0 },
     { id: "n8", x: 8, y: 0 },
   ]) {
-    const body = world.createBody({ position: new Vec2(node.x, node.y), type: "static" });
-    const groundX = node.x === 0 ? -1.2 : 1.2;
-    body.createFixture(new BoxShape(1.2, 0.25), { density: 0, friction: 0.9 });
-    body.setPosition(new Vec2(node.x + groundX, -0.25));
+    const body = world.createBody({ type: "static" });
+    const shift = node.x === 0 ? -1.4 : 1.4;
+    body.setPosition(new Vec2(node.x + shift, -0.2));
+    body.createFixture(new BoxShape(1.4, 0.2), { friction: 0.9, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
     banks.push({ id: node.id, body, x: node.x, y: node.y });
   }
 
+  const river = world.createBody({ type: "static", position: new Vec2(4, RIVER_Y) });
+  river.createFixture(new BoxShape(6, 0.08), { isSensor: true, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
+
+  const pieces: Piece[] = [];
   const ends: EndPoint[] = [];
-  const bodies = new Map<string, Body>();
   for (const slot of queenPost.slots) {
     if (!slot.structural || lengths[slot.id] == null) {
       continue;
     }
-    const made = addBeam(world, slot, lengths[slot.id]);
+    const made = addPiece(world, slot, lengths[slot.id]);
     if (!made) {
       continue;
     }
-    bodies.set(slot.id, made.body);
+    pieces.push(made.piece);
     ends.push(...made.ends);
   }
 
-  const joints: { joint: Joint; a: string; b: string }[] = [];
-  const paired = new Set<string>();
-  for (let i = 0; i < ends.length; i += 1) {
-    for (let j = i + 1; j < ends.length; j += 1) {
-      if (ends[i].body === ends[j].body) {
+  const joints: { joint: Joint; end: EndPoint }[] = [];
+  const linked = new Set<string>();
+  for (const end of ends) {
+    for (const other of pieces) {
+      if (other === end.piece) {
         continue;
       }
-      const dist = Math.hypot(ends[i].x - ends[j].x, ends[i].y - ends[j].y);
-      if (dist > JOIN_M) {
+      const along = closestOnSegment(other.ax, other.ay, other.bx, other.by, end.x, end.y);
+      if (along.dist > JOIN_M) {
         continue;
       }
-      const key = `${i}-${j}`;
-      if (paired.has(key)) {
+      const key = [end.piece.id, other.id].sort().join(":") + `:${along.x.toFixed(2)},${along.y.toFixed(2)}`;
+      if (linked.has(key)) {
         continue;
       }
-      paired.add(key);
+      linked.add(key);
       const joint = world.createJoint(
         new RevoluteJoint({
-          bodyA: ends[i].body,
-          bodyB: ends[j].body,
-          localAnchorA: ends[i].local,
-          localAnchorB: ends[j].local,
+          bodyA: end.piece.body,
+          bodyB: other.body,
+          localAnchorA: end.local,
+          localAnchorB: new Vec2(-other.half + along.t * other.length, 0),
           collideConnected: false,
         }),
       );
       if (joint) {
-        joints.push({ joint, a: ends[i].slotId, b: ends[j].slotId });
+        joints.push({ joint, end });
       }
     }
     for (const bank of banks) {
-      const dist = Math.hypot(ends[i].x - bank.x, ends[i].y - bank.y);
+      const dist = Math.hypot(end.x - bank.x, end.y - bank.y);
       if (dist > JOIN_M) {
         continue;
       }
       const joint = world.createJoint(
         new RevoluteJoint({
           bodyA: bank.body,
-          bodyB: ends[i].body,
-          localAnchorA: bank.body.getLocalPoint(new Vec2(ends[i].x, ends[i].y)),
-          localAnchorB: ends[i].local,
+          bodyB: end.piece.body,
+          localAnchorA: bank.body.getLocalPoint(new Vec2(end.x, end.y)),
+          localAnchorB: end.local,
           collideConnected: false,
         }),
       );
       if (joint) {
-        joints.push({ joint, a: bank.id, b: ends[i].slotId });
+        joints.push({ joint, end });
       }
     }
   }
 
-  const top = queenPost.slots.find((slot) => slot.id === "top");
-  const topEnd = top && lengths.top != null ? pieceEnd(top, lengths.top) : null;
-  const topTarget = kitNode("p6");
-  const topReaches = topEnd != null && Math.hypot(topEnd.m - topTarget.m, topEnd.h - topTarget.h) <= JOIN_M;
-
-  const goat = world.createKinematicBody({ position: new Vec2(-0.4, 0.7), allowSleep: false });
-  goat.createFixture(new BoxShape(0.22, 0.18), { density: 1, friction: 0.4 });
+  const goat = world.createKinematicBody({ position: new Vec2(-1.1, 0.55), allowSleep: false });
+  goat.createFixture(new BoxShape(0.28, 0.22), {
+    density: 1,
+    friction: 0.6,
+    filterCategoryBits: 0x0004,
+    filterMaskBits: 0x0001,
+  });
 
   const force = new Map<string, number>();
-  const samples: CrossingSample[] = [];
-  let failed = false;
+  const frames: CrossingFrame[] = [];
+  const splashes: SplashMark[] = [];
+  const soaked = new Set<string>();
+  const gone = new Set<Joint>();
   let breakAt: number | null = null;
-  let goatX = -0.4;
-  let goatY = 0.7;
-  const released = new Set<Joint>();
+  let failed = false;
+  let goatDynamic = false;
+  let goatX = -1.1;
+  let feetY = 0;
+  let mode: GoatMode = "idle";
+  let walkTime = 0;
+  let sinceFail = 0;
 
-  for (let step = 0; step < 720; step += 1) {
+  const capture = (t: number) => {
+    frames.push({
+      t,
+      goatX,
+      goatY: feetY,
+      mode,
+      walkFrame: 1 + (Math.floor(walkTime * 8) % 5),
+      pieces: pieces.map((piece) => {
+        const pos = piece.body.getPosition();
+        return {
+          id: piece.id,
+          x: pos.x,
+          y: pos.y,
+          angle: piece.body.getAngle(),
+          length: piece.length,
+          kind: piece.kind,
+          broken: piece.broken,
+        };
+      }),
+      splashes: splashes.map((mark) => ({ ...mark })),
+    });
+  };
+
+  for (let step = 0; step < 1400; step += 1) {
     const t = step * TIME_STEP;
-    if (!failed) {
-      goatX = -0.4 + WALK_SPEED * t;
-      goatY = 0.7;
-      goat.setPosition(new Vec2(goatX, goatY));
-      goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
-      const deck = deckBodyUnder(bodies, goatX);
-      if (deck) {
-        deck.applyForce(new Vec2(0, -massKg * 10), new Vec2(goatX, 0.05), true);
-      }
-      for (const item of joints) {
-        if (released.has(item.joint)) {
-          continue;
-        }
-        const reaction = item.joint.getReactionForce(1 / TIME_STEP).length();
-        force.set(item.a, Math.max(force.get(item.a) ?? 0, reaction));
-        force.set(item.b, Math.max(force.get(item.b) ?? 0, reaction));
-        const overload = reaction > BREAK_N;
-        const openTop = !topReaches && goatX > 4 && item.joint.getAnchorA().x > 3.5;
-        if (overload || openTop) {
-          world.destroyJoint(item.joint);
-          released.add(item.joint);
+    if (!goatDynamic && t < 0.4) {
+      mode = "idle";
+      goatX = -1.1;
+      feetY = 0;
+      goat.setPosition(new Vec2(goatX, 0.45));
+      goat.setLinearVelocity(new Vec2(0, 0));
+    } else if (!goatDynamic && mode !== "arrived") {
+      walkTime += TIME_STEP;
+      const nextX = -1.1 + WALK_SPEED * walkTime;
+      if (nextX <= 0) {
+        goatX = nextX;
+        feetY = 0;
+        mode = "walk";
+        goat.setPosition(new Vec2(goatX, 0.45));
+        goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
+      } else {
+        const support = deckUnder(pieces, Math.min(nextX, 8.2));
+        if (support) {
+          goatX = nextX;
+          feetY = nextX >= 8 && support.y > -0.25 ? 0 : support.y;
+          goat.setPosition(new Vec2(goatX, feetY + 0.28));
+          goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
+          support.piece.body.applyForce(new Vec2(0, -massKg * 10), new Vec2(Math.min(goatX, 8), feetY), true);
+          if (feetY < RIVER_Y) {
+            mode = "wet";
+          } else if (feetY < -0.2) {
+            mode = "startled";
+          } else if (nextX >= 8) {
+            mode = "arrived";
+          } else {
+            mode = "walk";
+          }
+          if (feetY < -0.55) {
+            failed = true;
+            if (breakAt == null) {
+              breakAt = t;
+            }
+          }
+        } else if (nextX >= 8 && feetY > -0.25) {
+          goatX = nextX;
+          feetY = 0;
+          mode = "arrived";
+          goat.setPosition(new Vec2(goatX, 0.45));
+        } else {
+          goat.setDynamic();
+          goat.setAwake(true);
+          goat.setLinearVelocity(new Vec2(WALK_SPEED, -0.2));
+          goatDynamic = true;
+          mode = "startled";
+          failed = true;
           if (breakAt == null) {
             breakAt = t;
           }
-          failed = true;
         }
       }
-      if (!topReaches && goatX > 4) {
+    }
+
+    for (const item of joints) {
+      if (gone.has(item.joint)) {
+        continue;
+      }
+      const reaction = item.joint.getReactionForce(1 / TIME_STEP).length();
+      force.set(item.end.piece.id, Math.max(force.get(item.end.piece.id) ?? 0, reaction));
+      if (reaction > BREAK_N) {
+        if (item.end.piece.kind === "beam" && item.end.piece.broken == null) {
+          item.end.piece.broken = item.end.side;
+        }
+        world.destroyJoint(item.joint);
+        gone.add(item.joint);
         failed = true;
         if (breakAt == null) {
           breakAt = t;
         }
       }
-      for (const body of bodies.values()) {
-        if (body.getPosition().y < -0.35 && !topReaches) {
-          failed = true;
-          if (breakAt == null) {
-            breakAt = t;
-          }
+    }
+
+    world.step(TIME_STEP);
+
+    for (const piece of pieces) {
+      const pos = piece.body.getPosition();
+      if (pos.y < RIVER_Y && !soaked.has(piece.id)) {
+        soaked.add(piece.id);
+        splashes.push({ x: pos.x, y: RIVER_Y });
+        piece.body.setLinearDamping(16);
+        piece.body.setAngularDamping(16);
+        const velocity = piece.body.getLinearVelocity();
+        piece.body.setLinearVelocity(new Vec2(velocity.x * 0.15, Math.min(0, velocity.y) * 0.05));
+        failed = true;
+        if (breakAt == null) {
+          breakAt = t;
         }
       }
-    } else if (goat.isKinematic()) {
-      goat.setDynamic();
-      goat.setAwake(true);
-      goat.setLinearVelocity(new Vec2(0.4, 0));
     }
-    world.step(TIME_STEP);
+
+    if (goatDynamic) {
+      const pos = goat.getPosition();
+      goatX = pos.x;
+      feetY = pos.y - 0.28;
+      if (feetY < RIVER_Y && !soaked.has("goat")) {
+        soaked.add("goat");
+        splashes.push({ x: goatX, y: RIVER_Y });
+        goat.setLinearDamping(16);
+        goat.setAngularDamping(16);
+        const velocity = goat.getLinearVelocity();
+        goat.setLinearVelocity(new Vec2(velocity.x * 0.15, Math.min(0, velocity.y) * 0.05));
+      }
+      mode = feetY < RIVER_Y ? "wet" : "startled";
+    } else if (feetY < RIVER_Y) {
+      mode = "wet";
+      if (!soaked.has("goat")) {
+        soaked.add("goat");
+        splashes.push({ x: goatX, y: RIVER_Y });
+      }
+    }
+
+    if (step % 2 === 0) {
+      capture(t);
+    }
+
     if (failed) {
-      goatX = goat.getPosition().x;
-      goatY = goat.getPosition().y;
+      sinceFail += TIME_STEP;
     }
-    if (step % 6 === 0) {
-      samples.push({ t, x: goatX, y: goatY, failed, wet: goatY < 0 });
-    }
-    if (!failed && goatX >= 8.2) {
+    const arrived = mode === "arrived" && goatX >= 8 && feetY > -0.3;
+    if (arrived && walkTime > 9) {
+      capture(t);
       break;
     }
-    if (failed && goatY < -0.5 && t > (breakAt ?? 0) + 1.2) {
+    if (failed && sinceFail > 2 && (mode === "wet" || soaked.size > 0)) {
+      capture(t);
       break;
     }
   }
@@ -247,7 +441,6 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       force: force.get(slot.id) ?? 0,
       job: jobFor(slot.id),
     }));
-
   const seen = new Set<string>();
   const unique = members.filter((item) => {
     if (seen.has(item.name)) {
@@ -258,25 +451,19 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   });
   unique.sort((a, b) => b.force - a.force);
 
-  const goatInWater = goat.getPosition().y < 0;
-  const ok = !failed && goat.getPosition().x >= 8 && !goatInWater;
+  const goatInWater = feetY < DECK_Y;
+  const ok = !failed && goatX >= 8 && feetY > -0.3;
   return {
     ok,
-    goatX: goat.getPosition().x,
-    goatY: goat.getPosition().y,
+    goatX,
+    goatY: feetY,
     goatInWater,
     massKg,
     loadPercent: Math.max(6, Math.min(100, Math.round((massKg / 180) * 100))),
     members: unique,
     wreck: wreckLines(lengths),
-    samples,
+    frames,
+    bodies: pieces.map((piece) => ({ id: piece.id, y: piece.body.getPosition().y })),
     breakAt,
   };
-}
-
-function deckBodyUnder(bodies: Map<string, Body>, x: number): Body | undefined {
-  if (x < 4) {
-    return bodies.get("bottom-a") ?? bodies.get("top");
-  }
-  return bodies.get("bottom-b") ?? bodies.get("bottom-a");
 }
