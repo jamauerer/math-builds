@@ -1,13 +1,13 @@
 import { BoxShape, RevoluteJoint, Vec2, type Body, type Joint, type World } from "planck";
 import { createWorld, TIME_STEP } from "../../../engine/physics";
-import { kitNode, pieceEnd, plankCovers, queenPost, roundTrial, wreckLines, type KitSlot } from "./kit";
+import { kitNode, pieceEnd, plankCovers, queenPost, roundTrial, waterWorld, wreckLines, type KitSlot, type WreckCause } from "./kit";
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
 const GOAT_MASS = 40;
 const WALK_SPEED = 1;
-const RIVER_Y = -1;
 const DECK_Y = 0;
+const DRIFT = 0.3;
 
 export type MemberReport = {
   id: string;
@@ -68,6 +68,9 @@ export type CrossingResult = {
   frames: CrossingFrame[];
   bodies: { id: string; y: number }[];
   breakAt: number | null;
+  cause: WreckCause | null;
+  peakForce: number;
+  broke: string[];
 };
 
 type Piece = {
@@ -203,7 +206,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     banks.push({ id: node.id, body, x: node.x, y: node.y });
   }
 
-  const river = world.createBody({ type: "static", position: new Vec2(4, RIVER_Y) });
+  const waterY = waterWorld();
+  const river = world.createBody({ type: "static", position: new Vec2(4, waterY) });
   river.createFixture(new BoxShape(6, 0.08), { isSensor: true, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
 
   const pieces: Piece[] = [];
@@ -292,6 +296,14 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   const gone = new Set<Joint>();
   let breakAt: number | null = null;
   let failed = false;
+  let cause: WreckCause | null = null;
+  let peakForce = 0;
+  const brokeIds: string[] = [];
+  const note = (next: WreckCause) => {
+    if (!cause) {
+      cause = next;
+    }
+  };
   let goatDynamic = false;
   let goatX = -1.1;
   let feetY = 0;
@@ -299,6 +311,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let walkTime = 0;
   let sinceFail = 0;
   let sinceWet = 0;
+  let wetX = 0;
   let swimTime = 0;
   let glareTime = 0;
   let splashHold = 0;
@@ -355,6 +368,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "slip";
         failed = true;
         goatX = nextX;
+        note({ kind: "planks", id: "planks", name: "Planks" });
         if (breakAt == null) {
           breakAt = t;
         }
@@ -381,6 +395,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
             goatDynamic = true;
             mode = "slip";
             failed = true;
+            note({ kind: "support", id: support.piece.id, name: support.piece.id });
             if (breakAt == null) {
               breakAt = t;
             }
@@ -402,6 +417,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
           goatDynamic = true;
           mode = "slip";
           failed = true;
+          note({ kind: "support", id: "deck", name: "The deck" });
           if (breakAt == null) {
             breakAt = t;
           }
@@ -414,11 +430,17 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         continue;
       }
       const reaction = item.joint.getReactionForce(1 / TIME_STEP).length();
+      peakForce = Math.max(peakForce, reaction);
       force.set(item.end.piece.id, Math.max(force.get(item.end.piece.id) ?? 0, reaction));
       if (reaction > BREAK_N) {
         if (item.end.piece.kind === "beam" && item.end.piece.broken == null) {
           item.end.piece.broken = item.end.side;
         }
+        if (!brokeIds.includes(item.end.piece.id)) {
+          brokeIds.push(item.end.piece.id);
+        }
+        const slot = queenPost.slots.find((itemSlot) => itemSlot.id === item.end.piece.id);
+        note({ kind: "joint", id: item.end.piece.id, name: slot?.name ?? item.end.piece.id });
         world.destroyJoint(item.joint);
         gone.add(item.joint);
         failed = true;
@@ -432,17 +454,21 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
 
     for (const piece of pieces) {
       const pos = piece.body.getPosition();
-      if (pos.y < RIVER_Y && !soaked.has(piece.id)) {
+      if (pos.y < waterY && !soaked.has(piece.id)) {
         soaked.add(piece.id);
-        splashes.push({ x: pos.x, y: RIVER_Y });
+        splashes.push({ x: pos.x, y: waterY });
         piece.body.setLinearDamping(16);
         piece.body.setAngularDamping(16);
-        const velocity = piece.body.getLinearVelocity();
-        piece.body.setLinearVelocity(new Vec2(velocity.x * 0.15, Math.min(0, velocity.y) * 0.05));
         failed = true;
         if (breakAt == null) {
           breakAt = t;
         }
+      }
+      if (soaked.has(piece.id)) {
+        const bob = Math.abs(Math.sin(t * 3 + piece.half)) * 0.03;
+        piece.body.setPosition(new Vec2(pos.x, waterY - bob));
+        piece.body.setLinearVelocity(new Vec2(0.05, 0));
+        piece.body.setAngularVelocity(0);
       }
     }
 
@@ -451,13 +477,14 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       goatX = pos.x;
       feetY = pos.y - 0.28;
       const angle = Math.abs(Math.atan2(Math.sin(goat.getAngle()), Math.cos(goat.getAngle())));
-      const inWater = feetY < RIVER_Y;
+      const inWater = feetY < waterY;
       if (inWater && !soaked.has("goat")) {
         soaked.add("goat");
-        splashes.push({ x: goatX, y: RIVER_Y });
+        wetX = goatX;
+        splashes.push({ x: goatX, y: waterY });
         splashHold = 0.12;
-        goat.setLinearDamping(8);
-        goat.setAngularDamping(8);
+        goat.setLinearDamping(12);
+        goat.setAngularDamping(12);
       }
       if (inWater) {
         sinceWet += TIME_STEP;
@@ -467,15 +494,19 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       } else if (splashHold > 0) {
         mode = "splash";
         splashHold -= TIME_STEP;
+        feetY = waterY;
+        goat.setPosition(new Vec2(goatX, waterY));
+        goat.setLinearVelocity(new Vec2(DRIFT, 0));
       } else if (inWater) {
         mode = "swim";
         swimTime += TIME_STEP;
-        goatX += 0.28 * TIME_STEP;
-        feetY = RIVER_Y - 0.35;
-        goat.setPosition(new Vec2(goatX, feetY + 0.28));
-        goat.setLinearVelocity(new Vec2(0, 0));
+        goatX += DRIFT * TIME_STEP;
+        const bob = Math.abs(Math.sin(swimTime * 3)) * 0.03;
+        feetY = waterY - bob;
+        goat.setPosition(new Vec2(goatX, feetY));
+        goat.setLinearVelocity(new Vec2(DRIFT, 0));
         goat.setAngularVelocity(0);
-      } else if (feetY > -0.35) {
+      } else if (feetY > waterY + 0.7) {
         mode = angle > 0.45 ? "flail" : "slip";
       } else {
         mode = angle > 0.9 ? "tumble" : "fall";
@@ -483,7 +514,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
     if (climbing) {
       sinceWet += TIME_STEP;
-      const bankX = goatX < 4 ? -0.55 : 8.4;
+      const bankX = wetX < 4 ? -0.55 : 8.4;
       goatX += (bankX - goatX) * 0.14;
       feetY += (0.05 - feetY) * 0.22;
       goat.setPosition(new Vec2(goatX, feetY + 0.45));
@@ -554,5 +585,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     frames,
     bodies: pieces.map((piece) => ({ id: piece.id, y: piece.body.getPosition().y })),
     breakAt,
+    cause,
+    peakForce,
+    broke: brokeIds,
   };
 }

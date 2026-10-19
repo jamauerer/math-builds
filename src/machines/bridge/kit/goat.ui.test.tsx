@@ -41,7 +41,7 @@ describe("goat bridge screens", () => {
       expect(sources).toContain("/art/banks.png");
     }
     if (stage === "wreck") {
-      expect(container.textContent).toContain("1 m short");
+      expect(container.textContent).toContain("short by 1 m");
       expect(container.textContent).toContain("Top beam");
     }
     expect(errors, JSON.stringify(errors)).toEqual([]);
@@ -247,7 +247,7 @@ describe("goat bridge screens", () => {
       );
     });
     expect(low.querySelectorAll("input.gk-len")).toHaveLength(0);
-    expect(low.textContent).toContain("Bottom beams");
+    expect(low.textContent).toContain("The bottom beams are the sides of the bridge. The planks are the floor. No planks, no floor.");
     lowRoot.unmount();
     low.remove();
 
@@ -355,10 +355,31 @@ describe("goat bridge screens", () => {
     await act(async () => {
       vi.advanceTimersByTime(1600);
     });
-    const line = queenPost.dunks.find((item) => container.textContent?.includes(item));
+    const line = queenPost.dunks.find((item) => container.textContent?.includes(item.line));
     expect(line).toBeTruthy();
     expect(onMarks).not.toHaveBeenCalled();
     vi.useRealTimers();
+    root.unmount();
+    container.remove();
+  });
+
+  it("places a tray piece with a length when it is tapped", async () => {
+    setUnitSystem("us");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="assemble" level={2} guideMode="off" kitProfile={{ ...placedProfile, built: true, levels: { ...placedProfile.levels, measuring: 2 } }} />,
+      );
+    });
+    const row = [...container.querySelectorAll(".gk-row")].find((item) => item.textContent?.includes("Bottom beam")) as HTMLElement;
+    await act(async () => {
+      row.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, clientX: 20, clientY: 20 }));
+      row.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: 22, clientY: 21 }));
+    });
+    expect(row.textContent).toContain("on the bridge");
+    expect(container.textContent).toContain("Bottom beam: 4 ft");
     root.unmount();
     container.remove();
   });

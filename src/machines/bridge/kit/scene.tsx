@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { formatLength, lengthAbbrev } from "../../../units";
-import { kitNode, nodePixel, plankStart, queenPost, slotNodes, type KitSlot } from "../kits/kit";
+import { kitNode, nodePixel, plankSlots, plankStart, queenPost, slotNodes, waterPixel, waterWorld, type KitSlot } from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
 const ART = "/art";
@@ -153,6 +153,7 @@ export function BridgeScene({
   geometryLevel = 4,
   hot = null,
   preview = false,
+  holes = false,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
@@ -161,6 +162,7 @@ export function BridgeScene({
   geometryLevel?: number;
   hot?: string | null;
   preview?: boolean;
+  holes?: boolean;
 }) {
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
@@ -172,6 +174,7 @@ export function BridgeScene({
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
       <Blueprint missing={missing} hot={hot} />
+      {holes ? <PlankHoles placed={placed} /> : null}
       <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} />
       {drops
         ? queenPost.slots
@@ -236,6 +239,35 @@ function Ruler() {
   );
 }
 
+function PlankHoles({ placed }: { placed: Record<string, boolean> }) {
+  return (
+    <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      {plankSlots()
+        .filter((slot) => !placed[slot.id])
+        .map((slot) => {
+          const x = queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre;
+          return (
+            <rect
+              key={slot.id}
+              data-hole={slot.id}
+              x={x}
+              y={queenPost.scene.deckY - 16}
+              width={queenPost.pxPerMetre}
+              height={16}
+              fill="none"
+              stroke="#9a9388"
+              strokeWidth="2"
+              strokeDasharray="5 4"
+              opacity="0.85"
+            />
+          );
+        })}
+    </svg>
+  );
+}
+
+const BANK_BOTTOM = 610;
+
 function spriteFor(pose: PiecePose): string {
   if (pose.broken === "left") {
     return "beam-broken-left.png";
@@ -260,10 +292,15 @@ function poseStyle(pose: PiecePose): CSSProperties {
   const width = vertical ? 32 : along;
   const height = vertical ? along : pose.kind === "brace" ? 15 : 22;
   const rotation = vertical ? -pose.angle + Math.PI / 2 : -pose.angle;
+  let top = py - height / 2;
+  if (pose.y <= waterWorld() + 0.02) {
+    top = Math.max(top, waterPixel() - height / 2);
+  }
+  top = Math.min(top, BANK_BOTTOM - height);
   return {
     position: "absolute",
     left: px - width / 2,
-    top: py - height / 2,
+    top,
     width,
     height,
     transform: `rotate(${rotation}rad)`,
@@ -329,7 +366,10 @@ export function frameNear(frames: CrossingFrame[], metres: number): CrossingFram
 export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
   const goat = goatSprite(frame.mode, frame.walkFrame);
   const left = queenPost.scene.originX + queenPost.pxPerMetre * frame.goatX - goat.width / 2;
-  const top = queenPost.scene.deckY - queenPost.pxPerMetre * frame.goatY - goat.height;
+  const wet = frame.mode === "swim" || frame.mode === "splash";
+  const belly = Math.round(goat.height * 0.62);
+  let top = wet ? waterPixel() - belly : queenPost.scene.deckY - queenPost.pxPerMetre * frame.goatY - goat.height;
+  top = Math.min(top, BANK_BOTTOM - goat.height);
   return (
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode}>
@@ -342,10 +382,10 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
       ))}
       {frame.splashes.map((splash) => {
         const x = queenPost.scene.originX + queenPost.pxPerMetre * splash.x - 160;
-        const y = queenPost.scene.deckY - queenPost.pxPerMetre * splash.y - 40;
-        return <img key={`${splash.x.toFixed(2)}`} className="gk-piece" alt="" src={art("splash.png")} style={{ left: x, top: y, width: 320, height: 130, opacity: 0.9 }} />;
+        const y = waterPixel() - 8;
+        return <img key={`${splash.x.toFixed(2)}`} className="gk-piece" data-splash="1" alt="" src={art("splash.png")} style={{ left: x, top: y, width: 320, height: 130, opacity: 0.9 }} />;
       })}
-      <img src={art(goat.src)} alt="" style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
+      <img src={art(goat.src)} alt="" data-belly={wet ? waterPixel() : undefined} style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
     </div>
     </div>
   );

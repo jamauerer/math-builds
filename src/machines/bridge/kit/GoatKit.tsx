@@ -45,7 +45,7 @@ import {
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import { knownLine, pieceGroup, plankSlots, preCut, queenPost, stareLine, testedRound, trayNote, typedLine, wreckLines } from "../kits/kit";
+import { causeHint, causeText, knownLine, pieceGroup, pieceRows, plankSlots, preCut, queenPost, rowLabel, stareLine, testedRound, trayNote, typedLine } from "../kits/kit";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
@@ -186,11 +186,12 @@ export function GoatKit({
   );
   const [drag, setDrag] = useState<string | null>(null);
   const [result, setResult] = useState<CrossingResult | null>(() => {
+    const fromDrops = Object.keys(drops).length > 0 ? numericLengths(drops) : null;
     if (start === "drive") {
-      return simulateCrossing(numericLengths(filledLengths()));
+      return simulateCrossing(fromDrops ?? numericLengths(filledLengths()));
     }
     if (start === "wreck" || fault) {
-      return simulateCrossing(roundLengths(round) ?? scenarioLengths(start, fault));
+      return simulateCrossing(fromDrops ?? roundLengths(round) ?? scenarioLengths(start, fault));
     }
     return null;
   });
@@ -421,6 +422,28 @@ export function GoatKit({
         setLengths((current) => ({ ...current, [drop]: String(pieceLength) }));
       }
     }
+  }
+
+  function tapPlace(id: string) {
+    if (placed[id]) {
+      return;
+    }
+    const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
+    const cutting = !preCut(measuring);
+    if (id === "planks") {
+      if (cutting && !Number(lengths.planks)) {
+        return;
+      }
+      const next = plankSlots().find((slot) => !placed[slot.id]);
+      if (next) {
+        layPlank(next);
+      }
+      return;
+    }
+    if (cutting && needsLength(id) && !Number(lengths[id])) {
+      return;
+    }
+    place(id, id);
   }
 
   function onTrayUp(event: ReactPointerEvent<HTMLElement>, id: string) {
@@ -660,6 +683,7 @@ export function GoatKit({
               onLength={(id, value) => setLengths((current) => ({ ...current, [id]: value }))}
               onDrag={setDrag}
               onUp={onTrayUp}
+              onTap={tapPlace}
               onLay={layPlank}
               onSend={() => setShowCheck(true)}
               onSendNow={() => {
@@ -677,6 +701,7 @@ export function GoatKit({
           {stage === "drive" && shown ? (
             <DriveView
               result={shown}
+              lengths={numericLengths(lengths)}
               seek={seek}
               onHeavy={() => sendGoat(mass * 2)}
               onNext={() => setStage("pick")}
@@ -1246,6 +1271,7 @@ function AssembleView({
   onLength,
   onDrag,
   onUp,
+  onTap,
   onLay,
   onSend,
   onSendNow,
@@ -1267,6 +1293,7 @@ function AssembleView({
   onLength: (id: string, value: string) => void;
   onDrag: (id: string | null) => void;
   onUp: (event: ReactPointerEvent<HTMLElement>, id: string) => void;
+  onTap: (id: string) => void;
   onLay: (id: string) => void;
   onSend: () => void;
   onSendNow: () => void;
@@ -1293,6 +1320,7 @@ function AssembleView({
           lengths={numbers}
           drops
           preview={cut}
+          holes={round === 1}
           hot={guide?.piece ?? null}
           geometryLevel={geometryLevel}
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
@@ -1343,20 +1371,15 @@ function AssembleView({
       ) : null}
       <aside className="gk-panel" data-drag={drag ?? ""}>
         <h2>Kit tray</h2>
-        <p className="gk-muted">{guide ? "This piece next." : "Drag a piece onto its dotted line."}</p>
+        <p className="gk-muted">{guide ? "This piece next." : "Tap a piece to place it, or drag it onto its dotted line."}</p>
         {rows.map((id) => {
           if (id === "planks") {
-            const next = guide?.piece.startsWith("plank") ? guide.piece : plankSlots().find((slot) => !placed[slot.id])?.id;
             const laid = plankSlots().filter((slot) => placed[slot.id]).length;
             return (
               <div
                 key="planks"
                 className="gk-row"
-                onPointerUp={() => {
-                  if (next) {
-                    onLay(next);
-                  }
-                }}
+                onPointerUp={() => onTap("planks")}
               >
                 <img src={art("plank-side.png")} alt="" />
                 <div>
@@ -1370,6 +1393,11 @@ function AssembleView({
                     value={lengths.planks ?? ""}
                     placeholder="?"
                     onPointerDown={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        onTap("planks");
+                      }
+                    }}
                     onChange={(event) => onLength("planks", event.target.value)}
                   />
                 ) : (
@@ -1393,8 +1421,20 @@ function AssembleView({
                 }
                 onDrag(id);
                 event.currentTarget.setPointerCapture(event.pointerId);
+                event.currentTarget.dataset.x = String(event.clientX);
+                event.currentTarget.dataset.y = String(event.clientY);
               }}
-              onPointerUp={(event) => onTrayUpSafe(event, id, placed, onUp)}
+              onPointerUp={(event) => {
+                const startX = Number(event.currentTarget.dataset.x ?? event.clientX);
+                const startY = Number(event.currentTarget.dataset.y ?? event.clientY);
+                const moved = Math.hypot(event.clientX - startX, event.clientY - startY) > 8;
+                if (!moved) {
+                  onTap(id);
+                  onDrag(null);
+                  return;
+                }
+                onTrayUpSafe(event, id, placed, onUp);
+              }}
             >
               <img src={art(sprite)} alt="" />
               <div>
@@ -1408,6 +1448,11 @@ function AssembleView({
                   value={lengths[id] ?? ""}
                   placeholder="?"
                   onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      onTap(id);
+                    }
+                  }}
                   onChange={(event) => onLength(id, event.target.value)}
                 />
               ) : !cut && slot && slot.length != null && !slot.bonus ? (
@@ -1435,12 +1480,14 @@ function onTrayUpSafe(
 
 function DriveView({
   result,
+  lengths,
   seek,
   onHeavy,
   onNext,
   onSettled,
 }: {
   result: CrossingResult;
+  lengths: Record<string, number>;
   seek: number | null;
   onHeavy: () => void;
   onNext: () => void;
@@ -1448,15 +1495,15 @@ function DriveView({
 }) {
   const held = seek == null ? null : frameNear(result.frames, seek);
   const frame = usePlayback(result, held, onSettled);
+  const rows = pieceRows(lengths, result.cause, result.broke);
+  const calm = rows.every((row) => row.state === "fit") && result.peakForce < 1000 * 0.6;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
         <CrossingPicture frame={frame} />
         <div className="gk-strip">
           <p>
-            {frame.goatX >= 8
-              ? "The goat is across."
-              : "Every piece fit. The goat is halfway, the posts are holding, nothing is bending."}
+            {frame.goatX >= 8 ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
           </p>
           <div className="gk-actions">
             <button className="gk-light" type="button" onClick={onHeavy}>
@@ -1479,14 +1526,11 @@ function DriveView({
           </div>
           <p className="gk-muted">holds up to about {formatWeight(180)}</p>
         </div>
-        <p className="gk-muted">Who is working hardest</p>
-        {result.members.slice(0, 3).map((member) => (
-          <div key={member.name} className="gk-row earned">
+        {rows.map((row) => (
+          <div key={row.id} className={`gk-row ${row.state === "fit" ? "earned" : ""}`}>
             <div>
-              <b>{member.name}</b>
-              <span className="gk-good">
-                {member.job}, fine
-              </span>
+              <b>{row.name}</b>
+              <span className={row.state === "fit" ? "gk-good" : "gk-bad"}>{rowLabel(row)}</span>
             </div>
           </div>
         ))}
@@ -1541,21 +1585,18 @@ function WreckView({
     return () => cancelAnimationFrame(raf);
   }, [held, resting]);
   const frame = held ?? (import.meta.env.VITEST ? resting : blink);
-  const line = stareLine(numericLengths(lengths));
   const own = numericLengths(lengths);
   const numbers = own.top == null && own["post-a"] == null ? own : { ...numericLengths(filledLengths()), ...own };
-  const lines = wreckLines(numbers);
+  const rows = pieceRows(numbers, result.cause, result.broke);
+  const line = stareLine(numbers, result.cause);
+  const hint = causeHint(result.cause, numbers);
   const glaring = frame?.mode === "glare";
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
         {frame ? <CrossingPicture frame={frame} /> : null}
         <div className="gk-strip">
-          <p>
-            {numbers.top === 3
-              ? `Top beam was ${formatLength(3)}. The posts are ${formatLength(4)} apart. The right post had nothing to hold on to.`
-              : (lines[0] ?? "A piece let go.")}
-          </p>
+          <p>{causeText(result.cause)}</p>
           {glaring ? (
             <div className="gk-stare">
               <p className="gk-say">{line}</p>
@@ -1586,14 +1627,18 @@ function WreckView({
       </div>
       <aside className="gk-panel" data-wreck="panel">
         <h2>What went wrong</h2>
-        {lines.map((line) => (
-          <div key={line} className="gk-row">
-            <div>
-              <b>{line}</b>
+        <p>{causeText(result.cause)}</p>
+        {hint ? <p className="gk-note">{hint}</p> : null}
+        {rows
+          .filter((row) => row.state !== "fit")
+          .map((row) => (
+            <div key={row.id} className="gk-row">
+              <div>
+                <b>{row.name}</b>
+                <span>{row.caused ? rowLabel(row) : `${rowLabel(row)}, wrong, but not what broke`}</span>
+              </div>
             </div>
-            <span className="gk-bad">{line.includes("fine") ? "" : line.includes("short") || line.includes("fell") ? line.split(", ").slice(-1)[0] : ""}</span>
-          </div>
-        ))}
+          ))}
         <div className="gk-row earned">
           <div>
             <b>Goat</b>
