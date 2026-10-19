@@ -697,6 +697,32 @@
   color: #6b6459;
 }
 
+.gk-kicker-stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  letter-spacing: 0;
+}
+
+.gk-qstrand {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: #efe6d6;
+  color: #22201c;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.gk-where {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 22px;
+  line-height: 1.45;
+}
+
 .gk-prompt {
   font-family: Fraunces, serif;
   font-weight: 600;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { answerEarn, blankEarn, currentQuestion, earnPrompt, openRun, startGuided } from "./earn";
 import { queenPost } from "./kit";
 import { pieceQuestion } from "./pieces";
-import { currentSkill, KIT_SKILLS, longestStrandRun, noteSession, skillsFromLevels, withState } from "./skills";
+import { currentSkill, KIT_SKILLS, noteSession, skillsFromLevels, withState } from "./skills";
 import { KIT_STRANDS } from "../../../engine/strand-placement";
 
 const levels = {
@@ -42,15 +42,16 @@ describe("lesson structure", () => {
     expect(settled.phase).toBe("plain");
   });
 
-  it("never asks five questions from the same strand in a row", () => {
+  it("keeps a piece run on that piece's strand", () => {
     let state = openRun(levels, "braces", 5);
     const strands: string[] = [];
     while (state.phase === "plain") {
       strands.push(state.current.strandId);
+      expect(state.current.level).toBeLessThanOrEqual((levels.geometry ?? 1) + 1);
       state = answerEarn(state, state.current.answer, levels).state;
     }
     expect(strands.length).toBe(5);
-    expect(longestStrandRun(strands)).toBeLessThan(5);
+    expect(strands.every((id) => id === "geometry")).toBe(true);
   });
 
   it("puts a skill missed on the word problem into the next warm-up", () => {

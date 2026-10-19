@@ -8,6 +8,7 @@ import {
   fitLevels,
   gradeStartLevel,
   KIT_STRANDS,
+  strandLine,
   strandName,
   type AdaptiveRun,
   type GradeChoice,
@@ -58,7 +59,7 @@ import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
-type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile";
+type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "where";
 type Open = Stage | "faster";
 
 const TRAY = [
@@ -141,6 +142,9 @@ export function GoatKit({
   const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
   const [stage, setStage] = useState<Stage>(() => {
     const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
+    if (opened === "where" && !hasPlacement) {
+      return "grade";
+    }
     if (!hasPlacement && !lesson && (opened === "earn" || start === "explain" || start === "practice")) {
       return "grade";
     }
@@ -389,7 +393,7 @@ export function GoatKit({
         skills: skillsFromLevels(stepped.levels),
       });
       setEarn(blankEarn(stepped.levels));
-      setStage("profile");
+      setStage("where");
       return;
     }
     onKitProfile?.({
@@ -427,7 +431,7 @@ export function GoatKit({
         skills: skillsFromLevels(stepped.levels),
       });
       setEarn(blankEarn(stepped.levels));
-      setStage("profile");
+      setStage("where");
       return;
     }
     onKitProfile?.({
@@ -633,6 +637,15 @@ export function GoatKit({
           onCheck={submitPlace}
           onHelp={askHelp}
         />
+      ) : stage === "where" ? (
+        <WhereView
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          levels={Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {})}
+          onProfile={() => setStage("profile")}
+          onStart={() => setStage(kitProfile?.seenIntro ? "earn" : "intro")}
+        />
       ) : stage === "profile" ? (
         <ProfileView
           marks={marks}
@@ -697,7 +710,7 @@ export function GoatKit({
               onCheck={submitAnswer}
               onHelp={askHelp}
               onPractice={() => {
-                setEarn(startPractice(earn));
+                setEarn(startPractice(earn, levelsNow));
                 setTyped("");
               }}
               onEasier={() => {
@@ -713,7 +726,7 @@ export function GoatKit({
                 }
               }}
               onLearn={() => {
-                const next = startGuided(earn);
+                const next = startGuided(earn, levelsNow);
                 setEarn(next);
                 onKitProfile?.({
                   grade: kitProfile?.grade ?? grade,
@@ -886,19 +899,19 @@ function Pick({
         <p className="gk-sub">Pick one. Earn the pieces, give each one a number, build it, send the goat.</p>
         <div className="gk-strands">
           <span className="gk-strand" style={{ background: "#E8F3EA", color: "#1F6B3A" }}>
-            Measuring 7
+            Measuring: strong
           </span>
           <span className="gk-strand" style={{ background: "#E8F3EA", color: "#1F6B3A" }}>
-            Adding 7
+            Adding: strong
           </span>
           <span className="gk-strand" style={{ background: "#E8F3EA", color: "#1F6B3A" }}>
-            Dividing 5
+            Dividing: getting there
           </span>
           <span className="gk-strand" style={{ background: "#FFF3DA", color: "#9A6A12" }}>
-            Fractions 4
+            Fractions: getting there
           </span>
           <span className="gk-strand" style={{ background: "#F1EFEA", color: "#6B6459" }}>
-            Ratios 2
+            Ratios: new to you
           </span>
         </div>
         <div className="gk-grid">
@@ -920,11 +933,11 @@ function Pick({
               </div>
             </div>
           </button>
-          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Level 3 of 13" thumb={teeter} />
+          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Later" thumb={teeter} />
           <LockedCard title="The Well Winch" note="Counting teeth, ratios, fractions of a turn. Later torque and clockwork." pill="Not started" thumb={winch} />
           <LockedCard title="The Mountain Ramp" note="Rise over run, angles, how steep a car can climb. Later speed and energy." pill="Not started" thumb={ramp} />
-          <LockedCard title="The Bicycle" note="Gear ratios, wheel size, how far one pedal turn takes you." pill="Opens at Ratios 3" locked thumb={bicycle} />
-          <LockedCard title="The Catapult" note="Arm ratios, angles, how far it flies. Later trajectories." pill="Opens at Angles 1" locked thumb={catapult} />
+          <LockedCard title="The Bicycle" note="Gear ratios, wheel size, how far one pedal turn takes you." pill="Later" locked thumb={bicycle} />
+          <LockedCard title="The Catapult" note="Arm ratios, angles, how far it flies. Later trajectories." pill="Later" locked thumb={catapult} />
         </div>
       </div>
     </>
@@ -1084,8 +1097,9 @@ function EarnView({
     <div className="gk-body">
       <div className="gk-earn">
         <div className={fading ? "gk-card is-fading" : "gk-card"}>
-          <div className="gk-kicker">
+          <div className="gk-kicker gk-kicker-stack">
             <span>{counter}</span>
+            <span className="gk-qstrand">{strandName(question.strandId)}</span>
           </div>
           <h2 className="gk-prompt">{earnPrompt(question)}</h2>
           {picture ? <EarnSketch question={question} /> : null}
@@ -2046,7 +2060,7 @@ function PlaceView({
           Codex
         </button>
         <div>
-          <div className="gk-title">Finding your level</div>
+          <div className="gk-title">A few questions</div>
           <div className="gk-sub">{strandName(ask.strandId)}</div>
         </div>
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
@@ -2054,8 +2068,9 @@ function PlaceView({
       <div className="gk-body">
         <div className="gk-earn">
           <div className="gk-card">
-            <div className="gk-kicker">
+            <div className="gk-kicker gk-kicker-stack">
               <span>QUESTION {ask.number}</span>
+              <span className="gk-qstrand">{strandName(ask.strandId)}</span>
             </div>
             <div className="gk-bar thin">
               <i style={{ width: `${((ask.number - 1) / 12) * 100}%` }} />
@@ -2079,6 +2094,52 @@ function PlaceView({
             </div>
             <button className="gk-idk" type="button" onClick={onHelp}>
               I don't know
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WhereView({
+  marks,
+  units,
+  onUnits,
+  levels,
+  onProfile,
+  onStart,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  levels: Record<string, number>;
+  onProfile: () => void;
+  onStart: () => void;
+}) {
+  return (
+    <>
+      <header className="gk-header">
+        <button className="gk-codex" type="button" onClick={onProfile}>
+          Codex
+        </button>
+        <div>
+          <div className="gk-title">The Goat Bridge</div>
+          <div className="gk-sub">Placement is done</div>
+        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
+      </header>
+      <div className="gk-body">
+        <div className="gk-earn">
+          <div className="gk-card">
+            <h1 className="gk-prompt">Here is where you are</h1>
+            <ul className="gk-where">
+              {KIT_STRANDS.map((id) => (
+                <li key={id}>{strandLine(id, levels[id] ?? 1)}</li>
+              ))}
+            </ul>
+            <button className="gk-check" type="button" data-action="primary" onClick={onStart}>
+              Start
             </button>
           </div>
         </div>
@@ -2124,21 +2185,18 @@ function ProfileView({
           </>
         ) : (
           <>
-        <h1>Skills</h1>
+        <h1>Here is where you are</h1>
         <p className="gk-sub">Marks never move these. Only answers do.</p>
-        {profile.notes.map((note) => (
+        {profile.notes.filter((note) => !/level\s+\d/i.test(note)).map((note) => (
           <p className="gk-note" key={note} data-log="level">
             {note}
           </p>
         ))}
-        <ol className="gk-ladder">
+        <ul className="gk-where">
           {KIT_STRANDS.map((id) => (
-            <li key={id}>
-              <span>{strandName(id)}</span>
-              <b>Level {profile.levels[id]}</b>
-            </li>
+            <li key={id}>{strandLine(id, profile.levels[id] ?? 1)}</li>
           ))}
-        </ol>
+        </ul>
         <p className="gk-dunks">
           <img src={art("goat-idle.png")} alt="" />
           Goat dunks: {profile.dunks ?? 0}

@@ -161,3 +161,28 @@ export function strandName(id: string): string {
   };
   return names[id] ?? id;
 }
+
+/** Names a learner can read. Multiplying is the times tables. */
+export function strandKidName(id: string): string {
+  const names: Record<string, string> = {
+    multiplying: "Times tables",
+    geometry: "Shapes",
+    algebra: "Missing numbers",
+  };
+  return names[id] ?? strandName(id);
+}
+
+/** A level number stays in the parent record. The learner hears one of these. */
+export function strandStanding(level: number): "new to you" | "getting there" | "strong" {
+  if (level <= 2) {
+    return "new to you";
+  }
+  if (level <= 6) {
+    return "getting there";
+  }
+  return "strong";
+}
+
+export function strandLine(id: string, level: number): string {
+  return `${strandKidName(id)}: ${strandStanding(level)}.`;
+}

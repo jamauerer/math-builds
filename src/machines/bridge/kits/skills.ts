@@ -248,15 +248,20 @@ function dueEvery(skillId: string): number {
 
 export type WarmSlot = { skillId: string; strandId: string; level: number };
 
+function withinLevel(skill: KitSkill, levels: Record<string, number> | null): boolean {
+  return skill.level <= (levels?.[skill.strandId] ?? 1) + 1;
+}
+
 /** Warm-up slots: missed skills first, then practicing skills that are due, with a mastered skill about 1 in 10. */
-export function warmUpPlan(book: SkillBook, count = 3): WarmSlot[] {
-  const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp);
+export function warmUpPlan(book: SkillBook, count = 3, pieceStrand = "dividing", levels: Record<string, number> | null = null): WarmSlot[] {
+  const legal = (skill: KitSkill) => withinLevel(skill, levels);
+  const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp && legal(skill));
   const practicing = KIT_SKILLS.filter((skill) => {
     const progress = book.skills[skill.id];
-    return progress?.state === "practicing" && progress.sessionsSince >= dueEvery(skill.id);
+    return progress?.state === "practicing" && progress.sessionsSince >= dueEvery(skill.id) && legal(skill);
   });
-  const otherPractice = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "practicing" && !practicing.includes(skill));
-  const mastered = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "mastered");
+  const otherPractice = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "practicing" && !practicing.includes(skill) && legal(skill));
+  const mastered = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "mastered" && legal(skill));
   const pool = [...flagged, ...practicing, ...otherPractice];
   const slots: WarmSlot[] = [];
   const used = new Set<string>();
@@ -268,7 +273,12 @@ export function warmUpPlan(book: SkillBook, count = 3): WarmSlot[] {
     slots.push({ skillId: skill.id, strandId: skill.strandId, level: skill.level });
   }
   const includeMastered = book.session % 2 === 1 && mastered.length > 0;
-  let fill = mastered.length > 0 ? mastered : KIT_SKILLS.filter((skill) => skill.level === 1);
+  const pieceLevel = workingLevel(book, pieceStrand, levels?.[pieceStrand]);
+  const piece = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === pieceLevel && legal(skill));
+  let fill = mastered.length > 0 ? mastered : piece;
+  if (fill.length === 0) {
+    fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === 1);
+  }
   let cursor = 0;
   while (slots.length < count && fill.length > 0) {
     const skill = fill[cursor % fill.length];
@@ -290,70 +300,15 @@ export function warmUpPlan(book: SkillBook, count = 3): WarmSlot[] {
 
 export type RunSlot = { skillId: string; strandId: string; level: number; mixed: boolean };
 
-/** 70% the piece's current skill, 30% other strands, never five of one strand in a row. */
+/** Every question in a piece run is that piece's strand, at the learner's working level. */
 export function runPlan(book: SkillBook, strandId: string, level: number, length: number, seed: number): RunSlot[] {
+  void seed;
   const focus = currentSkill(book, strandId, level);
-  const mixedCount = Math.max(1, Math.round(length * 0.3));
-  const focusCount = Math.max(0, length - mixedCount);
-  const others = mixPool(book, strandId);
-  const pool = others.length > 0 ? others : KIT_SKILLS.filter((skill) => skill.strandId !== strandId).slice(0, 6);
-  const mixedAt = new Set<number>();
-  for (let index = 0; index < mixedCount; index += 1) {
-    mixedAt.add(Math.min(length - 1, 3 + index * 3));
-  }
   const slots: RunSlot[] = [];
-  let streak = 0;
-  let focusLeft = focusCount;
-  let mixedLeft = mixedCount;
   for (let index = 0; index < length; index += 1) {
-    const wantMix = mixedAt.has(index) || streak >= 4;
-    if ((wantMix && mixedLeft > 0) || focusLeft === 0) {
-      const other = pool[(seed + index) % pool.length] ?? focus;
-      slots.push({ skillId: other.id, strandId: other.strandId, level: other.level, mixed: other.strandId !== strandId });
-      mixedLeft -= 1;
-      streak = 0;
-      continue;
-    }
     slots.push({ skillId: focus.id, strandId: focus.strandId, level: focus.level, mixed: false });
-    focusLeft -= 1;
-    streak += 1;
   }
-  return breakStreak(slots, pool, strandId);
-}
-
-function mixPool(book: SkillBook, strandId: string): KitSkill[] {
-  const pool = KIT_SKILLS.filter((skill) => {
-    if (skill.strandId === strandId) {
-      return false;
-    }
-    const state = book.skills[skill.id]?.state;
-    return state === "learning" || state === "practicing";
-  });
-  if (pool.length > 0) {
-    return pool;
-  }
-  return KIT_SKILLS.filter((skill) => skill.strandId !== strandId && book.skills[skill.id]?.state === "mastered").slice(0, 8);
-}
-
-function breakStreak(slots: RunSlot[], others: KitSkill[], strandId: string): RunSlot[] {
-  const next = slots.slice();
-  let streak = 0;
-  let last = "";
-  for (let index = 0; index < next.length; index += 1) {
-    if (next[index].strandId === last) {
-      streak += 1;
-    } else {
-      streak = 1;
-      last = next[index].strandId;
-    }
-    if (streak >= 5 && others.length > 0) {
-      const other = others[index % others.length];
-      next[index] = { skillId: other.id, strandId: other.strandId, level: other.level, mixed: other.strandId !== strandId };
-      streak = 1;
-      last = other.strandId;
-    }
-  }
-  return next;
+  return slots;
 }
 
 export function longestStrandRun(strandIds: string[]): number {

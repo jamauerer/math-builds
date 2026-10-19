@@ -46,7 +46,7 @@ function kitLevel(value: string | null): number | null {
   return parsed;
 }
 
-function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" | "intro" {
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" | "intro" | "where" {
   if (
     value === "earn" ||
     value === "assemble" ||
@@ -59,7 +59,8 @@ function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" 
     value === "practice" ||
     value === "profile" ||
     value === "faster" ||
-    value === "intro"
+    value === "intro" ||
+    value === "where"
   ) {
     return value;
   }
