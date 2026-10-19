@@ -134,6 +134,7 @@ export function App() {
           level={kitLevel(new URLSearchParams(window.location.search).get("level"))}
           piece={new URLSearchParams(window.location.search).get("piece")}
           word={new URLSearchParams(window.location.search).get("word") === "1"}
+          lesson={new URLSearchParams(window.location.search).get("lesson")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

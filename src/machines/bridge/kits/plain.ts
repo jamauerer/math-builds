@@ -67,9 +67,9 @@ function item(prompt: string, answer: number | string, steps: string[], why: str
 
 function counting(level: number, rng: Rng): PlainItem {
   if (level <= 2) {
-    const left = intBetween(rng, 1, 9);
-    const right = intBetween(rng, left + 1, 12);
-    return item(`Which is larger, ${left} or ${right}?`, right, [`Look at ${left} and ${right}.`, `${right} is more.`], "Comparing asks which amount is more.");
+    const left = intBetween(rng, 2, 8);
+    const extra = intBetween(rng, 1, 5);
+    return item(`How much larger is ${left + extra} than ${left}?`, extra, [`${left + extra} take away ${left}.`, `The difference is ${extra}.`], "Comparing asks how much more one amount is.");
   }
   if (level <= 4) {
     const left = intBetween(rng, 2, level <= 3 ? 12 : 40);
@@ -84,8 +84,8 @@ function counting(level: number, rng: Rng): PlainItem {
 function measuring(level: number, rng: Rng): PlainItem {
   if (level <= 2) {
     const left = intBetween(rng, 2, 8);
-    const right = intBetween(rng, left + 1, 12);
-    return item(`Which is longer, ${left} or ${right}?`, right, [`Compare ${left} and ${right}.`, `${right} is longer.`], "The longer length is the larger number.");
+    const extra = intBetween(rng, 1, 5);
+    return item(`How much longer is ${left + extra} than ${left}?`, extra, [`Compare ${left + extra} and ${left}.`, `The longer one wins by ${extra}.`], "The difference is how much longer the bigger length is.");
   }
   if (level <= 4) {
     const span = level <= 3 ? 18 : 90;

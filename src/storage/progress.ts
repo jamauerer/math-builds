@@ -13,6 +13,7 @@ import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
 import type { GradeChoice } from "../engine/strand-placement";
+import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
 
 export type KitAttempt = {
   strandId: string;
@@ -27,6 +28,7 @@ export type KitProfile = {
   history: KitAttempt[];
   notes: string[];
   lastRunMs?: number;
+  skills?: SkillBook;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -205,6 +207,7 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     history,
     notes: Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [],
     lastRunMs: typeof record.lastRunMs === "number" && record.lastRunMs >= 0 ? record.lastRunMs : undefined,
+    skills: sanitizeBook(record.skills),
   };
 }
 

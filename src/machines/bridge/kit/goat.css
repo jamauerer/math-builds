@@ -543,6 +543,51 @@
   margin: 0;
 }
 
+.gk-skill-board {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.gk-skill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gk-skill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f4f0ea;
+}
+
+.gk-skill b {
+  font-size: 15px;
+}
+
+.gk-skill span,
+.gk-skill small {
+  color: #6b6459;
+  font-size: 13px;
+}
+
+.gk-skill.learning {
+  background: #fff3d6;
+}
+
+.gk-skill.practicing {
+  background: #e7f2fa;
+}
+
+.gk-skill.mastered {
+  background: #e5f4e8;
+}
+
 .gk-speed {
   margin: 8px 0 18px;
   font-size: 22px;
