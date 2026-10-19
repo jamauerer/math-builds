@@ -46,7 +46,7 @@ function kitLevel(value: string | null): number | null {
   return parsed;
 }
 
-function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" {
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "faster" | "intro" {
   if (
     value === "earn" ||
     value === "assemble" ||
@@ -58,11 +58,26 @@ function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" 
     value === "explain" ||
     value === "practice" ||
     value === "profile" ||
-    value === "faster"
+    value === "faster" ||
+    value === "intro"
   ) {
     return value;
   }
   return "pick";
+}
+
+function kitDrops(value: string | null): Record<string, string> {
+  const lengths: Record<string, string> = {};
+  if (!value) {
+    return lengths;
+  }
+  for (const part of value.split(",")) {
+    const [id, length] = part.split(":");
+    if (id && length) {
+      lengths[id] = length;
+    }
+  }
+  return lengths;
 }
 
 type Screen =
@@ -136,6 +151,8 @@ export function App() {
           word={new URLSearchParams(window.location.search).get("word") === "1"}
           lesson={new URLSearchParams(window.location.search).get("lesson")}
           unplaced={new URLSearchParams(window.location.search).get("placed") === "0"}
+          moment={new URLSearchParams(window.location.search).get("moment")}
+          drops={kitDrops(new URLSearchParams(window.location.search).get("drops"))}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

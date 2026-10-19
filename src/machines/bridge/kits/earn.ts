@@ -80,7 +80,7 @@ export type EarnState = {
   groupIndex: number;
   earned: string[];
   runGot: number;
-  phase: "warmup" | "learn" | "guided" | "plain" | "word" | "explain" | "practice" | "paused" | "done";
+  phase: "warmup" | "learn" | "guided" | "plain" | "word" | "explain" | "practice" | "done";
   returnPhase: "warmup" | "guided" | "plain" | "word";
   current: EarnQuestion;
   upcoming: EarnQuestion[];
@@ -895,7 +895,7 @@ export function earnDone(state: EarnState): boolean {
 }
 
 export function currentQuestion(state: EarnState): EarnQuestion | null {
-  if (state.phase === "done" || state.phase === "paused" || state.phase === "learn") {
+  if (state.phase === "done" || state.phase === "learn") {
     return state.phase === "learn" ? state.current : null;
   }
   if (state.phase === "practice") {
@@ -1039,11 +1039,6 @@ function afterPiece(state: EarnState, levels: Record<string, number>, groupId: s
     const total = state.timesMs.reduce((sum, time) => sum + time, 0);
     return { ...state, earned, book, phase: "done", speedLine: speedLine(total, null) };
   }
-  const group = groupAt(index);
-  const level = workingLevel(book, group.strand, nextLevels[group.strand] ?? 1);
-  if (newSkill(book, group.strand, level) && book.introduced) {
-    return { ...state, earned, book, groupIndex: index, phase: "paused", upcoming: [] };
-  }
   const withBook = { ...state, earned, book };
   return learnState(withBook, index, nextLevels) ?? runState(withBook, index, nextLevels);
 }
@@ -1060,7 +1055,7 @@ export function answerEarn(
   previousMs: number | null = null,
 ): EarnResult {
   const current = currentQuestion(state);
-  if (!current || state.phase === "explain" || state.phase === "done" || state.phase === "paused" || state.phase === "learn") {
+  if (!current || state.phase === "explain" || state.phase === "done" || state.phase === "learn") {
     return { state, correct: false, levels, note: null, marksDelta: 0 };
   }
   const correct = given.trim() === current.answer.trim();

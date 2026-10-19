@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { formatLength, lengthAbbrev } from "../../../units";
-import { kitNode, nodePixel, queenPost, type KitSlot } from "../kits/kit";
+import { kitNode, nodePixel, queenPost, slotNodes, type KitSlot } from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
 const ART = "/art";
@@ -52,6 +52,20 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
   };
 }
 
+function braceGiven(slot: KitSlot, geometryLevel: number): boolean {
+  return slot.kind === "brace" && geometryLevel < 9;
+}
+
+function slotLabelText(slot: KitSlot, placed: boolean, typed: number | undefined, geometryLevel: number): { text: string; given: boolean } {
+  if (braceGiven(slot, geometryLevel)) {
+    return { text: "2.83", given: true };
+  }
+  if (placed && typed != null && Number.isFinite(typed)) {
+    return { text: formatLength(typed), given: false };
+  }
+  return { text: `? ${lengthAbbrev()}`, given: false };
+}
+
 function Blueprint({ missing }: { missing: KitSlot[] }) {
   return (
     <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
@@ -61,25 +75,43 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         }
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
-        const label = slot.length == null ? "" : slot.kind === "brace" ? "2.83" : formatLength(slot.length);
+        return <line key={slot.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />;
+      })}
+    </svg>
+  );
+}
+
+function SlotLabels({
+  placed,
+  lengths,
+  geometryLevel,
+}: {
+  placed: Record<string, boolean>;
+  lengths: Record<string, number>;
+  geometryLevel: number;
+}) {
+  return (
+    <>
+      {queenPost.slots.map((slot) => {
+        const nodes = slotNodes(slot);
+        if (!nodes || slot.bonus || slot.kind === "gusset" || slot.kind === "bolt") {
+          return null;
+        }
+        const from = nodePixel(nodes.from);
+        const to = nodePixel(nodes.to);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const span = Math.hypot(dx, dy) || 1;
         const midX = (from.x + to.x) / 2 + (-dy / span) * 26;
         const midY = (from.y + to.y) / 2 + (dx / span) * 26;
+        const label = slotLabelText(slot, Boolean(placed[slot.id]), lengths[slot.id], geometryLevel);
         return (
-          <g key={slot.id}>
-            <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="#2E7FB0" strokeWidth="3" strokeDasharray="9 7" />
-            <g transform={`translate(${midX - 40} ${midY - 28})`}>
-              <rect width="80" height="22" rx="11" fill="#fff" stroke="#2E7FB0" />
-              <text x="40" y="15" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#2E7FB0">
-                {slot.kind === "brace" ? label : `${label}?`}
-              </text>
-            </g>
-          </g>
+          <span key={slot.id} className={label.given ? "gk-given" : "gk-slot-label"} style={{ left: midX - 36, top: midY - 14 }}>
+            {label.text}
+          </span>
         );
       })}
-    </svg>
+    </>
   );
 }
 
@@ -88,11 +120,13 @@ export function BridgeScene({
   lengths,
   goat,
   drops,
+  geometryLevel = 4,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
   goat: { src: string; left: number; top: number; width: number; height: number };
   drops?: boolean;
+  geometryLevel?: number;
 }) {
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
@@ -104,6 +138,7 @@ export function BridgeScene({
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
       <Blueprint missing={missing} />
+      <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} />
       {drops
         ? queenPost.slots
             .filter((slot) => slot.structural && !placed[slot.id])
@@ -131,11 +166,6 @@ export function BridgeScene({
           return (
             <span key={slot.id}>
               <img className="gk-piece" alt="" src={art(slot.sprite)} style={style} />
-              {slot.kind === "brace" ? (
-                <span className="gk-given" style={{ left: Number(style.left ?? 0) + 24, top: Number(style.top ?? 0) - 16 }}>
-                  2.83
-                </span>
-              ) : null}
             </span>
           );
         })}
@@ -261,18 +291,13 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
   );
 }
 
+const idleGoat = { src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 };
+
 export function TrussThumb() {
-  const pieces = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset");
   return (
     <div className="gk-thumb" aria-hidden="true">
-      <div className="gk-scene">
-        <img className="banks" src={art("banks.png")} alt="" />
-        <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
-        <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
-        <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
-        {pieces.map((slot) => (
-          <img key={slot.id} className="gk-piece" alt="" src={art(slot.sprite)} style={memberStyle(slot, slot.length ?? 1)} />
-        ))}
+      <div className="gk-thumb-fit">
+        <BridgeScene placed={{}} lengths={{}} goat={idleGoat} />
       </div>
     </div>
   );

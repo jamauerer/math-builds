@@ -13,6 +13,7 @@ import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
 import type { GradeChoice } from "../engine/strand-placement";
+import type { EarnState } from "../machines/bridge/kits/earn";
 import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
 
 export type KitAttempt = {
@@ -29,6 +30,9 @@ export type KitProfile = {
   notes: string[];
   lastRunMs?: number;
   skills?: SkillBook;
+  seenIntro?: boolean;
+  session?: EarnState;
+  build?: { lengths: Record<string, string>; placed: Record<string, boolean> };
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -208,7 +212,50 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     notes: Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [],
     lastRunMs: typeof record.lastRunMs === "number" && record.lastRunMs >= 0 ? record.lastRunMs : undefined,
     skills: sanitizeBook(record.skills),
+    seenIntro: record.seenIntro === true,
+    session: sanitizeSession(record.session),
+    build: sanitizeBuild(record.build),
   };
+}
+
+function sanitizeSession(raw: unknown): EarnState | undefined {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const record = raw as EarnState;
+  const phases = ["warmup", "learn", "guided", "plain", "word", "explain", "practice"];
+  if (!phases.includes(record.phase) || !record.current || typeof record.current.answer !== "string" || !Array.isArray(record.earned)) {
+    return undefined;
+  }
+  const book = sanitizeBook(record.book);
+  if (!book) {
+    return undefined;
+  }
+  return { ...record, book, earned: record.earned.filter((item) => typeof item === "string") };
+}
+
+function sanitizeBuild(raw: unknown): KitProfile["build"] {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+  const record = raw as { lengths?: unknown; placed?: unknown };
+  const lengths: Record<string, string> = {};
+  const placed: Record<string, boolean> = {};
+  if (record.lengths && typeof record.lengths === "object") {
+    for (const [id, value] of Object.entries(record.lengths)) {
+      if (typeof value === "string" && value.trim()) {
+        lengths[id] = value;
+      }
+    }
+  }
+  if (record.placed && typeof record.placed === "object") {
+    for (const [id, value] of Object.entries(record.placed)) {
+      if (value === true) {
+        placed[id] = true;
+      }
+    }
+  }
+  return { lengths, placed };
 }
 
 function sanitizeSequence(raw: unknown): SequenceSave {

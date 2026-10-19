@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { answerEarn, blankEarn, earnPrompt, openRun, startGuided } from "./earn";
+import { answerEarn, blankEarn, currentQuestion, earnPrompt, openRun, startGuided } from "./earn";
 import { currentSkill, KIT_SKILLS, longestStrandRun, noteSession, skillsFromLevels, withState } from "./skills";
 
 const levels = {
@@ -62,6 +62,23 @@ describe("lesson structure", () => {
     const next = blankEarn(levels, 8, missed.state.book);
     expect(next.phase).toBe("warmup");
     expect(next.current.skillId).toBe(skillId);
+  });
+
+  it("keeps going after three pieces instead of ending the lesson", () => {
+    let state = openRun(levels, "bottom", 2);
+    state = {
+      ...state,
+      earned: ["gussets", "bolts"],
+      book: { ...state.book, introduced: "already", earned: ["gussets", "bolts"] },
+    };
+    while (state.phase === "plain") {
+      state = answerEarn(state, state.current.answer, levels).state;
+    }
+    const next = answerEarn(state, state.current.answer, levels).state;
+    expect(next.earned).toEqual(expect.arrayContaining(["gussets", "bolts", "bottom"]));
+    expect(next.earned).toHaveLength(3);
+    expect(next.phase).not.toBe("done");
+    expect(currentQuestion(next)?.answer).toBeTruthy();
   });
 
   it("masters a skill only across three different days", () => {

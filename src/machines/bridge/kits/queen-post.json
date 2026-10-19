@@ -1,6 +1,7 @@
 {
   "id": "queen-post",
   "name": "The Goat Bridge",
+  "intro": "Solve math problems to build the bridge. Every right answer earns a piece. When you have them all, you work out how long each piece is, put the bridge together, and send the goat across.",
   "kind": "queen-post truss",
   "span": 8,
   "marks": 12,

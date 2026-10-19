@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
 import { setUnitSystem } from "../../../units";
+import { answerEarn, openRun } from "../kits/earn";
 import { GoatKit } from "./GoatKit";
 import type { KitProfile } from "../../../storage/progress";
 
@@ -115,6 +116,121 @@ describe("goat bridge screens", () => {
     });
     const bar = container.querySelector(".gk-earn .gk-bar i") as HTMLElement | null;
     expect(parseFloat(bar?.style.width ?? "0")).toBeGreaterThan(0);
+    root.unmount();
+    container.remove();
+  });
+
+  it("renders the next question when three pieces are already earned", async () => {
+    const levels = placedProfile.levels;
+    let state = openRun(levels, "bottom", 2);
+    state = {
+      ...state,
+      earned: ["gussets", "bolts"],
+      book: { ...state.book, introduced: "already", earned: ["gussets", "bolts"] },
+    };
+    while (state.phase === "plain") {
+      state = answerEarn(state, state.current.answer, levels).state;
+    }
+    const next = answerEarn(state, state.current.answer, levels).state;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="earn"
+          level={4}
+          kitProfile={{ ...placedProfile, seenIntro: true, session: next }}
+        />,
+      );
+    });
+    expect(container.textContent).not.toContain("That's the lesson");
+    expect(container.textContent).not.toContain("The kit is earned");
+    expect(container.querySelector(".gk-prompt")?.textContent?.trim().length).toBeGreaterThan(0);
+    root.unmount();
+    container.remove();
+  });
+
+  it("shows the earned piece in the center and then lights its row", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="earn"
+          level={4}
+          piece="bottom"
+          word
+          kitProfile={{ ...placedProfile, seenIntro: true }}
+        />,
+      );
+    });
+    const four = [...container.querySelectorAll(".gk-keys button")].find((button) => button.textContent === "4") as HTMLButtonElement | undefined;
+    await act(async () => {
+      four?.click();
+    });
+    const check = [...container.querySelectorAll("button")].find((button) => button.textContent === "Check") as HTMLButtonElement | undefined;
+    await act(async () => {
+      check?.click();
+    });
+    expect(container.querySelector(".gk-celebrate img")).toBeTruthy();
+    expect(container.textContent).toContain("You earned the bottom beam!");
+    const moment = container.querySelector(".gk-celebrate");
+    await act(async () => {
+      (moment as HTMLButtonElement | null)?.click();
+    });
+    expect(container.querySelector(".gk-celebrate")).toBeNull();
+    expect(container.querySelector('[data-group="bottom"]')?.className).toContain("earned");
+    root.unmount();
+    container.remove();
+  });
+
+  it("hides slot digits until a length is typed and adds one strip line per length", async () => {
+    setUnitSystem("us");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={4}
+          kitProfile={placedProfile}
+        />,
+      );
+    });
+    const labels = [...container.querySelectorAll(".gk-slot-label")].map((label) => label.textContent ?? "");
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.every((label) => !/\d/.test(label))).toBe(true);
+    expect(container.querySelectorAll(".gk-work")).toHaveLength(0);
+    const inputs = [...container.querySelectorAll("input.gk-len")] as HTMLInputElement[];
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    await act(async () => {
+      setValue?.call(inputs[0], "4");
+      inputs[0]?.dispatchEvent(new Event("input", { bubbles: true }));
+      setValue?.call(inputs[1], "3");
+      inputs[1]?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const lines = [...container.querySelectorAll(".gk-work")].map((line) => line.textContent);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("4");
+    expect(lines[1]).toContain("3");
     root.unmount();
     container.remove();
   });

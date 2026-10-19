@@ -33,7 +33,8 @@ describe("goat bridge kit", () => {
     const earned = answerEarn(state, state.current.answer, levels);
     expect(earned.marksDelta).toBe(3);
     expect(earned.state.earned).toContain("bottom");
-    expect(["learn", "plain", "paused"]).toContain(earned.state.phase);
+    expect(earned.state.phase).not.toBe("done");
+    expect(["learn", "plain"]).toContain(earned.state.phase);
     const top = earnAtWord(levels, "top");
     setUnitSystem("us");
     expect(earnPrompt(top.current)).toContain("2 ft");

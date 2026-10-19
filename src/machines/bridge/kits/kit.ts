@@ -32,6 +32,7 @@ export type KitSlot = {
 export type QueenPostKit = {
   id: string;
   name: string;
+  intro: string;
   kind: string;
   span: number;
   marks: number;
@@ -130,6 +131,25 @@ export function wreckLines(lengths: Record<string, number>): string[] {
     lines.push(`Right post, ${formatLength(2)}, needed ${formatLength(2)}, right length, nothing on top, fell`);
   }
   return lines;
+}
+
+/** Facts the learner can see before they type a length. */
+export function knownLine(): string {
+  const posts = queenPost.nodes
+    .filter((node) => node.h === 0 && node.m > 0 && node.m < queenPost.span)
+    .map((node) => node.m)
+    .sort((a, b) => a - b);
+  const stands = posts.filter((metre) => metre === 2 || metre === 6).map((metre) => formatLength(metre));
+  return `The gap is ${formatLength(queenPost.span)}. The posts stand at ${stands[0]} and ${stands[1]}.`;
+}
+
+/** One handwriting line for a length the learner typed, right or wrong. */
+export function typedLine(name: string, value: string): string | null {
+  const parsed = Number(value);
+  if (!value.trim() || !Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return `${name}: ${formatLength(parsed)}`;
 }
 
 export function correctLengths(): Record<string, number> {

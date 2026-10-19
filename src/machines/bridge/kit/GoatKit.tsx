@@ -42,14 +42,14 @@ import {
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import { queenPost, wreckLines } from "../kits/kit";
+import { knownLine, queenPost, typedLine, wreckLines } from "../kits/kit";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
-type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile";
+type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile";
 type Open = Stage | "faster";
 
 const TRAY = [
@@ -88,6 +88,8 @@ export function GoatKit({
   word = false,
   lesson = null,
   unplaced = false,
+  moment = null,
+  drops = {},
   kitProfile = null,
   onKitProfile,
 }: {
@@ -104,6 +106,8 @@ export function GoatKit({
   word?: boolean;
   lesson?: string | null;
   unplaced?: boolean;
+  moment?: string | null;
+  drops?: Record<string, string>;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
@@ -118,14 +122,29 @@ export function GoatKit({
     }
     return opened;
   });
-  const [earn, setEarn] = useState<EarnState>(() =>
-    word && piece ? earnAtWord(savedLevels, piece) : openingEarn(savedLevels, start, lesson, kitProfile?.skills),
-  );
+  const [earn, setEarn] = useState<EarnState>(() => {
+    if (word && piece) {
+      return earnAtWord(savedLevels, piece);
+    }
+    if (!lesson && start !== "faster" && start !== "explain" && start !== "practice" && kitProfile?.session) {
+      return kitProfile.session;
+    }
+    return openingEarn(savedLevels, start, lesson, kitProfile?.skills);
+  });
+  const [reveal, setReveal] = useState<EarnState | null>(null);
+  const [celebrate, setCelebrate] = useState<string[] | null>(moment === "spin" && piece ? [piece] : null);
+  const [pulse, setPulse] = useState<string | null>(moment === "lit" ? piece : null);
   const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
-  const [lengths, setLengths] = useState<Record<string, string>>(() => faultLengths(start, fault));
-  const [placed, setPlaced] = useState<Record<string, boolean>>({});
+  const [lengths, setLengths] = useState<Record<string, string>>(() =>
+    Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) },
+  );
+  const [placed, setPlaced] = useState<Record<string, boolean>>(() =>
+    Object.keys(drops).length > 0
+      ? Object.fromEntries(Object.keys(drops).map((id) => [id, true]))
+      : { ...(kitProfile?.build?.placed ?? {}) },
+  );
   const [drag, setDrag] = useState<string | null>(null);
   const [result, setResult] = useState<CrossingResult | null>(() => {
     if (start === "drive") {
@@ -140,8 +159,10 @@ export function GoatKit({
   const [badge, setBadge] = useState(start === "wreck");
   const awarded = useRef(start === "drive");
   const askedAt = useRef(Date.now());
-  const earnedGroups = earn.earned;
-  const promptKey = `${earn.phase}:${earn.groupIndex}:${earn.runGot}:${earn.practiceIndex}:${earn.current.answer}`;
+  const view = reveal ?? earn;
+  const earnedGroups =
+    moment === "lit" && piece ? [...new Set([...view.earned, piece])] : view.earned;
+  const promptKey = `${view.phase}:${view.groupIndex}:${view.runGot}:${view.practiceIndex}:${view.current.answer}`;
 
   useEffect(() => {
     askedAt.current = Date.now();
@@ -152,8 +173,39 @@ export function GoatKit({
       setStage("grade");
       return;
     }
+    if (!kitProfile?.seenIntro && !kitProfile?.session) {
+      setStage("intro");
+      return;
+    }
+    if (kitProfile?.session) {
+      setEarn(kitProfile.session);
+      setReveal(null);
+    }
     setStage("earn");
   }
+
+  function saveKit(next: EarnState, seenIntro = kitProfile?.seenIntro === true) {
+    if (!onKitProfile || lesson || word || moment || Object.keys(drops).length > 0) {
+      return;
+    }
+    onKitProfile({
+      grade: kitProfile?.grade ?? grade,
+      levels: Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {}),
+      history: kitProfile?.history ?? [],
+      notes: kitProfile?.notes ?? [],
+      lastRunMs: next.phase === "done" ? next.timesMs.reduce((sum, time) => sum + time, 0) : kitProfile?.lastRunMs,
+      skills: next.book,
+      seenIntro,
+      session: next.phase === "done" ? undefined : next,
+      build: { lengths, placed },
+    });
+  }
+
+  useEffect(() => {
+    if (stage === "earn" || stage === "assemble") {
+      saveKit(earn, true);
+    }
+  }, [earn, stage, lengths, placed]);
 
   function remember(
     question: EarnQuestion,
@@ -178,6 +230,23 @@ export function GoatKit({
       notes,
       lastRunMs,
       skills: skills ?? kitProfile?.skills,
+      seenIntro: kitProfile?.seenIntro,
+      session: kitProfile?.session,
+      build: kitProfile?.build,
+    });
+  }
+
+  function finishMoment() {
+    setCelebrate((current) => {
+      if (!current || current.length === 0) {
+        return null;
+      }
+      setPulse(current[0]);
+      if (current.length === 1) {
+        setReveal(null);
+        return null;
+      }
+      return current.slice(1);
     });
   }
 
@@ -185,8 +254,16 @@ export function GoatKit({
     const question = currentQuestion(earn);
     const elapsed = earn.phase === "plain" ? Math.max(0, Date.now() - askedAt.current) : 0;
     const next = answerEarn(earn, typed, savedLevels ?? {}, elapsed, kitProfile?.lastRunMs ?? null);
-    setEarn(next.state);
+    const fresh = next.correct ? next.state.earned.filter((id) => !earn.earned.includes(id)) : [];
     setTyped("");
+    if (fresh.length > 0) {
+      setReveal(earn);
+      setEarn(next.state);
+      setCelebrate(fresh);
+    } else {
+      setReveal(null);
+      setEarn(next.state);
+    }
     if (next.marksDelta > 0) {
       onMarks(marks + next.marksDelta);
     }
@@ -361,11 +438,21 @@ export function GoatKit({
             </div>
             <Account marks={marks} units={units} onUnits={onUnits} onProfile={() => setStage(kitProfile?.grade == null ? "grade" : "profile")} />
           </header>
+          {stage === "intro" ? (
+            <IntroView
+              onStart={() => {
+                saveKit(earn, true);
+                setStage("earn");
+              }}
+            />
+          ) : null}
           {stage === "earn" || stage === "explain" || stage === "practice" ? (
             <EarnView
-              earn={earn}
+              earn={view}
               typed={typed}
               setTyped={setTyped}
+              fading={celebrate != null}
+              pulse={pulse}
               onCheck={submitAnswer}
               onPractice={() => {
                 setEarn(startPractice(earn));
@@ -381,11 +468,17 @@ export function GoatKit({
                   notes: kitProfile?.notes ?? [],
                   lastRunMs: kitProfile?.lastRunMs,
                   skills: next.book,
+                  seenIntro: kitProfile?.seenIntro,
+                  session: next,
+                  build: kitProfile?.build,
                 });
               }}
               onBuild={() => setStage("assemble")}
               earned={earnedGroups}
             />
+          ) : null}
+          {celebrate && (stage === "earn" || stage === "explain" || stage === "practice") ? (
+            <PieceMoment groupId={celebrate[0]} frozen={moment === "spin"} onDone={finishMoment} />
           ) : null}
           {stage === "assemble" ? (
             <AssembleView
@@ -393,6 +486,7 @@ export function GoatKit({
               placed={placed}
               drag={drag}
               trayLeft={trayLeft}
+              geometryLevel={savedLevels?.geometry ?? kitProfile?.levels.geometry ?? 4}
               onLength={(id, value) => setLengths((current) => ({ ...current, [id]: value }))}
               onDrag={setDrag}
               onUp={onTrayUp}
@@ -433,6 +527,9 @@ export function GoatKit({
 function subtitle(stage: Stage): string {
   if (stage === "earn" || stage === "explain" || stage === "practice") {
     return "Answer, and the kit fills up.";
+  }
+  if (stage === "intro") {
+    return "Every right answer earns a piece.";
   }
   if (stage === "assemble") {
     return "Every piece needs a number.";
@@ -591,6 +688,8 @@ function EarnView({
   earn,
   typed,
   setTyped,
+  fading,
+  pulse,
   onCheck,
   onPractice,
   onLearn,
@@ -600,6 +699,8 @@ function EarnView({
   earn: EarnState;
   typed: string;
   setTyped: (value: string) => void;
+  fading?: boolean;
+  pulse?: string | null;
   onCheck: () => void;
   onPractice: () => void;
   onLearn: () => void;
@@ -611,23 +712,21 @@ function EarnView({
   const picture = question ? earnPicture(question) : null;
   const hint = question ? earnHint(question) : "";
   const keys = question ? keysFor(question.answer) : [];
-  if (earn.phase === "done" || earn.phase === "paused") {
+  if (earn.phase === "done") {
     return (
       <div className="gk-body">
         <div className="gk-earn">
           <div className="gk-card">
-            <h2 className="gk-prompt">{earn.phase === "done" ? "The kit is earned." : "That's the lesson."}</h2>
+            <h2 className="gk-prompt">The kit is earned.</h2>
             {earn.speedLine ? <p className="gk-speed">{earn.speedLine}</p> : null}
-            {earn.phase === "done" ? (
-              <button className="gk-check" type="button" onClick={onBuild}>
-                Build it
-              </button>
-            ) : null}
+            <button className="gk-check" type="button" onClick={onBuild}>
+              Build it
+            </button>
           </div>
           <EarnedBar steps={earn.steps} />
           <GoatWait />
         </div>
-        <KitPanel earned={earned} />
+        <KitPanel earned={earned} pulse={pulse} />
       </div>
     );
   }
@@ -658,7 +757,7 @@ function EarnView({
           <EarnedBar steps={earn.steps} />
           <GoatWait />
         </div>
-        <KitPanel earned={earned} current={earn.current.groupId} />
+        <KitPanel earned={earned} current={earn.current.groupId} pulse={pulse} />
       </div>
     );
   }
@@ -690,7 +789,7 @@ function EarnView({
             </button>
           </div>
         </div>
-        <KitPanel earned={earned} current={groupId} />
+        <KitPanel earned={earned} current={groupId} pulse={pulse} />
       </div>
     );
   }
@@ -708,7 +807,7 @@ function EarnView({
   return (
     <div className="gk-body">
       <div className="gk-earn">
-        <div className="gk-card">
+        <div className={fading ? "gk-card is-fading" : "gk-card"}>
           <div className="gk-kicker">
             <span>{counter}</span>
           </div>
@@ -737,7 +836,7 @@ function EarnView({
         <EarnedBar steps={earn.steps} />
         <GoatWait />
       </div>
-      <KitPanel earned={earned} current={groupId} />
+      <KitPanel earned={earned} current={groupId} pulse={pulse} />
     </div>
   );
 }
@@ -775,6 +874,57 @@ function GoatWait() {
       <img src={art("goat-idle.png")} alt="" />
       <p className="gk-note">The goat waits on the bank.</p>
     </div>
+  );
+}
+
+function IntroView({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="gk-intro">
+      <BridgeScene placed={{}} lengths={{}} goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }} />
+      <div className="gk-intro-card">
+        <p>{queenPost.intro}</p>
+        <button className="gk-check" type="button" onClick={onStart}>
+          Start
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PieceMoment({ groupId, frozen, onDone }: { groupId: string; frozen: boolean; onDone: () => void }) {
+  const done = useRef(onDone);
+  done.current = onDone;
+  const imgRef = useRef<HTMLImageElement>(null);
+  const group = queenPost.groups.find((item) => item.id === groupId) ?? queenPost.groups[0];
+  useEffect(() => {
+    if (frozen) {
+      return;
+    }
+    const spin = window.setTimeout(() => {
+      const img = imgRef.current;
+      const row = document.querySelector(`[data-group="${group.id}"] img`);
+      if (img && row) {
+        const from = img.getBoundingClientRect();
+        const to = row.getBoundingClientRect();
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        const scale = Math.max(0.18, to.width / Math.max(from.width, 1));
+        img.style.animation = "none";
+        img.style.transition = "transform 1.3s ease-in-out";
+        img.style.transform = `translate(${dx}px, ${dy}px) scale(${scale}) rotate(360deg)`;
+      }
+    }, 1200);
+    const finish = window.setTimeout(() => done.current(), 2500);
+    return () => {
+      window.clearTimeout(spin);
+      window.clearTimeout(finish);
+    };
+  }, [frozen, group.id]);
+  return (
+    <button className="gk-celebrate" type="button" onClick={() => done.current()}>
+      <img ref={imgRef} className={frozen ? "mid" : undefined} src={art(group.sprite)} alt="" />
+      <h2>You earned the {group.name.toLowerCase()}!</h2>
+    </button>
   );
 }
 
@@ -832,17 +982,17 @@ function RulerStrip() {
   );
 }
 
-function KitPanel({ earned, current }: { earned: string[]; current?: string }) {
+function KitPanel({ earned, current, pulse }: { earned: string[]; current?: string; pulse?: string | null }) {
   return (
     <aside className="gk-panel">
       <h2>Your kit</h2>
       <p className="gk-muted">greyed = not yet earned</p>
       {queenPost.groups.map((group) => {
         const have = earned.includes(group.id);
-        const now = group.id === current;
+        const now = group.id === current && !have;
         const state = have ? "earned" : now ? "current" : "locked";
         return (
-          <div key={group.id} className={`gk-row ${state}`}>
+          <div key={group.id} data-group={group.id} className={`gk-row ${state}${pulse === group.id ? " pulse" : ""}`}>
             <img src={art(group.sprite)} alt="" />
             <div>
               <b>
@@ -850,7 +1000,7 @@ function KitPanel({ earned, current }: { earned: string[]; current?: string }) {
               </b>
               <span>{group.blurb}</span>
             </div>
-            {have ? <span className="gk-ok">{groupLength(group.id)} ✓</span> : null}
+            {have ? <span className="gk-ok">earned</span> : null}
             {now ? <span className="gk-wait">answer to earn</span> : null}
             {!have && !now ? <span className="gk-wait">later</span> : null}
           </div>
@@ -865,6 +1015,7 @@ function AssembleView({
   placed,
   drag,
   trayLeft,
+  geometryLevel,
   onLength,
   onDrag,
   onUp,
@@ -874,12 +1025,18 @@ function AssembleView({
   placed: Record<string, boolean>;
   drag: string | null;
   trayLeft: number;
+  geometryLevel: number;
   onLength: (id: string, value: string) => void;
   onDrag: (id: string | null) => void;
   onUp: (event: ReactPointerEvent<HTMLElement>, id: string) => void;
   onSend: () => void;
 }) {
   const numbers = numericLengths(lengths);
+  const lines = TRAY.flatMap((id) => {
+    const slot = slotById(id);
+    const line = typedLine(slot?.name ?? id, lengths[id] ?? "");
+    return line ? [{ id, line }] : [];
+  });
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -887,12 +1044,16 @@ function AssembleView({
           placed={placed}
           lengths={numbers}
           drops
+          geometryLevel={geometryLevel}
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
         />
         <div className="gk-strip">
-          <p>
-            Gap is {formatLength(8)}. Bottom: two beams, 8 ÷ 2 = {formatLength(4)} each. ✓ Posts at {formatLength(2)} and {formatLength(6)}, so the top beam is 6 - 2 = {formatLength(4)}. Drop it on the dotted line.
-          </p>
+          <p className="gk-known">{knownLine()}</p>
+          {lines.map((item) => (
+            <p className="gk-work" key={item.id}>
+              {item.line}
+            </p>
+          ))}
           <div className="gk-actions">
             <button className="gk-send" type="button" disabled={trayLeft > 0} onClick={onSend}>
               Send the goat
@@ -1151,14 +1312,6 @@ function filledLengths(): Record<string, string> {
     }
   }
   return lengths;
-}
-
-function groupLength(groupId: string): string {
-  const slot = queenPost.slots.find((item) => item.group === groupId && item.length != null);
-  if (!slot || slot.length == null) {
-    return "";
-  }
-  return formatLength(slot.length);
 }
 
 function strandLevels(level: number | null, saved: Record<string, number> | undefined): Record<string, number> | null {
