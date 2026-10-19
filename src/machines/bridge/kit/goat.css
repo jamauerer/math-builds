@@ -186,6 +186,94 @@
   object-fit: cover;
 }
 
+.gk-given {
+  position: absolute;
+  z-index: 2;
+  font-family: Caveat, cursive;
+  font-size: 22px;
+  font-weight: 700;
+  color: #22201c;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
+.gk-grades {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 18px 0;
+}
+
+.gk-grades button {
+  min-width: 72px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1.5px solid #d9d4cb;
+  background: #fff;
+  font-weight: 700;
+}
+
+.gk-ladder {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding: 8px 0 24px;
+}
+
+.gk-rung {
+  border: 1.5px solid #e6e2da;
+  border-radius: 16px;
+  padding: 12px;
+  background: #fff;
+}
+
+.gk-rung b {
+  display: block;
+  font-family: Fraunces, Georgia, serif;
+}
+
+.gk-rungs {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 52px;
+  margin-top: 8px;
+}
+
+.gk-rungs i {
+  flex: 1;
+  background: #f1efea;
+  border-radius: 3px 3px 0 0;
+}
+
+.gk-rungs i.on {
+  background: #2f8f4e;
+}
+
+.gk-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 28px;
+}
+
+.gk-log div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #f1efea;
+  padding-bottom: 6px;
+}
+
+.gk-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+
 .gk-qlabel {
   position: absolute;
   font-family: Caveat, cursive;

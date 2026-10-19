@@ -61,7 +61,7 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
         }
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
-        const label = slot.length == null ? "" : formatLength(slot.length);
+        const label = slot.length == null ? "" : slot.kind === "brace" ? "2.83" : formatLength(slot.length);
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const span = Math.hypot(dx, dy) || 1;
@@ -73,7 +73,7 @@ function Blueprint({ missing }: { missing: KitSlot[] }) {
             <g transform={`translate(${midX - 40} ${midY - 28})`}>
               <rect width="80" height="22" rx="11" fill="#fff" stroke="#2E7FB0" />
               <text x="40" y="15" textAnchor="middle" fontFamily="Figtree, sans-serif" fontSize="12" fontWeight="700" fill="#2E7FB0">
-                {label}?
+                {slot.kind === "brace" ? label : `${label}?`}
               </text>
             </g>
           </g>
@@ -126,15 +126,19 @@ export function BridgeScene({
         : null}
       {queenPost.slots
         .filter((slot) => placed[slot.id])
-        .map((slot) => (
-          <img
-            key={slot.id}
-            className="gk-piece"
-            alt=""
-            src={art(slot.sprite)}
-            style={memberStyle(slot, lengths[slot.id] ?? slot.length ?? 1)}
-          />
-        ))}
+        .map((slot) => {
+          const style = memberStyle(slot, lengths[slot.id] ?? slot.length ?? 1);
+          return (
+            <span key={slot.id}>
+              <img className="gk-piece" alt="" src={art(slot.sprite)} style={style} />
+              {slot.kind === "brace" ? (
+                <span className="gk-given" style={{ left: Number(style.left ?? 0) + 24, top: Number(style.top ?? 0) - 16 }}>
+                  2.83
+                </span>
+              ) : null}
+            </span>
+          );
+        })}
       {goat.src.startsWith("goat-walk") ? (
         <div className="gk-frames" style={{ left: goat.left, top: goat.top, width: goat.width, height: goat.height }}>
           {[1, 2, 3, 4, 5].map((frame) => (

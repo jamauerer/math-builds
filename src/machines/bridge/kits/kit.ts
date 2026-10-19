@@ -9,6 +9,7 @@ export type KitGroup = {
   count: number;
   sprite: string;
   blurb: string;
+  strand: string;
   lengthLabel: string;
   bonus?: boolean;
 };

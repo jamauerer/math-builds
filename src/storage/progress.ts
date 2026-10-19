@@ -12,6 +12,21 @@ import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
+import type { GradeChoice } from "../engine/strand-placement";
+
+export type KitAttempt = {
+  strandId: string;
+  level: number;
+  prompt: string;
+  correct: boolean;
+};
+
+export type KitProfile = {
+  grade: GradeChoice | null;
+  levels: Record<string, number>;
+  history: KitAttempt[];
+  notes: string[];
+};
 
 const STORAGE_KEY = "math-builds.progress.v3";
 
@@ -32,6 +47,7 @@ export type SavedProgress = {
   workshop?: WorkshopSave;
   sequence?: SequenceSave;
   units?: UnitSystem;
+  kitProfile?: KitProfile;
 };
 
 export type GalleryShot = {
@@ -99,7 +115,7 @@ function blank(skills: readonly Skill[]): LearnerMap {
 export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedProgress {
   const map = blank(skills);
   if (!raw || typeof raw !== "object") {
-    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {}, workshop: sanitizeWorkshop(undefined), units: defaultUnitSystem() };
+    return { map, toppedOut: [], placement: null, history: [], age: null, ageAsked: false, bridgeCompleted: [], bridgeEarned: {}, workshop: sanitizeWorkshop(undefined), units: defaultUnitSystem(), kitProfile: blankKitProfile() };
   }
   const record = raw as {
     map?: unknown;
@@ -113,6 +129,7 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     workshop?: unknown;
     sequence?: unknown;
     units?: unknown;
+    kitProfile?: unknown;
   };
   const source = record.map && typeof record.map === "object" ? (record.map as Record<string, unknown>) : {};
   for (const skill of skills) {
@@ -150,6 +167,42 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
     workshop: sanitizeWorkshop(record.workshop),
     sequence: sanitizeSequence(record.sequence),
     units: record.units === "us" || record.units === "metric" ? record.units : defaultUnitSystem(),
+    kitProfile: sanitizeKitProfile(record.kitProfile),
+  };
+}
+
+export function blankKitProfile(): KitProfile {
+  return { grade: null, levels: {}, history: [], notes: [] };
+}
+
+function sanitizeKitProfile(raw: unknown): KitProfile {
+  const blank = blankKitProfile();
+  if (!raw || typeof raw !== "object") {
+    return blank;
+  }
+  const record = raw as Partial<KitProfile>;
+  const grade = record.grade;
+  const levels: Record<string, number> = {};
+  if (record.levels && typeof record.levels === "object") {
+    for (const [id, level] of Object.entries(record.levels)) {
+      if (typeof level === "number" && level >= 1 && level <= 13) {
+        levels[id] = level;
+      }
+    }
+  }
+  const history = Array.isArray(record.history)
+    ? record.history.filter((item) => item && typeof item.prompt === "string" && typeof item.strandId === "string").map((item) => ({
+        strandId: item.strandId,
+        level: typeof item.level === "number" ? item.level : 1,
+        prompt: item.prompt,
+        correct: item.correct === true,
+      }))
+    : [];
+  return {
+    grade: grade === "unsure" || (typeof grade === "number" && grade >= 0 && grade <= 12) ? grade : null,
+    levels,
+    history,
+    notes: Array.isArray(record.notes) ? record.notes.filter((item): item is string => typeof item === "string") : [],
   };
 }
 

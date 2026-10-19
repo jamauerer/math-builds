@@ -1,5 +1,5 @@
 import type { LearnerMap } from "../../../engine/placement";
-import { formatLength, formatWeight, lengthName, WEIGHT_PER_LENGTH } from "../../../units";
+import { formatLength, formatWeight, lengthName } from "../../../units";
 import { queenPost, type KitGroup } from "./kit";
 
 export type EarnFact =
@@ -17,7 +17,7 @@ export type EarnFact =
   | { kind: "bolts-combine"; plates: number; each: number }
   | { kind: "rail-both"; side: number }
   | { kind: "split-gap"; gap: number; beams: number }
-  | { kind: "brace-given"; across: number; up: number; length: number }
+  | { kind: "add-parts"; left: number; right: number }
   | { kind: "brace-hyp"; across: number; up: number };
 
 export type EarnBit = {
@@ -46,6 +46,7 @@ export type EarnMeasure = "count" | "length" | "weight";
 
 export type EarnQuestion = {
   groupId: string;
+  strandId: string;
   level: number;
   answer: string;
   fact: EarnFact;
@@ -55,6 +56,12 @@ export type EarnState = {
   queue: EarnQuestion[];
   index: number;
   earned: string[];
+  phase: "ask" | "explain" | "practice";
+  practice: EarnQuestion[];
+  practiceIndex: number;
+  streak: number;
+  roundsFailed: number;
+  salt: number;
 };
 
 const BRIDGE_SKILLS = [
@@ -82,7 +89,7 @@ export function earnMeasure(question: EarnQuestion): EarnMeasure {
     fact.kind === "posts-timber" ||
     fact.kind === "rail-both" ||
     fact.kind === "split-gap" ||
-    fact.kind === "brace-given" ||
+    fact.kind === "add-parts" ||
     fact.kind === "brace-hyp"
   ) {
     return "length";
@@ -121,8 +128,8 @@ export function earnPrompt(question: EarnQuestion): string {
       return "The railing runs both sides. One side is labeled. How long is the railing?";
     case "split-gap":
       return `The gap is labeled in ${lengthName(2)}. It is shared by the beams drawn. How long is each beam?`;
-    case "brace-given":
-      return "The brace is drawn with its length labeled. How long is it?";
+    case "add-parts":
+      return "The two pieces are labeled. How long are they together?";
     case "brace-hyp":
       return "The brace is the long side of this right triangle. How long is it?";
     default:
@@ -134,21 +141,17 @@ export function earnHint(question: EarnQuestion): string {
   const fact = question.fact;
   switch (fact.kind) {
     case "between-posts":
-      return "Hint: the right post's mark minus the left post's mark.";
+      return "Hint: the right mark minus the left mark.";
     case "posts-timber":
-      return "Hint: count the posts, then add a length for each.";
-    case "triangles":
-      return "Hint: two triangles for every diagonal.";
+    case "add-parts":
     case "beam-weight":
-      return "Hint: add the label on every piece.";
     case "bolts-combine":
-      return "Hint: add the bolts on every plate.";
+    case "triangles":
+      return "Hint: combine the labels.";
     case "rail-both":
-      return "Hint: both sides means twice one side.";
+      return "Hint: both sides.";
     case "split-gap":
-      return "Hint: share the gap evenly between the beams.";
-    case "brace-given":
-      return "Hint: read the length written on the brace.";
+      return "Hint: share the gap across the beams.";
     case "brace-hyp":
       return "Hint: square both sides, add, then take the square root.";
     default:
@@ -348,8 +351,19 @@ export function earnPicture(question: EarnQuestion): EarnPicture {
           h: 28,
         })),
       };
-    case "brace-given":
-      return bracePicture(fact.across, fact.up, formatLength(fact.length));
+    case "add-parts":
+      return {
+        banks: false,
+        ruler: false,
+        labels: [
+          { text: formatLength(fact.left), x: 70, y: 40 },
+          { text: formatLength(fact.right), x: 300, y: 40 },
+        ],
+        bits: [
+          { sprite: "beam-side.png", x: 30, y: 80, w: 200, h: 28 },
+          { sprite: "beam-side.png", x: 250, y: 80, w: 200, h: 28 },
+        ],
+      };
     case "brace-hyp":
       return bracePicture(fact.across, fact.up, "");
     default:
@@ -417,8 +431,8 @@ function answerFor(fact: EarnFact): string {
       return String(fact.side * 2);
     case "split-gap":
       return String(fact.gap / fact.beams);
-    case "brace-given":
-      return String(fact.length);
+    case "add-parts":
+      return String(fact.left + fact.right);
     case "brace-hyp":
       return (Math.round(Math.hypot(fact.across, fact.up) * 100) / 100).toFixed(2);
     default:
@@ -426,100 +440,214 @@ function answerFor(fact: EarnFact): string {
   }
 }
 
-function factFor(group: KitGroup, level: number): EarnFact {
-  if (level <= 3) {
-    if (group.id === "bottom") {
-      return { kind: "count-planks", count: queenPost.span };
-    }
-    if (group.id === "posts") {
-      return { kind: "count-posts", count: group.count };
-    }
-    if (group.id === "gussets") {
-      return { kind: "count-gussets", count: group.count };
-    }
-    if (group.id === "top") {
-      return { kind: "count-pieces", count: 4 };
-    }
-    if (group.id === "braces") {
-      return { kind: "count-braces", count: group.count };
-    }
-    if (group.id === "bolts") {
-      return { kind: "count-bolts", count: group.count };
-    }
-    return { kind: "count-rails", count: group.count };
-  }
+function factFor(group: KitGroup, level: number, salt = 0): EarnFact {
+  const bump = salt % 3;
   if (group.id === "braces") {
     if (level >= 9) {
       return { kind: "brace-hyp", across: 2, up: 2 };
     }
-    return { kind: "brace-given", across: 2, up: 2, length: 2.83 };
+    if (level <= 3) {
+      return { kind: "count-braces", count: group.count + bump };
+    }
+    return { kind: "triangles", diagonals: 2 + bump, each: 2 };
   }
-  if (level >= 7 && group.id === "bottom") {
-    return { kind: "split-gap", gap: queenPost.span, beams: group.count };
+  if (level <= 3) {
+    if (group.id === "bottom") {
+      return { kind: "count-planks", count: salt === 0 ? queenPost.span : 5 + bump };
+    }
+    if (group.id === "posts") {
+      return { kind: "count-posts", count: group.count + bump };
+    }
+    if (group.id === "gussets") {
+      return { kind: "count-gussets", count: group.count + bump };
+    }
+    if (group.id === "top") {
+      return { kind: "count-pieces", count: 4 + bump };
+    }
+    if (group.id === "bolts") {
+      return { kind: "count-bolts", count: Math.min(10, 4 + bump * 2) };
+    }
+    return { kind: "count-rails", count: group.count + (bump === 0 ? 0 : 1) };
   }
   if (group.id === "bottom") {
-    return { kind: "between-posts", left: 2, right: 6 };
+    const gap = queenPost.span + bump * 2;
+    return { kind: "split-gap", gap, beams: group.count };
   }
   if (group.id === "posts") {
-    return { kind: "posts-timber", each: 2, count: group.count };
+    return { kind: "between-posts", left: 2, right: 6 + bump };
   }
   if (group.id === "gussets") {
-    return { kind: "triangles", diagonals: 2, each: 2 };
+    return { kind: "count-gussets", count: 4 + bump };
   }
   if (group.id === "top") {
-    return { kind: "beam-weight", pieces: 4, each: WEIGHT_PER_LENGTH };
+    return { kind: "add-parts", left: 2 + bump, right: 3 };
   }
   if (group.id === "bolts") {
-    return { kind: "bolts-combine", plates: 5, each: 2 };
+    return { kind: "bolts-combine", plates: 3 + bump, each: 2 };
   }
-  return { kind: "rail-both", side: queenPost.span };
+  return { kind: "rail-both", side: queenPost.span - bump };
 }
 
-function questionFor(group: KitGroup, level: number): EarnQuestion {
-  const fact = factFor(group, level);
-  return { groupId: group.id, level, answer: answerFor(fact), fact };
+export function questionForStrand(strandId: string, level: number, salt = 0): EarnQuestion {
+  const group = queenPost.groups.find((item) => item.strand === strandId) ?? queenPost.groups[0];
+  return questionFor(group, level, salt);
 }
 
-export function buildEarnQueue(map: LearnerMap, _seed = 1, level = placedKitLevel(map)): EarnQuestion[] {
+function questionFor(group: KitGroup, level: number, salt = 0): EarnQuestion {
   const rung = Math.min(13, Math.max(1, level));
-  return queenPost.groups.map((group) => questionFor(group, rung));
+  const fact = factFor(group, rung, salt);
+  return { groupId: group.id, level: rung, answer: answerFor(fact), fact, strandId: group.strand };
 }
 
-export function blankEarn(map: LearnerMap, seed = 1, level?: number): EarnState {
-  return { queue: buildEarnQueue(map, seed, level), index: 0, earned: [] };
+export function buildEarnQueue(levels: Record<string, number> | null, _seed = 1): EarnQuestion[] {
+  return queenPost.groups.map((group) => questionFor(group, levels?.[group.strand] ?? 1, 0));
+}
+
+function freshLoop(): Pick<EarnState, "phase" | "practice" | "practiceIndex" | "streak" | "roundsFailed" | "salt"> {
+  return { phase: "ask", practice: [], practiceIndex: 0, streak: 0, roundsFailed: 0, salt: 1 };
+}
+
+export function blankEarn(levels: Record<string, number> | null, seed = 1): EarnState {
+  return { queue: buildEarnQueue(levels, seed), index: 0, earned: [], ...freshLoop() };
 }
 
 export function earnDone(state: EarnState): boolean {
   return state.index >= state.queue.length;
 }
 
-/**
- * A correct answer earns the piece and moves on.
- * A wrong answer keeps every piece already earned and sends this question to the end.
- */
-export function answerEarn(state: EarnState, given: string): { state: EarnState; correct: boolean } {
-  const current = state.queue[state.index];
-  if (!current) {
-    return { state, correct: false };
+export function currentQuestion(state: EarnState): EarnQuestion | null {
+  if (state.phase === "practice") {
+    return state.practice[state.practiceIndex] ?? null;
   }
-  const correct = given.trim() === current.answer.trim();
-  if (correct) {
+  return state.queue[state.index] ?? null;
+}
+
+export function explainQuestion(question: EarnQuestion): { steps: string[]; why: string } {
+  const answer = question.answer;
+  const fact = question.fact;
+  if (fact.kind === "brace-hyp") {
     return {
-      correct: true,
-      state: {
-        queue: state.queue,
-        index: state.index + 1,
-        earned: [...state.earned, current.groupId],
-      },
+      steps: ["Square the across side.", "Square the up side and add those squares.", `The square root is ${answer}.`],
+      why: "The long side of a right triangle is that square root.",
     };
   }
-  const queue = state.queue.slice(0, state.index).concat(state.queue.slice(state.index + 1), [current]);
+  if (fact.kind === "split-gap") {
+    return {
+      steps: ["Read the gap on the picture.", "Share it into equal beams.", `Each beam is ${answer}.`],
+      why: "Sharing a length into equal parts is dividing.",
+    };
+  }
+  if (fact.kind === "between-posts") {
+    return {
+      steps: ["Read the two marks.", "Subtract the left mark from the right mark.", `The beam between them is ${answer}.`],
+      why: "The distance between two marks is the difference.",
+    };
+  }
+  if (fact.kind.startsWith("count")) {
+    return {
+      steps: ["Start at one side of the picture.", "Count each piece once.", `You land on ${answer}.`],
+      why: "The picture is the question. What you can count is the answer.",
+    };
+  }
   return {
-    correct: false,
-    state: {
-      queue,
-      index: state.index,
-      earned: state.earned.slice(),
-    },
+    steps: ["Read each label on the picture.", "Combine the labels.", `That comes to ${answer}.`],
+    why: "The labels are the parts. The question asks for them together.",
+  };
+}
+
+export function startPractice(state: EarnState): EarnState {
+  const current = state.queue[state.index];
+  if (!current || state.phase !== "explain") {
+    return state;
+  }
+  const salt = state.salt;
+  const practice = [1, 2, 3].map((offset) => questionForStrand(current.strandId, current.level, salt + offset));
+  return {
+    ...state,
+    phase: "practice",
+    practice,
+    practiceIndex: 0,
+    streak: 0,
+    salt: salt + 3,
+  };
+}
+
+export type EarnResult = {
+  state: EarnState;
+  correct: boolean;
+  levels: Record<string, number>;
+  note: string | null;
+};
+
+function advance(state: EarnState, earned: string[]): EarnState {
+  return {
+    ...state,
+    index: state.index + 1,
+    earned,
+    ...freshLoop(),
+  };
+}
+
+/**
+ * A right answer on the kit question earns the piece.
+ * A wrong answer stays put, explains the skill, then runs 3 practice questions.
+ * Three right in a row earns the piece. A miss restarts those 3.
+ * Two failed practice rounds drop the strand one level and move on.
+ */
+export function answerEarn(state: EarnState, given: string, levels: Record<string, number> = {}): EarnResult {
+  const current = currentQuestion(state);
+  if (!current || state.phase === "explain") {
+    return { state, correct: false, levels, note: null };
+  }
+  const correct = given.trim() === current.answer.trim();
+  if (state.phase === "ask") {
+    if (correct) {
+      return {
+        correct: true,
+        levels,
+        note: null,
+        state: advance(state, [...state.earned, current.groupId]),
+      };
+    }
+    return {
+      correct: false,
+      levels,
+      note: null,
+      state: { ...state, phase: "explain" },
+    };
+  }
+  if (!correct) {
+    const roundsFailed = state.roundsFailed + 1;
+    if (roundsFailed >= 2) {
+      const nextLevel = Math.max(1, (levels[current.strandId] ?? current.level) - 1);
+      const nextLevels = { ...levels, [current.strandId]: nextLevel };
+      return {
+        correct: false,
+        levels: nextLevels,
+        note: `${current.strandId} dropped to level ${nextLevel} after two practice rounds.`,
+        state: advance(state, state.earned.slice()),
+      };
+    }
+    return {
+      correct: false,
+      levels,
+      note: null,
+      state: { ...state, phase: "explain", roundsFailed, streak: 0, practiceIndex: 0 },
+    };
+  }
+  const streak = state.streak + 1;
+  if (streak >= 3) {
+    return {
+      correct: true,
+      levels,
+      note: null,
+      state: advance(state, [...state.earned, state.queue[state.index]?.groupId ?? current.groupId]),
+    };
+  }
+  return {
+    correct: true,
+    levels,
+    note: null,
+    state: { ...state, streak, practiceIndex: state.practiceIndex + 1 },
   };
 }

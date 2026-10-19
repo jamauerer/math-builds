@@ -6,7 +6,7 @@ import {
   practiceLevel,
   recordLevelPass,
 } from "./engine/placement";
-import { blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
+import { blankKitProfile, blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
 import { blankSequence } from "./sequence/logic";
 import { GoatKit } from "./machines/bridge/kit/GoatKit";
 import { defaultUnitSystem, setUnitSystem, type UnitSystem } from "./units";
@@ -46,8 +46,19 @@ function kitLevel(value: string | null): number | null {
   return parsed;
 }
 
-function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" {
-  if (value === "earn" || value === "assemble" || value === "drive" || value === "wreck") {
+function kitStage(value: string | null): "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" {
+  if (
+    value === "earn" ||
+    value === "assemble" ||
+    value === "drive" ||
+    value === "wreck" ||
+    value === "grade" ||
+    value === "place" ||
+    value === "place2" ||
+    value === "explain" ||
+    value === "practice" ||
+    value === "profile"
+  ) {
     return value;
   }
   return "pick";
@@ -125,6 +136,8 @@ export function App() {
             setUnitSystem(units);
             save({ ...progress, units });
           }}
+          kitProfile={progress.kitProfile ?? blankKitProfile()}
+          onKitProfile={(kitProfile) => save({ ...progress, kitProfile })}
         />
       )}
       {screen.name === "practice" ? (
@@ -149,6 +162,7 @@ export function App() {
               bridgeEarned: progress.bridgeEarned,
               workshop: progress.workshop,
               units: progress.units,
+              kitProfile: progress.kitProfile,
             });
           }}
           onClose={() => setScreen(practiceReturn === "workshop" ? { name: "workshop" } : { name: "map" })}

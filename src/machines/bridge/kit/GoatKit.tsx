@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { LearnerMap } from "../../../engine/placement";
 import {
+  adaptiveAnswer,
+  adaptiveAsk,
+  beginAdaptive,
+  gradeStartLevel,
+  KIT_STRANDS,
+  strandName,
+  type AdaptiveRun,
+  type GradeChoice,
+} from "../../../engine/strand-placement";
+import type { KitProfile } from "../../../storage/progress";
+import {
   formatLength,
   formatWeight,
   lengthAbbrev,
@@ -11,14 +22,28 @@ import {
   weightAbbrev,
   type UnitSystem,
 } from "../../../units";
-import { answerEarn, blankEarn, earnDone, earnHint, earnMeasure, earnPicture, earnPrompt, type EarnState } from "../kits/earn";
+import {
+  answerEarn,
+  blankEarn,
+  currentQuestion,
+  earnDone,
+  earnHint,
+  earnMeasure,
+  earnPicture,
+  earnPrompt,
+  explainQuestion,
+  questionForStrand,
+  startPractice,
+  type EarnQuestion,
+  type EarnState,
+} from "../kits/earn";
 import { queenPost, wreckLines } from "../kits/kit";
 import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
-type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck";
+type Stage = "pick" | "earn" | "assemble" | "drive" | "wreck" | "grade" | "place" | "place2" | "explain" | "practice" | "profile";
 
 const TRAY = [
   "bottom-a",
@@ -52,6 +77,8 @@ export function GoatKit({
   units,
   onUnits,
   level = null,
+  kitProfile = null,
+  onKitProfile,
 }: {
   map: LearnerMap;
   marks: number;
@@ -62,11 +89,16 @@ export function GoatKit({
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   level?: number | null;
+  kitProfile?: KitProfile | null;
+  onKitProfile?: (profile: KitProfile) => void;
 }) {
   setUnitSystem(units);
-  const [stage, setStage] = useState<Stage>(start);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [earn, setEarn] = useState<EarnState>(() => blankEarn(map, 7, level ?? undefined));
+  void map;
+  const savedLevels = strandLevels(level, kitProfile?.levels);
+  const [stage, setStage] = useState<Stage>(start === "place2" ? "place" : start);
+  const [earn, setEarn] = useState<EarnState>(() => openingEarn(savedLevels, start));
+  const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
+  const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const [typed, setTyped] = useState("");
   const [lengths, setLengths] = useState<Record<string, string>>(() => faultLengths(start, fault));
   const [placed, setPlaced] = useState<Record<string, boolean>>({});
@@ -89,13 +121,67 @@ export function GoatKit({
     setStage("earn");
   }
 
+  function remember(question: EarnQuestion, correct: boolean, levels = savedLevels ?? {}, note: string | null = null) {
+    if (!onKitProfile) {
+      return;
+    }
+    const history = [
+      ...(kitProfile?.history ?? []),
+      { strandId: question.strandId, level: question.level, prompt: earnPrompt(question), correct },
+    ].slice(-80);
+    const notes = note ? [...(kitProfile?.notes ?? []), note] : (kitProfile?.notes ?? []);
+    onKitProfile({
+      grade: kitProfile?.grade ?? grade,
+      levels,
+      history,
+      notes,
+    });
+  }
+
   function submitAnswer() {
-    const next = answerEarn(earn, typed);
+    const question = currentQuestion(earn);
+    const next = answerEarn(earn, typed, savedLevels ?? {});
     setEarn(next.state);
     setTyped("");
+    if (question) {
+      remember(question, next.correct, next.levels, next.note);
+    }
     if (earnDone(next.state)) {
       setStage("assemble");
     }
+  }
+
+  function submitPlace() {
+    if (!run) {
+      return;
+    }
+    const ask = adaptiveAsk(run);
+    const question = questionForStrand(ask.strandId, ask.level, ask.number);
+    const correct = typed.trim() === question.answer;
+    const stepped = adaptiveAnswer(run, correct);
+    setTyped("");
+    const history = [
+      ...(kitProfile?.history ?? []),
+      { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct },
+    ].slice(-80);
+    if (stepped.levels) {
+      onKitProfile?.({
+        grade: grade ?? "unsure",
+        levels: stepped.levels,
+        history,
+        notes: kitProfile?.notes ?? [],
+      });
+      setEarn(blankEarn(stepped.levels));
+      setStage("profile");
+      return;
+    }
+    onKitProfile?.({
+      grade: grade ?? "unsure",
+      levels: kitProfile?.levels ?? {},
+      history,
+      notes: kitProfile?.notes ?? [],
+    });
+    setRun(stepped.run);
   }
 
   function place(id: string, drop: string | null) {
@@ -152,13 +238,46 @@ export function GoatKit({
   }
 
   const shown = result;
-  const active = stage === "wreck" ? "drive" : stage;
+  const active = stage === "wreck" ? "drive" : stage === "explain" || stage === "practice" ? "earn" : stage;
   const trayLeft = TRAY.filter((id) => !placed[id]).length;
 
   return (
     <div className="goat-kit" data-stage={stage}>
       {stage === "pick" ? (
-        <Pick marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={() => setProfileOpen((open) => !open)} onOpen={openEarn} />
+        <Pick marks={marks} units={units} onUnits={onUnits} onProfile={() => setStage(kitProfile?.grade == null ? "grade" : "profile")} onOpen={openEarn} />
+      ) : stage === "grade" ? (
+        <GradePick
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          onProfile={() => setStage("pick")}
+          onChoose={(choice) => {
+            setGrade(choice);
+            setRun(beginAdaptive(gradeStartLevel(choice)));
+            setTyped("");
+            setStage("place");
+          }}
+        />
+      ) : stage === "place" && run ? (
+        <PlaceView
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          onProfile={() => setStage("profile")}
+          run={run}
+          typed={typed}
+          setTyped={setTyped}
+          onCheck={submitPlace}
+        />
+      ) : stage === "profile" ? (
+        <ProfileView
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          profile={shownProfile(kitProfile, start)}
+          onRetake={() => setStage("grade")}
+          onBack={() => setStage("pick")}
+        />
       ) : (
         <>
           <header className="gk-header">
@@ -191,14 +310,18 @@ export function GoatKit({
                 </button>
               ))}
             </div>
-            <Account marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={() => setProfileOpen((open) => !open)} />
+            <Account marks={marks} units={units} onUnits={onUnits} onProfile={() => setStage(kitProfile?.grade == null ? "grade" : "profile")} />
           </header>
-          {stage === "earn" ? (
+          {stage === "earn" || stage === "explain" || stage === "practice" ? (
             <EarnView
               earn={earn}
               typed={typed}
               setTyped={setTyped}
               onCheck={submitAnswer}
+              onPractice={() => {
+                setEarn(startPractice(earn));
+                setTyped("");
+              }}
               earned={earnedGroups}
             />
           ) : null}
@@ -246,7 +369,7 @@ export function GoatKit({
 }
 
 function subtitle(stage: Stage): string {
-  if (stage === "earn") {
+  if (stage === "earn" || stage === "explain" || stage === "practice") {
     return "Answer, and the kit fills up.";
   }
   if (stage === "assemble") {
@@ -262,13 +385,11 @@ function Account({
   marks,
   units,
   onUnits,
-  profileOpen,
   onProfile,
 }: {
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
-  profileOpen: boolean;
   onProfile: () => void;
 }) {
   return (
@@ -295,16 +416,6 @@ function Account({
           <div className="gk-avatar">M</div>
           Maya
         </button>
-        {profileOpen ? (
-          <div className="gk-profile-card">
-            <p>Units</p>
-            {(["us", "metric"] as const).map((choice) => (
-              <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
-                {systemLabel(choice)}
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
     </>
   );
@@ -314,14 +425,12 @@ function Pick({
   marks,
   units,
   onUnits,
-  profileOpen,
   onProfile,
   onOpen,
 }: {
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
-  profileOpen: boolean;
   onProfile: () => void;
   onOpen: () => void;
 }) {
@@ -335,7 +444,7 @@ function Pick({
           </svg>
           Math Builds
         </div>
-        <Account marks={marks} units={units} onUnits={onUnits} profileOpen={profileOpen} onProfile={onProfile} />
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
       </header>
       <div className="gk-pick">
         <h1>What will you build?</h1>
@@ -421,29 +530,63 @@ function EarnView({
   typed,
   setTyped,
   onCheck,
+  onPractice,
   earned,
 }: {
   earn: EarnState;
   typed: string;
   setTyped: (value: string) => void;
   onCheck: () => void;
+  onPractice: () => void;
   earned: string[];
 }) {
-  const question = earn.queue[earn.index];
-  if (!question) {
+  const kitQuestion = earn.queue[earn.index];
+  const question = currentQuestion(earn);
+  if (!kitQuestion || !question) {
     return null;
   }
-  const group = queenPost.groups.find((item) => item.id === question.groupId);
+  const group = queenPost.groups.find((item) => item.id === kitQuestion.groupId);
   const upcoming = earn.queue.slice(earn.index + 1, earn.index + 3);
+  if (earn.phase === "explain") {
+    const explained = explainQuestion(kitQuestion);
+    return (
+      <div className="gk-body">
+        <div className="gk-earn">
+          <div className="gk-card">
+            <div className="gk-kicker">
+              <span>{strandName(kitQuestion.strandId)} · level {kitQuestion.level}</span>
+              <span>one skill, then three practice questions</span>
+            </div>
+            <h2 className="gk-prompt">{earnPrompt(kitQuestion)}</h2>
+            <EarnSketch question={kitQuestion} />
+            <div className="gk-steps">
+              {explained.steps.map((step) => (
+                <p className="gk-note" key={step}>
+                  {step}
+                </p>
+              ))}
+            </div>
+            <p>{explained.why}</p>
+            <button className="gk-check" type="button" onClick={onPractice}>
+              Try 3 practice questions
+            </button>
+          </div>
+        </div>
+        <KitPanel earned={earned} current={kitQuestion.groupId} />
+      </div>
+    );
+  }
   return (
     <div className="gk-body">
       <div className="gk-earn">
         <div className="gk-card">
           <div className="gk-kicker">
             <span>
-              QUESTION {earn.index + 1} OF {earn.queue.length} · LEVEL {question.level}
+              {earn.phase === "practice"
+                ? `PRACTICE ${earn.streak + 1} OF 3 · LEVEL ${question.level}`
+                : `QUESTION ${earn.index + 1} OF ${earn.queue.length} · LEVEL ${question.level}`}
             </span>
-            <span>answer right = earn the {group?.name.toLowerCase()}</span>
+            <span>{earn.phase === "practice" ? "3 in a row earns the piece" : `answer right = earn the ${group?.name.toLowerCase()}`}</span>
           </div>
           <h2 className="gk-prompt">{earnPrompt(question)}</h2>
           <EarnSketch question={question} />
@@ -475,7 +618,7 @@ function EarnView({
           <p className="gk-muted">
             {earned.length} of {queenPost.groups.length} pieces
           </p>
-          <p className="gk-note">Wrong answer? You keep the pieces you have. Try the next one, the beam waits for you.</p>
+          <p className="gk-note">A miss stays on this piece. Three practice questions in a row earn it. Marks stay put.</p>
         </div>
         <div className="gk-goat-line">
           <img src={art("goat-idle.png")} alt="" />
@@ -872,6 +1015,254 @@ function groupLength(groupId: string): string {
     return "";
   }
   return formatLength(slot.length);
+}
+
+function strandLevels(level: number | null, saved: Record<string, number> | undefined): Record<string, number> | null {
+  if (level != null) {
+    const all: Record<string, number> = {};
+    for (const id of KIT_STRANDS) {
+      all[id] = level;
+    }
+    return all;
+  }
+  if (saved && Object.keys(saved).length > 0) {
+    return saved;
+  }
+  return null;
+}
+
+function openingEarn(levels: Record<string, number> | null, start: Stage): EarnState {
+  const base = blankEarn(levels);
+  if (start === "explain") {
+    return answerEarn(base, "nope", levels ?? {}).state;
+  }
+  if (start === "practice") {
+    return startPractice(answerEarn(base, "nope", levels ?? {}).state);
+  }
+  return base;
+}
+
+function openingRun(start: Stage): AdaptiveRun | null {
+  if (start !== "place" && start !== "place2") {
+    return null;
+  }
+  const run = beginAdaptive(gradeStartLevel(3));
+  if (start === "place2") {
+    return adaptiveAnswer(run, true).run;
+  }
+  return run;
+}
+
+function shownProfile(profile: KitProfile | null, start: Stage): KitProfile {
+  if (profile && Object.keys(profile.levels).length > 0) {
+    return profile;
+  }
+  if (start !== "profile") {
+    return profile ?? { grade: null, levels: {}, history: [], notes: [] };
+  }
+  const levels: Record<string, number> = {};
+  for (const id of KIT_STRANDS) {
+    levels[id] = id === "measuring" ? 3 : 4;
+  }
+  const history = KIT_STRANDS.flatMap((id, index) => [
+    { strandId: id, level: levels[id] ?? 1, prompt: earnPrompt(questionForStrand(id, levels[id] ?? 1, index)), correct: index % 3 !== 0 },
+    { strandId: id, level: levels[id] ?? 1, prompt: earnPrompt(questionForStrand(id, levels[id] ?? 1, index + 1)), correct: index % 2 === 0 },
+  ]);
+  return {
+    grade: 3,
+    levels,
+    history,
+    notes: ["Measuring dropped to level 3 after two practice rounds."],
+  };
+}
+
+function GradePick({
+  marks,
+  units,
+  onUnits,
+  onProfile,
+  onChoose,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  onProfile: () => void;
+  onChoose: (grade: GradeChoice) => void;
+}) {
+  const grades: GradeChoice[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, "unsure"];
+  return (
+    <>
+      <header className="gk-header">
+        <button className="gk-codex" type="button" onClick={onProfile}>
+          Codex
+        </button>
+        <div>
+          <div className="gk-title">What grade are you in?</div>
+          <div className="gk-sub">Not sure is fine. This only picks where the questions start.</div>
+        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
+      </header>
+      <div className="gk-pick">
+        <div className="gk-grades">
+          {grades.map((choice) => (
+            <button key={String(choice)} type="button" onClick={() => onChoose(choice)}>
+              {choice === 0 ? "K" : choice === "unsure" ? "Not sure" : choice}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PlaceView({
+  marks,
+  units,
+  onUnits,
+  onProfile,
+  run,
+  typed,
+  setTyped,
+  onCheck,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  onProfile: () => void;
+  run: AdaptiveRun;
+  typed: string;
+  setTyped: (value: string) => void;
+  onCheck: () => void;
+}) {
+  const ask = adaptiveAsk(run);
+  const question = questionForStrand(ask.strandId, ask.level, ask.number);
+  const keys = question.level <= 3 ? ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "←"] : ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", "←"];
+  return (
+    <>
+      <header className="gk-header">
+        <button className="gk-codex" type="button" onClick={onProfile}>
+          Codex
+        </button>
+        <div>
+          <div className="gk-title">Finding your level</div>
+          <div className="gk-sub">{strandName(ask.strandId)}</div>
+        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
+      </header>
+      <div className="gk-body">
+        <div className="gk-earn">
+          <div className="gk-card">
+            <div className="gk-kicker">
+              <span>QUESTION {ask.number}</span>
+              <span>level {ask.level}</span>
+            </div>
+            <h2 className="gk-prompt">{earnPrompt(question)}</h2>
+            <EarnSketch question={question} />
+            <p className="gk-hint">{earnHint(question)}</p>
+            <div className="gk-answer">
+              <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
+              <span className="gk-unit">{earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
+              <button className="gk-check" type="button" onClick={onCheck}>
+                Check
+              </button>
+            </div>
+            <div className="gk-keys">
+              {keys.map((key) => (
+                <button key={key} type="button" onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : `${typed}${key}`)}>
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ProfileView({
+  marks,
+  units,
+  onUnits,
+  profile,
+  onRetake,
+  onBack,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  profile: KitProfile;
+  onRetake: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <header className="gk-header">
+        <button className="gk-codex" type="button" onClick={onBack}>
+          Codex
+        </button>
+        <div>
+          <div className="gk-title">Maya</div>
+          <div className="gk-sub">Grade {profile.grade === "unsure" ? "not sure" : profile.grade === 0 ? "K" : (profile.grade ?? "not set")}</div>
+        </div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onBack} />
+      </header>
+      <div className="gk-pick">
+        <h1>Strand levels</h1>
+        <p className="gk-sub">Marks never move these. Only answers do.</p>
+        <div className="gk-unit-toggle" role="group" aria-label="Units">
+          {(["us", "metric"] as const).map((choice) => (
+            <button key={choice} type="button" className={choice === units ? "on" : ""} onClick={() => onUnits(choice)}>
+              {systemLabel(choice)}
+            </button>
+          ))}
+        </div>
+        <div className="gk-ladder">
+          {KIT_STRANDS.map((id) => {
+            const level = profile.levels[id] ?? 1;
+            return (
+              <div key={id} className="gk-rung">
+                <b>{strandName(id)}</b>
+                <span className="gk-muted">level {level}</span>
+                <div className="gk-rungs">
+                  {Array.from({ length: 13 }, (_, index) => (
+                    <i key={index} className={index < level ? "on" : ""} style={{ height: `${8 + index * 3}px` }} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {profile.notes.map((note) => (
+          <p className="gk-note" key={note}>
+            {note}
+          </p>
+        ))}
+        <button className="gk-light" type="button" onClick={onRetake}>
+          Retake
+        </button>
+        {KIT_STRANDS.map((id) => {
+          const recent = profile.history.filter((item) => item.strandId === id).slice(-10);
+          if (recent.length === 0) {
+            return null;
+          }
+          return (
+            <div key={`${id}-log`}>
+              <h2>{strandName(id)}</h2>
+              <div className="gk-log">
+                {recent.map((item, index) => (
+                  <div key={`${item.prompt}-${index}`}>
+                    <span>{item.prompt}</span>
+                    <b>{item.correct ? "right" : "wrong"}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 function numericLengths(lengths: Record<string, string | number>): Record<string, number> {

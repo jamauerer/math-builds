@@ -21,6 +21,7 @@
       "name": "Bottom beam",
       "count": 2,
       "sprite": "beam-side.png",
+      "strand": "dividing",
       "blurb": "the bridge rests on these",
       "lengthLabel": "4 m"
     },
@@ -29,6 +30,7 @@
       "name": "Post",
       "count": 2,
       "sprite": "post.png",
+      "strand": "measuring",
       "blurb": "hold the top beam up",
       "lengthLabel": "2 m"
     },
@@ -37,6 +39,7 @@
       "name": "Gusset plate",
       "count": 5,
       "sprite": "gusset-small.png",
+      "strand": "counting",
       "blurb": "joins pieces at the corners",
       "lengthLabel": ""
     },
@@ -45,6 +48,7 @@
       "name": "Top beam",
       "count": 1,
       "sprite": "beam-side.png",
+      "strand": "adding",
       "blurb": "ties the two posts",
       "lengthLabel": "4 m"
     },
@@ -53,6 +57,7 @@
       "name": "Brace",
       "count": 2,
       "sprite": "beam-half.png",
+      "strand": "geometry",
       "blurb": "stop the posts folding",
       "lengthLabel": "2.83 m"
     },
@@ -61,6 +66,7 @@
       "name": "Bolts",
       "count": 10,
       "sprite": "bolt.png",
+      "strand": "multiplying",
       "blurb": "two at every gusset",
       "lengthLabel": "",
       "bonus": true
@@ -70,6 +76,7 @@
       "name": "Railing",
       "count": 2,
       "sprite": "railing.png",
+      "strand": "measuring",
       "blurb": "both sides of the deck",
       "lengthLabel": "",
       "bonus": true
