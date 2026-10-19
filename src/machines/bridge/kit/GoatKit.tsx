@@ -33,6 +33,7 @@ import {
   earnPrompt,
   explainQuestion,
   finishedEarn,
+  kitQuestionTotal,
   lessonFrame,
   questionForStrand,
   runLength,
@@ -42,7 +43,7 @@ import {
   type EarnState,
 } from "../kits/earn";
 import { queenPost, wreckLines } from "../kits/kit";
-import { KIT_SKILLS, skillsFromLevels, withState, type SkillBook } from "../kits/skills";
+import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
@@ -86,6 +87,7 @@ export function GoatKit({
   piece = null,
   word = false,
   lesson = null,
+  unplaced = false,
   kitProfile = null,
   onKitProfile,
 }: {
@@ -101,13 +103,21 @@ export function GoatKit({
   piece?: string | null;
   word?: boolean;
   lesson?: string | null;
+  unplaced?: boolean;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
 }) {
   setUnitSystem(units);
   void map;
   const savedLevels = strandLevels(level, kitProfile?.levels);
-  const [stage, setStage] = useState<Stage>(start === "place2" ? "place" : start === "faster" ? "earn" : start);
+  const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
+  const [stage, setStage] = useState<Stage>(() => {
+    const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
+    if (!hasPlacement && !lesson && (opened === "earn" || start === "explain" || start === "practice")) {
+      return "grade";
+    }
+    return opened;
+  });
   const [earn, setEarn] = useState<EarnState>(() =>
     word && piece ? earnAtWord(savedLevels, piece) : openingEarn(savedLevels, start, lesson, kitProfile?.skills),
   );
@@ -138,6 +148,10 @@ export function GoatKit({
   }, [promptKey]);
 
   function openEarn() {
+    if (!hasPlacement) {
+      setStage("grade");
+      return;
+    }
     setStage("earn");
   }
 
@@ -309,7 +323,7 @@ export function GoatKit({
           marks={marks}
           units={units}
           onUnits={onUnits}
-          profile={shownProfile(kitProfile, start)}
+          profile={unplaced ? { grade: null, levels: {}, history: [], notes: [] } : shownProfile(kitProfile)}
           onRetake={() => setStage("grade")}
           onBack={() => setStage("pick")}
         />
@@ -333,7 +347,7 @@ export function GoatKit({
                     if (chip === "pick") {
                       setStage("pick");
                     } else if (chip === "earn") {
-                      setStage("earn");
+                      openEarn();
                     } else if (chip === "assemble") {
                       setStage("assemble");
                     } else if (shown) {
@@ -610,7 +624,7 @@ function EarnView({
               </button>
             ) : null}
           </div>
-          <EarnedBar earned={earned} />
+          <EarnedBar steps={earn.steps} />
           <GoatWait />
         </div>
         <KitPanel earned={earned} />
@@ -641,7 +655,7 @@ function EarnView({
               Try 3 questions
             </button>
           </div>
-          <EarnedBar earned={earned} />
+          <EarnedBar steps={earn.steps} />
           <GoatWait />
         </div>
         <KitPanel earned={earned} current={earn.current.groupId} />
@@ -720,7 +734,7 @@ function EarnView({
             ))}
           </div>
         </div>
-        <EarnedBar earned={earned} />
+        <EarnedBar steps={earn.steps} />
         <GoatWait />
       </div>
       <KitPanel earned={earned} current={groupId} />
@@ -740,15 +754,16 @@ function keysFor(answer: string): string[] {
   return keys;
 }
 
-function EarnedBar({ earned }: { earned: string[] }) {
+function EarnedBar({ steps }: { steps: number }) {
+  const total = kitQuestionTotal();
   return (
     <div>
       <div className="gk-kicker">EARNED SO FAR</div>
       <div className="gk-bar">
-        <i style={{ width: `${(earned.length / queenPost.groups.length) * 100}%` }} />
+        <i style={{ width: `${(steps / total) * 100}%` }} />
       </div>
       <p className="gk-muted">
-        {earned.length} of {queenPost.groups.length} pieces
+        {steps} of {total}
       </p>
     </div>
   );
@@ -794,6 +809,11 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
             {label.text}
           </span>
         ))}
+        {picture.measure ? (
+          <span className="gk-measure" style={{ left: picture.measure.x, top: picture.measure.y, width: picture.measure.w }}>
+            {picture.measure.text}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -1159,6 +1179,10 @@ function openingEarn(levels: Record<string, number> | null, start: Open, lesson:
   if (lesson === "warmup" || lesson === "learn" || lesson === "guided" || lesson === "mixed") {
     return lessonFrame(lesson, levels);
   }
+  if (lesson === "step") {
+    const base = blankEarn(levels, 1, saved);
+    return answerEarn(base, base.current.answer, levels ?? {}).state;
+  }
   if (start === "faster") {
     return finishedEarn("12 s faster than last time");
   }
@@ -1183,49 +1207,8 @@ function openingRun(start: Open): AdaptiveRun | null {
   return run;
 }
 
-function shownProfile(profile: KitProfile | null, start: Open): KitProfile {
-  if (profile && profile.skills && Object.keys(profile.levels).length > 0) {
-    return profile;
-  }
-  if (start !== "profile") {
-    return profile ?? { grade: null, levels: {}, history: [], notes: [] };
-  }
-  const levels: Record<string, number> = {};
-  for (const id of KIT_STRANDS) {
-    levels[id] = id === "measuring" ? 3 : 4;
-  }
-  let skills = profile?.skills ?? skillsFromLevels(levels);
-  const states = ["new", "learning", "practicing", "mastered"] as const;
-  KIT_SKILLS.filter((skill) => skill.level === 4).forEach((skill, index) => {
-    skills = withState(skills, skill.id, states[index % 4]);
-    if (index < 4) {
-      const progress = skills.skills[skill.id];
-      skills = {
-        ...skills,
-        skills: {
-          ...skills.skills,
-          [skill.id]: {
-            ...progress,
-            recent: [
-              { prompt: "8 ÷ 2", correct: true },
-              { prompt: "6 × 4", correct: index % 2 === 0 },
-            ],
-          },
-        },
-      };
-    }
-  });
-  const history = KIT_STRANDS.flatMap((id, index) => [
-    { strandId: id, level: levels[id] ?? 1, prompt: earnPrompt(questionForStrand(id, levels[id] ?? 1, index)), correct: index % 3 !== 0 },
-    { strandId: id, level: levels[id] ?? 1, prompt: earnPrompt(questionForStrand(id, levels[id] ?? 1, index + 1)), correct: index % 2 === 0 },
-  ]);
-  return {
-    grade: 3,
-    levels,
-    history,
-    notes: ["Measuring dropped to level 3 after two practice rounds."],
-    skills,
-  };
+function shownProfile(profile: KitProfile | null): KitProfile {
+  return profile ?? { grade: null, levels: {}, history: [], notes: [] };
 }
 
 function GradePick({
@@ -1307,6 +1290,9 @@ function PlaceView({
             <div className="gk-kicker">
               <span>QUESTION {ask.number}</span>
             </div>
+            <div className="gk-bar thin">
+              <i style={{ width: `${((ask.number - 1) / 12) * 100}%` }} />
+            </div>
             <h2 className="gk-prompt">{earnPrompt(question)}</h2>
             <EarnSketch question={question} />
             <p className="gk-hint">{earnHint(question)}</p>
@@ -1359,6 +1345,15 @@ function ProfileView({
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onBack} />
       </header>
       <div className="gk-pick">
+        {Object.keys(profile.levels).length === 0 ? (
+          <>
+            <h1>Not placed yet, take the placement</h1>
+            <button className="gk-check" type="button" onClick={onRetake}>
+              Take the placement
+            </button>
+          </>
+        ) : (
+          <>
         <h1>Skills</h1>
         <p className="gk-sub">Marks never move these. Only answers do.</p>
         <div className="gk-unit-toggle" role="group" aria-label="Units">
@@ -1423,6 +1418,8 @@ function ProfileView({
             </div>
           );
         })}
+          </>
+        )}
       </div>
     </>
   );

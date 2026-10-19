@@ -59,6 +59,7 @@ export type EarnPicture = {
   ruler: boolean;
   bits: EarnBit[];
   labels: EarnLabel[];
+  measure?: { x: number; y: number; w: number; text: string };
 };
 
 export type EarnMeasure = "count" | "length" | "weight";
@@ -93,6 +94,7 @@ export type EarnState = {
   speedLine: string | null;
   book: SkillBook;
   day: string;
+  steps: number;
 };
 
 const BRIDGE_SKILLS = [
@@ -174,7 +176,7 @@ export function earnPrompt(question: EarnQuestion): string {
   }
 }
 
-export function earnHint(question: EarnQuestion): string {
+function rawHint(question: EarnQuestion): string {
   const fact = question.fact;
   switch (fact.kind) {
     case "between-posts":
@@ -198,7 +200,134 @@ export function earnHint(question: EarnQuestion): string {
   }
 }
 
+export function earnHint(question: EarnQuestion): string {
+  const hint = rawHint(question);
+  const token = question.answer.replace(/^-/, "");
+  if (token.length > 0 && hint.split(/[^0-9.]+/).filter((part) => part.length > 0).includes(token)) {
+    return "";
+  }
+  return hint;
+}
+
+function wordPicture(question: EarnQuestion): EarnPicture {
+  const fact = question.fact;
+  if (fact.kind === "split-gap") {
+    const left = 48;
+    const width = 200;
+    const y = 108;
+    return {
+      banks: true,
+      ruler: false,
+      labels: [
+        { text: "?", x: left + 86, y: 70 },
+        { text: "?", x: left + width + 86, y: 70 },
+      ],
+      bits: [
+        { sprite: "beam-side.png", x: left, y, w: width, h: 22 },
+        { sprite: "beam-side.png", x: left + width, y, w: width, h: 22 },
+      ],
+      measure: { x: left, y: 58, w: width * 2, text: formatLength(fact.gap) },
+    };
+  }
+  if (fact.kind === "between-posts") {
+    return {
+      banks: true,
+      ruler: false,
+      labels: [
+        { text: formatLength(fact.left), x: rulerX(fact.left) - 16, y: 8 },
+        { text: formatLength(fact.right), x: rulerX(fact.right) - 16, y: 8 },
+      ],
+      bits: [fact.left, fact.right].map((mark) => ({
+        sprite: "post.png",
+        x: rulerX(mark) - 16,
+        y: 40,
+        w: 32,
+        h: 78,
+      })),
+    };
+  }
+  if (fact.kind === "bolts-combine") {
+    return {
+      banks: false,
+      ruler: false,
+      labels: [
+        ...repeat(fact.plates, (index) => ({ text: String(fact.each), x: 48 + index * 84, y: 28 })),
+        { text: formatLength(1), x: 210, y: 130 },
+      ],
+      bits: repeat(fact.plates, (index) => ({
+        sprite: "gusset-small.png",
+        x: 32 + index * 84,
+        y: 58,
+        w: 52,
+        h: 44,
+      })),
+    };
+  }
+  if (fact.kind === "count-posts") {
+    return {
+      banks: true,
+      ruler: false,
+      labels: [{ text: formatLength(4), x: 210, y: 36 }],
+      bits: [
+        { sprite: "beam-side.png", x: 70, y: 58, w: 360, h: 22 },
+        ...repeat(fact.count, (index) => ({
+          sprite: "post.png",
+          x: 120 + index * 200,
+          y: 80,
+          w: 32,
+          h: 78,
+        })),
+      ],
+    };
+  }
+  if (fact.kind === "count-gussets") {
+    return {
+      banks: false,
+      ruler: false,
+      labels: [{ text: formatLength(4), x: 200, y: 24 }],
+      bits: [
+        { sprite: "beam-side.png", x: 40, y: 48, w: 420, h: 22 },
+        ...repeat(fact.count, (index) => ({
+          sprite: "gusset-small.png",
+          x: 36 + index * 90,
+          y: 78,
+          w: 48,
+          h: 42,
+        })),
+      ],
+    };
+  }
+  if (fact.kind === "count-braces") {
+    return {
+      banks: false,
+      ruler: false,
+      labels: [{ text: formatLength(3), x: 200, y: 16 }],
+      bits: repeat(fact.count, (index) => ({
+        sprite: "beam-half.png",
+        x: 90 + index * 180,
+        y: 46,
+        w: 150,
+        h: 20,
+        rotate: -36,
+      })),
+    };
+  }
+  return {
+    banks: true,
+    ruler: false,
+    labels: [],
+    bits: [
+      { sprite: "railing.png", x: 60, y: 58, w: 380, h: 28 },
+      { sprite: "railing.png", x: 60, y: 108, w: 380, h: 28 },
+    ],
+    measure: { x: 60, y: 48, w: 380, text: formatLength(8) },
+  };
+}
+
 export function earnPicture(question: EarnQuestion): EarnPicture | null {
+  if (question.word) {
+    return wordPicture(question);
+  }
   const fact = question.fact;
   if (fact.kind === "plain") {
     return null;
@@ -561,21 +690,59 @@ export function speedLine(totalMs: number, previousMs: number | null): string | 
 
 function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion {
   const strandId = group.strand;
+  const gap = formatLength(8);
+  const two = formatLength(2);
+  const six = formatLength(6);
+  const four = formatLength(4);
+  const three = formatLength(3);
+  const one = formatLength(1);
   const base =
     group.id === "top"
-      ? { answer: "4", word: "The posts stand at 2 and 6. How long is the top beam?", fact: { kind: "between-posts" as const, left: 2, right: 6 } }
+      ? {
+          answer: "4",
+          word: `One post stands at ${two} and the other stands at ${six}. How long is the top beam between them?`,
+          fact: { kind: "between-posts" as const, left: 2, right: 6 },
+        }
       : group.id === "bolts"
-        ? { answer: "10", word: "Two bolts for each of 5 gussets, how many bolts?", fact: { kind: "bolts-combine" as const, plates: 5, each: 2 } }
+        ? {
+            answer: "10",
+            word: `Each plate takes 2 bolts, and there are 5 plates. Each plate is ${one} across. How many bolts is that?`,
+            fact: { kind: "bolts-combine" as const, plates: 5, each: 2 },
+          }
         : group.id === "bottom"
-          ? { answer: "4", word: "The gap is 8. Two bottom beams share it. How long is each beam?", fact: { kind: "split-gap" as const, gap: 8, beams: 2 } }
+          ? {
+              answer: "4",
+              word: `The gap is ${gap} across. Two beams of the same length lie end to end to cross it. How long is each beam?`,
+              fact: { kind: "split-gap" as const, gap: 8, beams: 2 },
+            }
           : group.id === "posts"
-            ? { answer: "2", word: "How many posts hold up the top beam?", fact: { kind: "count-posts" as const, count: 2 } }
+            ? {
+                answer: "2",
+                word: `A beam ${four} long rests on the posts. How many posts hold it up?`,
+                fact: { kind: "count-posts" as const, count: 2 },
+              }
             : group.id === "gussets"
-              ? { answer: "5", word: "How many gusset plates join the corners?", fact: { kind: "count-gussets" as const, count: 5 } }
+              ? {
+                  answer: "5",
+                  word: `The plates join the corners of a beam ${four} long. How many gusset plates is that?`,
+                  fact: { kind: "count-gussets" as const, count: 5 },
+                }
               : group.id === "braces"
-                ? { answer: "2", word: "How many braces stop the posts from folding?", fact: { kind: "count-braces" as const, count: 2 } }
-                : { answer: "16", word: "The railing runs both sides of a deck that is 8 long. How long is the railing?", fact: { kind: "rail-both" as const, side: 8 } };
+                ? {
+                    answer: "2",
+                    word: `Each brace reaches ${three} across and stops the posts from folding. How many braces is that?`,
+                    fact: { kind: "count-braces" as const, count: 2 },
+                  }
+                : {
+                    answer: "16",
+                    word: `The deck is ${gap} long. The railing runs along both sides. How long is the railing altogether?`,
+                    fact: { kind: "rail-both" as const, side: 8 },
+                  };
   return { groupId: group.id, strandId, level, skillId, ...base };
+}
+
+export function kitQuestionTotal(): number {
+  return queenPost.groups.reduce((sum, group) => sum + runLength(group.id) + 1, 0);
 }
 
 function slotQuestion(groupId: string, slot: { skillId: string; strandId: string; level: number; mixed?: boolean }, seed: number, hint: boolean): EarnQuestion {
@@ -685,6 +852,7 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
     speedLine: null,
     book: { ...cleared, earned },
     day,
+    steps: cleared.steps,
   };
 }
 
@@ -846,6 +1014,11 @@ function resume(state: EarnState, levels: Record<string, number>): EarnState {
   return { ...state, phase, current: fresh, seed: state.seed + 1, roundsFailed: 0, streak: 0 };
 }
 
+function advanceStep(state: EarnState, book: SkillBook = state.book): EarnState {
+  const steps = state.steps + 1;
+  return { ...state, steps, book: { ...book, steps } };
+}
+
 function afterWarmup(state: EarnState, levels: Record<string, number>): EarnState {
   const earned = [...new Set([...state.earned, "gussets", "bolts"])];
   const book = { ...state.book, earned };
@@ -936,9 +1109,9 @@ export function answerEarn(
     };
   }
   if (state.phase === "word") {
-    const stepped = afterPiece(state, levels, current.groupId);
+    const finished = afterPiece(advanceStep(state), levels, current.groupId);
     const total = state.timesMs.reduce((sum, time) => sum + time, 0);
-    const nextState = stepped.phase === "done" ? { ...stepped, speedLine: speedLine(total, previousMs) } : stepped;
+    const nextState = finished.phase === "done" ? { ...finished, speedLine: speedLine(total, previousMs) } : finished;
     return {
       correct: true,
       levels: { ...levels, ...strandLevelsFrom(nextState.book) },
@@ -950,20 +1123,21 @@ export function answerEarn(
   const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), true) : state.book;
   const timesMs = [...state.timesMs, elapsedMs];
   const runGot = state.runGot + 1;
+  const counted = advanceStep({ ...state, book, timesMs, runGot });
   if (state.upcoming.length > 0) {
     return {
       correct: true,
       levels,
       note: null,
       marksDelta: 1,
-      state: { ...state, book, timesMs, runGot, current: state.upcoming[0], upcoming: state.upcoming.slice(1) },
+      state: { ...counted, current: state.upcoming[0], upcoming: state.upcoming.slice(1) },
     };
   }
   if (state.phase === "warmup") {
-    return { correct: true, levels, note: null, marksDelta: 1, state: afterWarmup({ ...state, book, timesMs, runGot }, levels) };
+    return { correct: true, levels, note: null, marksDelta: 1, state: afterWarmup(counted, levels) };
   }
   if (state.phase === "guided") {
-    return { correct: true, levels, note: null, marksDelta: 1, state: runState({ ...state, book, timesMs }, state.groupIndex, levels) };
+    return { correct: true, levels, note: null, marksDelta: 1, state: runState(counted, state.groupIndex, levels) };
   }
   const group = groupAt(state.groupIndex);
   const skill = currentSkill(book, group.strand, current.level);
@@ -973,10 +1147,7 @@ export function answerEarn(
     note: null,
     marksDelta: 1,
     state: {
-      ...state,
-      book,
-      timesMs,
-      runGot,
+      ...counted,
       phase: "word",
       returnPhase: "word",
       upcoming: [],

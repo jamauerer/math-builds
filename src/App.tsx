@@ -135,6 +135,7 @@ export function App() {
           piece={new URLSearchParams(window.location.search).get("piece")}
           word={new URLSearchParams(window.location.search).get("word") === "1"}
           lesson={new URLSearchParams(window.location.search).get("lesson")}
+          unplaced={new URLSearchParams(window.location.search).get("placed") === "0"}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

@@ -28,6 +28,7 @@ export type SkillBook = {
   introduced: string | null;
   earned: string[];
   tally: Record<string, { right: number; asked: number }>;
+  steps: number;
 };
 
 const SMALL_PIECES = ["gussets", "bolts"];
@@ -96,7 +97,7 @@ export function skillsFromLevels(levels: Record<string, number> | null): SkillBo
     const placed = levels?.[skill.strandId] ?? 1;
     skills[skill.id] = blankProgress(skill.level < placed ? "mastered" : "new");
   }
-  return { skills, session: 0, introduced: null, earned: [], tally: {} };
+  return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0 };
 }
 
 export function workingLevel(book: SkillBook, strandId: string, placed = 1): number {
@@ -396,5 +397,6 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
     introduced: typeof record.introduced === "string" ? record.introduced : null,
     earned: Array.isArray(record.earned) ? record.earned.filter((item): item is string => typeof item === "string") : [],
     tally: {},
+    steps: typeof record.steps === "number" && record.steps >= 0 ? record.steps : 0,
   };
 }

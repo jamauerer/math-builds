@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { setUnitSystem } from "../../../units";
-import { answerEarn, earnAtWord, earnPrompt, openRun, speedLine, startPractice } from "./earn";
-import { correctLengths, wreckLines } from "./kit";
+import { setUnitSystem, lengthAbbrev } from "../../../units";
+import { answerEarn, blankEarn, earnAtWord, earnHint, earnPrompt, kitQuestionTotal, openRun, speedLine, startPractice } from "./earn";
+import { queenPost, correctLengths, wreckLines } from "./kit";
 import { simulateCrossing } from "./simulate";
 
 describe("goat bridge kit", () => {
@@ -35,11 +35,30 @@ describe("goat bridge kit", () => {
     expect(earned.state.earned).toContain("bottom");
     expect(["learn", "plain", "paused"]).toContain(earned.state.phase);
     const top = earnAtWord(levels, "top");
-    expect(earnPrompt(top.current)).toBe("The posts stand at 2 and 6. How long is the top beam?");
+    setUnitSystem("us");
+    expect(earnPrompt(top.current)).toContain("2 ft");
+    expect(earnPrompt(top.current)).toContain("6 ft");
     expect(top.current.answer).toBe("4");
     expect(speedLine(10_000, 22_000)).toBe("12 s faster than last time");
     expect(speedLine(22_000, 10_000)).toBeNull();
     expect(speedLine(8_000, null)).toBe("fastest run yet");
+  });
+
+  it("steps the kit bar after one right answer and puts a unit in every word problem", () => {
+    setUnitSystem("us");
+    const levels = { dividing: 4 };
+    const start = blankEarn(levels, 1);
+    const next = answerEarn(start, start.current.answer, levels);
+    expect(next.state.steps).toBe(start.steps + 1);
+    expect((next.state.steps / kitQuestionTotal()) * 100).toBeGreaterThan((start.steps / kitQuestionTotal()) * 100);
+    for (const group of queenPost.groups) {
+      const word = earnAtWord(levels, group.id);
+      const prompt = earnPrompt(word.current);
+      expect(prompt).toContain(lengthAbbrev());
+      const token = word.current.answer.replace(/^-/, "");
+      expect(prompt.split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(token);
+      expect(earnHint(word.current).split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(token);
+    }
   });
 
   it("resumes the run at the same count after the explain and practice loop", () => {

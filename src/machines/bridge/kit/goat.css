@@ -282,6 +282,22 @@
   color: #2e7fb0;
 }
 
+.gk-measure {
+  position: absolute;
+  border-top: 2px dashed #2e7fb0;
+  height: 18px;
+  color: #2e7fb0;
+  font-family: Caveat, cursive;
+  font-size: 22px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.gk-bar.thin {
+  height: 6px;
+  margin: 0 0 14px;
+}
+
 .gk-qline {
   position: absolute;
   left: 40px;
