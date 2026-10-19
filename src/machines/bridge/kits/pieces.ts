@@ -86,7 +86,7 @@ function brace(level: number): PieceQuestion {
     };
   }
   return {
-    prompt: "A right triangle has an acute angle of 35 degrees. What is the other acute angle?",
+    prompt: "A right triangle has an acute angle of 35 degrees. The right angle is 90 degrees. What is the other acute angle?",
     answer: "55",
     used: [35, 90],
     slots,

@@ -94,7 +94,7 @@ describe("lesson structure", () => {
     expect(state.phase).toBe("learn");
     expect(state.current.strandId).toBe("geometry");
     expect(state.current.level).toBe(9);
-    expect(earnPrompt(state.current).toLowerCase()).toContain("hypotenuse");
+    expect(earnPrompt(state.current)).toMatch(/√\(/);
     expect(state.current.answer).not.toContain(".");
     expect(state.book.skills[state.current.skillId ?? ""].state).toBe("new");
     expect(KIT_SKILLS.find((skill) => skill.id === state.current.skillId)?.name).toBe("Pythagoras");

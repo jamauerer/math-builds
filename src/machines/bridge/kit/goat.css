@@ -771,6 +771,95 @@
   font-weight: 700;
 }
 
+.gk-answer input.is-right {
+  background: #c8e6c4;
+}
+
+.gk-answer input.is-wrong {
+  background: #f6c7bc;
+}
+
+.gk-dots {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-height: 18px;
+}
+
+.gk-dots span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 160px;
+}
+
+.gk-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2e7fb0;
+  display: block;
+}
+
+.gk-dots i.bolt {
+  border-radius: 2px;
+  background: #e0661a;
+}
+
+.gk-learn-pic {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gk-learn-pic span {
+  display: flex;
+  gap: 4px;
+}
+
+.gk-learn-pic i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2e7fb0;
+  display: block;
+}
+
+.gk-scratch-open {
+  align-self: flex-start;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid #d9d4cb;
+  background: #fff;
+  font-weight: 700;
+}
+
+.gk-scratch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.gk-scratch canvas {
+  width: min(100%, 420px);
+  height: 56px;
+  border: 1.5px solid #d9d4cb;
+  border-radius: 10px;
+  background: #fff;
+  touch-action: none;
+}
+
+.gk-scratch button {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1.5px solid #d9d4cb;
+  background: #fff;
+  font-weight: 700;
+}
+
 .gk-keys {
   display: grid;
   grid-template-columns: repeat(5, 40px);

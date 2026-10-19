@@ -3,6 +3,7 @@ import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
+import { pictureAgrees } from "../../../pictures/check";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { fitLevels, KIT_STRANDS, strandName } from "../../../engine/strand-placement";
@@ -130,15 +131,15 @@ export function earnMeasure(question: EarnQuestion): EarnMeasure {
 }
 
 export function earnPrompt(question: EarnQuestion): string {
-  if (question.pictureCaption) {
-    return question.pictureCaption;
-  }
   if (question.word) {
     return question.word;
   }
   const fact = question.fact;
   if (fact.kind === "plain") {
     return fact.prompt;
+  }
+  if (question.pictureCaption) {
+    return question.pictureCaption;
   }
   switch (fact.kind) {
     case "count-planks":
@@ -233,10 +234,26 @@ export function earnHint(question: EarnQuestion): string {
 
 function wordPicture(question: EarnQuestion): EarnPicture {
   const fact = question.fact;
-  if (question.groupId === "planks") {
-    return slice(["bottom-a", "bottom-b", "plank-1"], [labelAt("bottom-a", formatLength(4)), labelAt("bottom-b", formatLength(4)), labelAt("plank-1", formatLength(1), -22)]);
+  if (fact.kind !== "piece") {
+    return factPicture(fact);
   }
-  return factPicture(fact);
+  const prompt = question.word ?? fact.prompt;
+  const allowed = new Set(prompt.split(/[^0-9.]+/).filter((part) => part.length > 0));
+  const numbers = fact.used.filter((value) => allowed.has(String(value)));
+  const count = Number(question.answer);
+  if (question.groupId === "planks" && Number.isFinite(count) && count >= 1 && count <= 8) {
+    const ids = ["plank-1", "plank-2", "plank-3", "plank-4", "plank-5", "plank-6", "plank-7", "plank-8"].slice(0, count);
+    const labels = [];
+    if (numbers[0] != null) {
+      labels.push(labelAt(ids[0], formatLength(numbers[0]), -22));
+    }
+    if (numbers[1] != null) {
+      labels.push(labelAt("bottom-a", formatLength(numbers[1])));
+    }
+    return slice(ids, labels);
+  }
+  const labels = numbers.slice(0, fact.slots.length).map((value, index) => labelAt(fact.slots[index], formatLength(value)));
+  return slice(fact.slots, labels);
 }
 
 function factPicture(fact: EarnFact): EarnPicture {
@@ -538,15 +555,35 @@ function takePlan(
   return { current: questions[0], upcoming: questions.slice(1), seed: cursor, seen: [...prompts] };
 }
 
+function picturedStrand(question: EarnQuestion): boolean {
+  if (question.fact.kind !== "plain") {
+    return false;
+  }
+  if (question.strandId === "fractions") {
+    return question.fact.draw?.op === "frac";
+  }
+  if (question.strandId === "geometry") {
+    return true;
+  }
+  return question.strandId === "counting" && question.level <= 2;
+}
+
 function withPicture(question: EarnQuestion): EarnQuestion {
-  if (question.fact.kind !== "plain" || !question.fact.draw) {
+  if (!picturedStrand(question) || question.fact.kind !== "plain" || !question.fact.draw) {
     return question;
   }
   const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
   if (!drawn || drawn.picture.bits.length === 0) {
     return question;
   }
-  return { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
+  if (!pictureAgrees(question.fact.prompt, question.answer, drawn.picture)) {
+    return question;
+  }
+  return { ...question, picture: drawn.picture };
+}
+
+export function attachPlainPicture(question: EarnQuestion): EarnQuestion {
+  return withPicture(question);
 }
 
 const PICTURE_STRANDS = ["counting", "measuring", "adding", "multiplying", "dividing", "fractions", "ratios", "geometry", "algebra"];
@@ -555,8 +592,8 @@ function pictureFits(strandId: string, draw: PlainDraw): boolean {
   if (pictureOp[strandId] && draw.op !== pictureOp[strandId]) {
     return false;
   }
-  if (strandId === "counting" || strandId === "adding") {
-    return draw.op === "add" && draw.a <= 8 && draw.b <= 8;
+  if (strandId === "counting") {
+    return (draw.op === "compare" || draw.op === "add") && draw.a <= 12 && draw.b <= 12;
   }
   if (strandId === "multiplying") {
     return draw.op === "mul" && draw.a <= 5 && draw.b <= 6;
@@ -622,7 +659,7 @@ function outOfRange(question: EarnQuestion): boolean {
     return false;
   }
   const prompt = earnPrompt(question).toLowerCase();
-  return question.answer.includes(".") || prompt.includes("square root") || prompt.includes("hypotenuse");
+  return question.answer.includes(".") || prompt.includes("square root") || prompt.includes("hypotenuse") || prompt.includes("√") || prompt.includes("²");
 }
 
 function needsLearn(book: SkillBook, question: EarnQuestion): boolean {
@@ -630,7 +667,7 @@ function needsLearn(book: SkillBook, question: EarnQuestion): boolean {
   return Boolean(skillId && book.skills[skillId]?.state === "new");
 }
 
-function learnState(state: EarnState, groupIndex: number, levels: Record<string, number>): EarnState | null {
+export function learnState(state: EarnState, groupIndex: number, levels: Record<string, number>): EarnState | null {
   const group = groupAt(groupIndex);
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
   const skill = newSkill(state.book, group.strand, level);

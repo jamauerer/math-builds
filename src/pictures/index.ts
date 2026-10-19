@@ -24,6 +24,9 @@ const generators: Record<string, (draw: PlainDraw) => Drawn> = {
 export function drawPlain(strandId: string, draw: PlainDraw, answer: string): Drawn | null {
   const make = generators[strandId] ?? generators.algebra;
   const drawn = make(draw);
+  if (drawn.picture.bits.length === 0) {
+    return null;
+  }
   const token = answer.replace(/^-/, "");
   if (token.length > 0 && drawn.caption.split(/[^0-9.]+/).includes(token)) {
     return null;

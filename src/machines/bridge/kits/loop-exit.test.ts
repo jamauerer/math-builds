@@ -83,9 +83,10 @@ describe("loop exit", () => {
     expect(next.state.current.level).toBeLessThan(held.current.level);
   });
 
-  it("accepts 2.8 and 2.83 for 2.828 and says to round", () => {
+  it("accepts 2.8 and 2.83 for 2.828 and rounds the shown answer", () => {
     const item = plainQuestion("geometry", 10, 1);
-    expect(item.prompt.toLowerCase()).toContain("round to one decimal");
+    expect(item.why.toLowerCase()).toContain("round to one decimal");
+    expect(item.prompt.toLowerCase()).not.toContain("round");
     expect(item.answer).toBe((Math.round((item.truth ?? 0) * 10) / 10).toFixed(1));
     expect(acceptsAnswer("2.8", "2.8", 2.828)).toBe(true);
     expect(acceptsAnswer("2.83", "2.8", 2.828)).toBe(true);
@@ -97,7 +98,8 @@ describe("loop exit", () => {
       for (let level = 1; level <= 13; level += 1) {
         const question = plainQuestion(strand, level, 3);
         if (question.answer.includes(".")) {
-          expect(question.prompt.toLowerCase()).toContain("round to one decimal");
+          expect(question.why.toLowerCase()).toContain("round to one decimal");
+          expect(question.prompt.toLowerCase()).not.toContain("round");
         }
       }
     }

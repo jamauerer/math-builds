@@ -357,11 +357,12 @@ export function GoatKit({
     });
   }
 
-  function submitAnswer(help?: boolean) {
+  function submitAnswer(help?: boolean, attempt?: string) {
     const question = currentQuestion(earn);
+    const given = attempt ?? typed;
     const elapsed = earn.phase === "plain" ? Math.max(0, Date.now() - askedAt.current) : 0;
     const asked = help === true;
-    const next = answerEarn(earn, typed, levelsNow, elapsed, kitProfile?.lastRunMs ?? null, asked);
+    const next = answerEarn(earn, given, levelsNow, elapsed, kitProfile?.lastRunMs ?? null, asked);
     if (Object.keys(next.levels).length > 0) {
       setLiveLevels(next.levels);
     }
@@ -737,7 +738,7 @@ export function GoatKit({
               setTyped={setTyped}
               fading={celebrate != null}
               pulse={pulse}
-              onCheck={submitAnswer}
+              onCheck={(attempt) => submitAnswer(false, attempt)}
               onHelp={askHelp}
               onPractice={() => {
                 setEarn(startPractice(earn, levelsNow));
@@ -1039,7 +1040,7 @@ function EarnView({
   setTyped: (value: string) => void;
   fading?: boolean;
   pulse?: string | null;
-  onCheck: () => void;
+  onCheck: (attempt?: string) => void;
   onHelp: () => void;
   onPractice: () => void;
   onEasier: () => void;
@@ -1074,16 +1075,19 @@ function EarnView({
   if (earn.phase === "learn") {
     const explained = explainQuestion(earn.current);
     const skill = KIT_SKILLS.find((item) => item.id === earn.current.skillId);
+    const draw = earn.current.fact.kind === "plain" ? earn.current.fact.draw : null;
+    const line = draw ? notationLine(draw, earn.current.answer) : `${earnPrompt(earn.current).replace("?", earn.current.answer)}`;
     return (
       <div className="gk-body">
         <div className="gk-earn">
           <div className="gk-card">
             <div className="gk-kicker">
               <span>Learn</span>
-              <span>{skill?.name}</span>
             </div>
-            <h2 className="gk-prompt">{earnPrompt(earn.current)}</h2>
-            <Worked steps={explained.steps} />
+            <h2 className="gk-prompt" data-skill={skill?.id ?? ""}>
+              {skill?.name}
+            </h2>
+            <LearnSketch draw={draw} line={line} />
             <p>{explained.why}</p>
             <button className="gk-check" type="button" data-action="primary" onClick={onLearn}>
               Try 3 questions
@@ -1149,35 +1153,314 @@ function EarnView({
             <span className="gk-qstrand">{strandName(question.strandId)}</span>
           </div>
           <h2 className="gk-prompt">{earnPrompt(question)}</h2>
+          {question.level <= 2 && question.fact.kind === "plain" && !question.word ? <OperandMarks draw={question.fact.draw} /> : null}
           {picture ? <EarnSketch question={question} /> : null}
           {openHint ? <p className="gk-hint">{openHint}</p> : null}
-          <div className="gk-answer">
-            <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
-            <span className="gk-unit">{earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
-            <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
-              Check
-            </button>
-          </div>
-          <div className="gk-keys">
-            {keys.map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : key === "−" ? `${typed}-` : `${typed}${key}`)}
-              >
-                {key}
-              </button>
-            ))}
-          </div>
-          <button className="gk-idk" type="button" onClick={onHelp}>
-            I don't know
-          </button>
+          <AnswerPad
+            phase={earn.phase}
+            typed={typed}
+            answer={question.answer}
+            truth={question.truth}
+            level={question.level}
+            resetKey={`${earn.phase}:${earnPrompt(question)}:${earn.runGot}`}
+            unit={earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}
+            keys={keys}
+            onType={setTyped}
+            onCommit={(attempt) => onCheck(attempt)}
+            onHelp={onHelp}
+          />
         </div>
         <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
         <RoundMark round={earn.round} />
         <GoatWait />
       </div>
       <KitPanel earned={earned} current={groupId} pulse={pulse} />
+    </div>
+  );
+}
+
+function notationLine(draw: { op: string; a: number; b: number; c?: number }, answer: string): string {
+  if (draw.op === "mul" || draw.op === "groups" || draw.op === "area") {
+    return `${draw.a} × ${draw.b} = ${answer}`;
+  }
+  if (draw.op === "div") {
+    const sign = draw.c === -1 ? "−" : "";
+    return `${sign}${draw.a} ÷ ${draw.b} = ${answer}`;
+  }
+  if (draw.op === "add") {
+    return `${draw.a} + ${draw.b} = ${answer}`;
+  }
+  if (draw.op === "sub" || draw.op === "compare") {
+    return `${draw.a} − ${draw.b} = ${answer}`;
+  }
+  if (draw.op === "frac") {
+    return `${draw.a}/${draw.b} of ${draw.c ?? ""} = ${answer}`;
+  }
+  if (draw.op === "eq") {
+    return `${draw.a}x + ${draw.b} = ${draw.c ?? ""}, x = ${answer}`;
+  }
+  if (draw.op === "square") {
+    return `√${draw.a} = ${answer}`;
+  }
+  if (draw.op === "hyp") {
+    return `√(${draw.a}² + ${draw.b}²) = ${answer}`;
+  }
+  return `${draw.a}, ${draw.b} = ${answer}`;
+}
+
+function LearnSketch({ draw, line }: { draw: { op: string; a: number; b: number } | null; line: string }) {
+  const rows = draw && (draw.op === "mul" || draw.op === "groups" || draw.op === "area") ? Math.min(8, Math.max(1, draw.a)) : 0;
+  const each = draw && rows > 0 ? Math.min(12, Math.max(1, draw.b)) : 0;
+  return (
+    <div className="gk-learn-pic" data-rows={rows || undefined} data-each={each || undefined}>
+      {rows > 0
+        ? Array.from({ length: rows }, (_, row) => (
+            <span key={row}>
+              {Array.from({ length: each }, (_, dot) => (
+                <i key={dot} />
+              ))}
+            </span>
+          ))
+        : null}
+      <p className="gk-note" data-learn-line="">
+        {line}
+      </p>
+    </div>
+  );
+}
+
+function OperandMarks({ draw }: { draw: { op: string; a: number; b: number } }) {
+  const bolt = draw.op === "mul" || draw.op === "div" || draw.op === "groups";
+  const groups = [draw.a, draw.b].filter((count) => count > 0 && count <= 12);
+  if (groups.length === 0) {
+    return null;
+  }
+  return (
+    <div className="gk-dots" data-marks="1">
+      {groups.map((count, index) => (
+        <span key={index} data-count={count}>
+          {Array.from({ length: count }, (_, dot) => (
+            <i key={dot} className={bolt ? "bolt" : ""} />
+          ))}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function AnswerPad({
+  phase,
+  typed,
+  answer,
+  truth,
+  level,
+  resetKey,
+  unit,
+  keys,
+  onType,
+  onCommit,
+  onHelp,
+}: {
+  phase: string;
+  typed: string;
+  answer: string;
+  truth?: number;
+  level: number;
+  resetKey: string;
+  unit: string;
+  keys: string[];
+  onType: (value: string) => void;
+  onCommit: (attempt?: string) => void;
+  onHelp: () => void;
+}) {
+  const [flash, setFlash] = useState<"" | "right" | "wrong">("");
+  const [held, setHeld] = useState<string | null>(null);
+  const moving = useRef(false);
+  useEffect(() => {
+    setFlash("");
+    setHeld(null);
+    moving.current = false;
+  }, [resetKey]);
+  const commitRef = useRef(onCommit);
+  commitRef.current = onCommit;
+  useEffect(() => {
+    if (phase !== "plain" || moving.current || held != null || !typed) {
+      return;
+    }
+    if (!acceptsAnswer(typed, answer, truth)) {
+      return;
+    }
+    moving.current = true;
+    setFlash("right");
+    const attempt = typed;
+    const timer = window.setTimeout(() => commitRef.current(attempt), 300);
+    return () => {
+      window.clearTimeout(timer);
+      moving.current = false;
+    };
+  }, [typed, resetKey, phase, answer, truth, held]);
+  function commit() {
+    if (moving.current) {
+      return;
+    }
+    if (phase !== "plain") {
+      onCommit(typed);
+      return;
+    }
+    if (acceptsAnswer(typed, answer, truth)) {
+      moving.current = true;
+      setFlash("right");
+      window.setTimeout(() => onCommit(typed), 300);
+      return;
+    }
+    moving.current = true;
+    setFlash("wrong");
+    setHeld(answer);
+    const attempt = typed;
+    window.setTimeout(() => onCommit(attempt), 1000);
+  }
+  function press(key: string) {
+    if (moving.current) {
+      return;
+    }
+    if (key === "←") {
+      onType(typed.slice(0, -1));
+      return;
+    }
+    if (key === "−") {
+      onType(typed.startsWith("-") ? typed.slice(1) : `-${typed}`);
+      return;
+    }
+    onType(`${typed}${key}`);
+  }
+  return (
+    <>
+      <div className="gk-answer">
+        <input
+          aria-label="Answer"
+          className={flash === "right" ? "is-right" : flash === "wrong" ? "is-wrong" : ""}
+          value={held ?? typed}
+          onChange={(event) => onType(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commit();
+            }
+          }}
+        />
+        <span className="gk-unit">{unit}</span>
+        {phase === "plain" ? null : (
+          <button className="gk-check" type="button" data-action="primary" onClick={commit}>
+            Check
+          </button>
+        )}
+      </div>
+      <div className="gk-keys">
+        {keys.map((key) => (
+          <button key={key} type="button" onClick={() => press(key)}>
+            {key}
+          </button>
+        ))}
+      </div>
+      <ScratchPad level={level} resetKey={resetKey} />
+      <button className="gk-idk" type="button" onClick={onHelp}>
+        I don't know
+      </button>
+    </>
+  );
+}
+
+function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
+  const [open, setOpen] = useState(level >= 5);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawing = useRef(false);
+  useEffect(() => {
+    setOpen(level >= 5);
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (canvas && context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }, [resetKey, level]);
+  function point(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return { x: 0, y: 0 };
+    }
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / Math.max(rect.width, 1)) * canvas.width,
+      y: ((event.clientY - rect.top) / Math.max(rect.height, 1)) * canvas.height,
+    };
+  }
+  function start(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!context) {
+      return;
+    }
+    drawing.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const at = point(event);
+    context.strokeStyle = "#22201c";
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(at.x, at.y);
+  }
+  function move(event: ReactPointerEvent<HTMLCanvasElement>) {
+    if (!drawing.current) {
+      return;
+    }
+    const context = canvasRef.current?.getContext("2d");
+    if (!context) {
+      return;
+    }
+    const at = point(event);
+    context.lineTo(at.x, at.y);
+    context.stroke();
+  }
+  function clear() {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (canvas && context) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  if (!open) {
+    return (
+      <button className="gk-scratch-open" type="button" onClick={() => setOpen(true)}>
+        Work it out
+      </button>
+    );
+  }
+  return (
+    <div className="gk-scratch">
+      <canvas
+        ref={canvasRef}
+        width={560}
+        height={72}
+        aria-label="Work it out"
+        onPointerDown={start}
+        onPointerMove={move}
+        onPointerUp={() => {
+          drawing.current = false;
+        }}
+        onPointerLeave={() => {
+          drawing.current = false;
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          clear();
+          if (level <= 4) {
+            setOpen(false);
+          }
+        }}
+      >
+        Clear
+      </button>
     </div>
   );
 }

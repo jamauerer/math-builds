@@ -67,39 +67,38 @@ function item(prompt: string, answer: number | string, steps: string[], why: str
   const numeric = typeof answer === "number" ? answer : Number(answer);
   const whole = Number.isFinite(numeric) && Math.abs(numeric - Math.round(numeric)) < 1e-9;
   const shown = whole || !Number.isFinite(numeric) ? String(answer) : (Math.round(numeric * 10) / 10).toFixed(1);
-  const asksRoot = /square root|hypotenuse/i.test(prompt);
-  const needsLine = !whole && Number.isFinite(numeric) && (shown.includes(".") || asksRoot);
-  const line = needsLine && !/round to one decimal/i.test(prompt) ? `${prompt} Round to one decimal.` : prompt;
-  return { prompt: line, answer: shown, steps, why, draw, truth: whole || !Number.isFinite(numeric) ? undefined : numeric };
+  const needsLine = !whole && Number.isFinite(numeric) && shown.includes(".");
+  const whyLine = needsLine ? `${why} Round to one decimal.` : why;
+  return { prompt, answer: shown, steps, why: whyLine, draw, truth: whole || !Number.isFinite(numeric) ? undefined : numeric };
 }
 
 function counting(level: number, rng: Rng): PlainItem {
   if (level <= 2) {
     const left = intBetween(rng, 2, 8);
     const extra = intBetween(rng, 1, 5);
-    return item(`How much larger is ${left + extra} than ${left}?`, extra, [`${left + extra} take away ${left}.`, `The difference is ${extra}.`], "Comparing asks how much more one amount is.", { op: "compare", a: left + extra, b: left });
+    return item(`${left + extra} − ${left} = ?`, extra, [`${left + extra} take away ${left}.`, `The difference is ${extra}.`], "Comparing asks how much more one amount is.", { op: "compare", a: left + extra, b: left });
   }
   if (level <= 4) {
     const left = intBetween(rng, 2, level <= 3 ? 12 : 40);
     const right = intBetween(rng, 2, level <= 3 ? 9 : 30);
-    return item(`${left} + ${right}`, left + right, [`Start at ${left}.`, `Count on ${right}.`, `You land on ${left + right}.`], "Adding puts the two amounts together.", { op: "add", a: left, b: right });
+    return item(`${left} + ${right} = ?`, left + right, [`Start at ${left}.`, `Count on ${right}.`, `You land on ${left + right}.`], "Adding puts the two amounts together.", { op: "add", a: left, b: right });
   }
   const groups = intBetween(rng, 2, 6);
   const each = intBetween(rng, 2, 9);
-  return item(`${groups} groups of ${each}`, groups * each, [`Each group has ${each}.`, `There are ${groups} groups.`, `That is ${groups * each}.`], "Equal groups are a count of the groups times the size.", { op: "groups", a: groups, b: each });
+  return item(`${groups} × ${each} = ?`, groups * each, [`Each group has ${each}.`, `There are ${groups} groups.`, `That is ${groups * each}.`], "Equal groups are a count of the groups times the size.", { op: "groups", a: groups, b: each });
 }
 
 function measuring(level: number, rng: Rng): PlainItem {
   if (level <= 2) {
     const left = intBetween(rng, 2, 8);
     const extra = intBetween(rng, 1, 5);
-    return item(`How much longer is ${left + extra} than ${left}?`, extra, [`Compare ${left + extra} and ${left}.`, `The longer one wins by ${extra}.`], "The difference is how much longer the bigger length is.", { op: "compare", a: left + extra, b: left });
+    return item(`${left + extra} − ${left} = ?`, extra, [`Compare ${left + extra} and ${left}.`, `The longer one wins by ${extra}.`], "The difference is how much longer the bigger length is.", { op: "compare", a: left + extra, b: left });
   }
   if (level <= 4) {
     const span = level <= 3 ? 18 : 90;
     const right = intBetween(rng, 6, span);
     const left = intBetween(rng, 1, right - 1);
-    return item(`${right} - ${left}`, right - left, [`Start at ${right}.`, `Take away ${left}.`, `${right - left} is left.`], "The gap between two marks is the difference.", { op: "sub", a: right, b: left });
+    return item(`${right} − ${left} = ?`, right - left, [`Start at ${right}.`, `Take away ${left}.`, `${right - left} is left.`], "The gap between two marks is the difference.", { op: "sub", a: right, b: left });
   }
   return dividing(level, rng);
 }
@@ -109,21 +108,21 @@ function adding(level: number, rng: Rng): PlainItem {
     const cap = level === 1 ? 6 : 12;
     const left = intBetween(rng, 1, cap);
     const right = intBetween(rng, 1, cap);
-    return item(`${left} + ${right}`, left + right, [`Put ${left} and ${right} together.`, `The total is ${left + right}.`], "Addition joins two amounts.", { op: "add", a: left, b: right });
+    return item(`${left} + ${right} = ?`, left + right, [`Put ${left} and ${right} together.`, `The total is ${left + right}.`], "Addition joins two amounts.", { op: "add", a: left, b: right });
   }
   if (level <= 6) {
     const left = intBetween(rng, 12, level <= 4 ? 60 : 400);
     const right = intBetween(rng, 12, level <= 4 ? 40 : 250);
-    return item(`${left} + ${right}`, left + right, [`Add the ones, then the tens.`, `${left} + ${right} = ${left + right}.`], "Add each place, and carry when a place reaches ten.", { op: "add", a: left, b: right });
+    return item(`${left} + ${right} = ?`, left + right, [`Add the ones, then the tens.`, `${left} + ${right} = ${left + right}.`], "Add each place, and carry when a place reaches ten.", { op: "add", a: left, b: right });
   }
   if (level <= 9) {
     const known = intBetween(rng, 2, 15);
     const missing = intBetween(rng, 2, 12);
-    return item(`n + ${known} = ${known + missing}`, missing, [`The total is ${known + missing}.`, `Take away the ${known} you already have.`, `n is ${missing}.`], "A missing addend is the total minus the part you know.", { op: "missing", a: known, b: known + missing });
+    return item(`x + ${known} = ${known + missing}, x = ?`, missing, [`The total is ${known + missing}.`, `Take away the ${known} you already have.`, `x is ${missing}.`], "A missing addend is the total minus the part you know.", { op: "missing", a: known, b: known + missing });
   }
   const left = intBetween(rng, 20, 80);
   const right = intBetween(rng, 20, 80);
-  return item(`${left} + ${right}`, left + right, [`Add the tens and the ones.`, `The sum is ${left + right}.`], "Addition joins the two numbers, place by place.", { op: "add", a: left, b: right });
+  return item(`${left} + ${right} = ?`, left + right, [`Add the tens and the ones.`, `The sum is ${left + right}.`], "Addition joins the two numbers, place by place.", { op: "add", a: left, b: right });
 }
 
 function multiplying(level: number, rng: Rng): PlainItem {
@@ -132,25 +131,25 @@ function multiplying(level: number, rng: Rng): PlainItem {
   if (level >= 10) {
     return algebra(level, rng);
   }
-  return item(`${left} × ${right}`, left * right, [`${left} groups of ${right}.`, `That is ${left * right}.`], "Multiplication is equal groups.", { op: "mul", a: left, b: right });
+  return item(`${left} × ${right} = ?`, left * right, [`${left} groups of ${right}.`, `That is ${left * right}.`], "Multiplication is equal groups.", { op: "mul", a: left, b: right });
 }
 
 function dividing(level: number, rng: Rng): PlainItem {
   if (level >= 8 && level <= 9) {
     const divisor = intBetween(rng, 2, 9);
     const quot = intBetween(rng, 2, 9);
-    return item(`-${divisor * quot} ÷ ${divisor}`, -quot, [`The numbers have opposite signs.`, `The amount is ${quot}.`, `The result is -${quot}.`], "A negative divided by a positive is negative.", { op: "div", a: divisor * quot, b: divisor, c: -1 });
+    return item(`−${divisor * quot} ÷ ${divisor} = ?`, -quot, [`The numbers have opposite signs.`, `The amount is ${quot}.`, `The result is -${quot}.`], "A negative divided by a positive is negative.", { op: "div", a: divisor * quot, b: divisor, c: -1 });
   }
   if (level >= 5 && level <= 6 && rng() > 0.45) {
     const divisor = intBetween(rng, 2, 9);
     const quot = intBetween(rng, 2, 9);
     const remainder = intBetween(rng, 1, divisor - 1);
     const dividend = divisor * quot + remainder;
-    return item(`Remainder of ${dividend} ÷ ${divisor}`, remainder, [`Divide ${dividend} by ${divisor}.`, `${remainder} is left over.`], "The remainder is what is left after equal groups.", { op: "rem", a: dividend, b: divisor, c: remainder });
+    return item(`${dividend} ÷ ${divisor}, remainder = ?`, remainder, [`Divide ${dividend} by ${divisor}.`, `${remainder} is left over.`], "The remainder is what is left after equal groups.", { op: "rem", a: dividend, b: divisor, c: remainder });
   }
   const divisor = intBetween(rng, 2, level <= 3 ? 5 : 9);
   const quot = intBetween(rng, 2, level <= 3 ? 5 : 12);
-  return item(`${divisor * quot} ÷ ${divisor}`, quot, [`How many ${divisor}s fit in ${divisor * quot}.`, `That is ${quot}.`], "Division asks how many equal groups fit.", { op: "div", a: divisor * quot, b: divisor });
+  return item(`${divisor * quot} ÷ ${divisor} = ?`, quot, [`How many ${divisor}s fit in ${divisor * quot}.`, `That is ${quot}.`], "Division asks how many equal groups fit.", { op: "div", a: divisor * quot, b: divisor });
 }
 
 function fractions(level: number, rng: Rng): PlainItem {
@@ -161,7 +160,7 @@ function fractions(level: number, rng: Rng): PlainItem {
   const numerator = intBetween(rng, 1, denominator - 1);
   const groups = intBetween(rng, 2, 6);
   const whole = groups * denominator;
-  return item(`${numerator}/${denominator} of ${whole}`, groups * numerator, [`${numerator}/${denominator} of ${whole}.`, `${numerator} of those parts is ${groups * numerator}.`], "A fraction of a whole is that many equal parts.", { op: "frac", a: numerator, b: denominator, c: whole });
+  return item(`${numerator}/${denominator} of ${whole} = ?`, groups * numerator, [`${numerator}/${denominator} of ${whole}.`, `${numerator} of those parts is ${groups * numerator}.`], "A fraction of a whole is that many equal parts.", { op: "frac", a: numerator, b: denominator, c: whole });
 }
 
 function ratios(level: number, rng: Rng): PlainItem {
@@ -171,7 +170,7 @@ function ratios(level: number, rng: Rng): PlainItem {
   if (level <= 8) {
     const percent = intBetween(rng, 2, 5) * 10;
     const whole = intBetween(rng, 2, 8) * 10;
-    return item(`${percent}% of ${whole}`, (percent / 100) * whole, [`${percent}% of ${whole}.`, `${percent}% of ${whole} is ${(percent / 100) * whole}.`], "Percent is a fraction of 100.", { op: "percent", a: percent, b: whole });
+    return item(`${percent}% of ${whole} = ?`, (percent / 100) * whole, [`${percent}% of ${whole}.`, `${percent}% of ${whole} is ${(percent / 100) * whole}.`], "Percent is a fraction of 100.", { op: "percent", a: percent, b: whole });
   }
   return algebra(level, rng);
 }
@@ -179,7 +178,7 @@ function ratios(level: number, rng: Rng): PlainItem {
 function geometry(level: number, rng: Rng): PlainItem {
   if (level >= 12) {
     const angle = intBetween(rng, 2, 8) * 5;
-    return item(`A right triangle has an acute angle of ${angle} degrees. What is the other acute angle?`, 90 - angle, [`The two acute angles add to 90.`, `90 - ${angle} = ${90 - angle}.`], "The acute angles of a right triangle add to 90 degrees.", { op: "angle", a: angle, b: 90 });
+    return item(`${angle}° + x = 90°, x = ?`, 90 - angle, [`The two acute angles add to 90.`, `90 - ${angle} = ${90 - angle}.`], "The acute angles of a right triangle add to 90 degrees.", { op: "angle", a: angle, b: 90 });
   }
   if (level >= 10 && level < 12) {
     const pairs: readonly [number, number][] = [
@@ -197,7 +196,7 @@ function geometry(level: number, rng: Rng): PlainItem {
     const up = pair[1];
     const truth = Math.hypot(across, up);
     return item(
-      `A right triangle has legs ${across} and ${up}. How long is the hypotenuse?`,
+      `√(${across}² + ${up}²) = ?`,
       truth,
       [`Square ${across} and square ${up}.`, `Add the squares.`, `Round the square root to one decimal.`],
       "The long side is the square root of the two short sides, squared and added.",
@@ -219,7 +218,7 @@ function geometry(level: number, rng: Rng): PlainItem {
     ];
     const triple = triples[intBetween(rng, 0, triples.length - 1)];
     return item(
-      `A right triangle has legs ${triple[0]} and ${triple[1]}. How long is the hypotenuse?`,
+      `√(${triple[0]}² + ${triple[1]}²) = ?`,
       triple[2],
       [`Square ${triple[0]} and square ${triple[1]}.`, `Add the squares.`, `The square root is ${triple[2]}.`],
       "The long side is the square root of the two short sides, squared and added.",
@@ -228,22 +227,22 @@ function geometry(level: number, rng: Rng): PlainItem {
   }
   const width = intBetween(rng, 2, level <= 4 ? 6 : 12);
   const height = intBetween(rng, 2, level <= 4 ? 6 : 9);
-  return item(`Area of a ${width} by ${height} rectangle`, width * height, [`${width} rows of ${height}.`, `The area is ${width * height}.`], "Area of a rectangle is length times width.", { op: "area", a: width, b: height });
+  return item(`${width} × ${height} = ?`, width * height, [`${width} rows of ${height}.`, `The area is ${width * height}.`], "Area of a rectangle is length times width.", { op: "area", a: width, b: height });
 }
 
 function algebra(level: number, rng: Rng): PlainItem {
   if (level >= 12) {
     const root = intBetween(rng, 2, 9);
-    return item(`x² = ${root * root}`, root, [`What number times itself is ${root * root}.`, `x is ${root}.`], "A square root undoes a square.", { op: "square", a: root * root, b: root });
+    return item(`√${root * root} = ?`, root, [`What number times itself is ${root * root}.`, `x is ${root}.`], "A square root undoes a square.", { op: "square", a: root * root, b: root });
   }
   if (level >= 10) {
     const slope = intBetween(rng, 2, 6);
     const x = intBetween(rng, 2, 6);
-    return item(`y = ${slope}x. What is y when x is ${x}?`, slope * x, [`${slope} times ${x}.`, `y is ${slope * x}.`], "A line through the origin multiplies x by the slope.", { op: "line", a: slope, b: x });
+    return item(`y = ${slope}x, x = ${x}, y = ?`, slope * x, [`${slope} times ${x}.`, `y is ${slope * x}.`], "A line through the origin multiplies x by the slope.", { op: "line", a: slope, b: x });
   }
   const factor = intBetween(rng, 2, 6);
   const value = intBetween(rng, 2, 8);
   const added = intBetween(rng, 1, 7);
   const total = factor * value + added;
-  return item(`${factor}x + ${added} = ${total}`, value, [`Take away ${added}.`, `${factor}x = ${factor * value}.`, `x is ${value}.`], "Undo the addition, then undo the multiplication.", { op: "eq", a: factor, b: added, c: total });
+  return item(`${factor}x + ${added} = ${total}, x = ?`, value, [`Take away ${added}.`, `${factor}x = ${factor * value}.`, `x is ${value}.`], "Undo the addition, then undo the multiplication.", { op: "eq", a: factor, b: added, c: total });
 }
