@@ -83,7 +83,7 @@ import {
 import type { ExplainStep } from "../kits/explain";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
 import { skillLearnLine } from "../../../skills/generate";
-import { framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
+import { BIG_GOAT_MASS, CELEBRATE_S, SMALL_GOAT_MASS, framePose, simulateCrossing, type CrossingFrame, type CrossingResult } from "../kits/simulate";
 import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
@@ -225,6 +225,7 @@ export function GoatKit({
   const [reveal, setReveal] = useState<EarnState | null>(null);
   const [celebrate, setCelebrate] = useState<string[] | null>(moment === "spin" && piece ? [piece] : null);
   const [pulse, setPulse] = useState<string | null>(moment === "lit" ? piece : null);
+  const [roundDance, setRoundDance] = useState(false);
   const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
   const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
   const seeded = seedCountry && countryByCode(seedCountry) ? seedCountry.toUpperCase() : null;
@@ -320,7 +321,7 @@ export function GoatKit({
   const layingRef = useRef(false);
   const [result, setResult] = useState<CrossingResult | null>(() => {
     const fromDrops = Object.keys(drops).length > 0 ? numericLengths(drops) : null;
-    const startMass = heavy ? 80 : 40;
+    const startMass = heavy ? BIG_GOAT_MASS : SMALL_GOAT_MASS;
     if (start === "drive") {
       return simulateCrossing(fromDrops ?? roundLengths(round) ?? numericLengths(filledLengths()), startMass);
     }
@@ -329,7 +330,7 @@ export function GoatKit({
     }
     return null;
   });
-  const [mass, setMass] = useState(heavy ? 80 : 40);
+  const [mass, setMass] = useState(heavy ? BIG_GOAT_MASS : SMALL_GOAT_MASS);
   const [badge, setBadge] = useState(start === "wreck");
   const designAwarded = useRef(false);
   const heavyAwarded = useRef(false);
@@ -342,7 +343,7 @@ export function GoatKit({
     }
     sessionStorage.setItem("mb-cross-award", "1");
     designAwarded.current = true;
-    const heavyMarks = mass >= 80 ? (queenPost.rounds[2]?.marks ?? 0) : 0;
+    const heavyMarks = mass >= BIG_GOAT_MASS ? (queenPost.rounds[2]?.marks ?? 0) : 0;
     onMarks(marks + (queenPost.rounds[1]?.marks ?? queenPost.marks) + heavyMarks);
   }, [start, result, mass, marks, onMarks]);
   const askedAt = useRef(Date.now());
@@ -425,10 +426,10 @@ export function GoatKit({
   }, [earn, stage, lengths, placed]);
 
   useEffect(() => {
-    if (start !== "faster" && (stage === "earn" || stage === "explain" || stage === "practice") && earn.phase === "done" && !celebrate) {
+    if (start !== "faster" && (stage === "earn" || stage === "explain" || stage === "practice") && earn.phase === "done" && !celebrate && !roundDance) {
       setStage("assemble");
     }
-  }, [stage, earn.phase, celebrate]);
+  }, [stage, earn.phase, celebrate, roundDance]);
 
   function remember(
     question: EarnQuestion,
@@ -466,12 +467,14 @@ export function GoatKit({
       if (!current || current.length === 0) {
         return null;
       }
-      setPulse(current[0]);
+      if (earn.phase === "done" && current.length === 1) {
+        setRoundDance(true);
+        window.setTimeout(() => setRoundDance(false), 750);
+      } else {
+        setPulse(current[0]);
+      }
       if (current.length === 1) {
         setReveal(null);
-        if (earn.phase === "done") {
-          setStage("assemble");
-        }
         return null;
       }
       return current.slice(1);
@@ -742,7 +745,7 @@ export function GoatKit({
         designAwarded.current = true;
         add += queenPost.rounds[1]?.marks ?? queenPost.marks;
       }
-      if (nextMass >= 80 && !heavyAwarded.current) {
+      if (nextMass >= BIG_GOAT_MASS && !heavyAwarded.current) {
         heavyAwarded.current = true;
         add += queenPost.rounds[2]?.marks ?? 0;
       }
@@ -987,6 +990,7 @@ export function GoatKit({
               setTyped={setTyped}
               fading={celebrate != null}
               pulse={pulse}
+              dance={roundDance || earn.phase === "done"}
               onCheck={(attempt) => submitAnswer(false, attempt)}
               onHelp={askHelp}
               onPractice={() => {
@@ -1069,7 +1073,7 @@ export function GoatKit({
               result={shown}
               lengths={numericLengths(lengths)}
               seek={seek}
-              onHeavy={() => sendGoat(mass * 2)}
+              onHeavy={() => sendGoat(BIG_GOAT_MASS)}
               onNext={() => setStage("pick")}
               onSettled={() => {
                 if (!shown.ok) {
@@ -1283,6 +1287,7 @@ function EarnView({
   setTyped,
   fading,
   pulse,
+  dance,
   onCheck,
   onHelp,
   onPractice,
@@ -1296,6 +1301,7 @@ function EarnView({
   setTyped: (value: string) => void;
   fading?: boolean;
   pulse?: string | null;
+  dance?: boolean;
   onCheck: (attempt?: string) => void;
   onHelp: () => void;
   onPractice: () => void;
@@ -1324,7 +1330,7 @@ function EarnView({
           <RoundMark round={earn.round} />
           <GoatWait />
         </div>
-        <KitPanel earned={earned} pulse={pulse} />
+        <KitPanel earned={earned} pulse={pulse} dance={dance} />
       </div>
     );
   }
@@ -1354,7 +1360,7 @@ function EarnView({
           <RoundMark round={earn.round} />
           <GoatWait />
         </div>
-        <KitPanel earned={earned} current={earn.current.groupId} pulse={pulse} />
+        <KitPanel earned={earned} current={earn.current.groupId} pulse={pulse} dance={dance} />
       </div>
     );
   }
@@ -1368,7 +1374,7 @@ function EarnView({
           <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
           <RoundMark round={earn.round} />
         </div>
-        <KitPanel earned={earned} pulse={pulse} />
+        <KitPanel earned={earned} pulse={pulse} dance={dance} />
       </div>
     );
   }
@@ -1397,7 +1403,7 @@ function EarnView({
             </div>
           </div>
         </div>
-        <KitPanel earned={earned} current={groupId} pulse={pulse} />
+        <KitPanel earned={earned} current={groupId} pulse={pulse} dance={dance} />
       </div>
     );
   }
@@ -1443,7 +1449,7 @@ function EarnView({
         <RoundMark round={earn.round} />
         <GoatWait />
       </div>
-      <KitPanel earned={earned} current={groupId} pulse={pulse} />
+      <KitPanel earned={earned} current={groupId} pulse={pulse} dance={dance} />
     </div>
   );
 }
@@ -2201,9 +2207,27 @@ function RulerStrip() {
   );
 }
 
-function KitPanel({ earned, current, pulse }: { earned: string[]; current?: string; pulse?: string | null }) {
+function KitPanel({ earned, current, pulse, dance }: { earned: string[]; current?: string; pulse?: string | null; dance?: boolean }) {
+  const [step, setStep] = useState(1);
+  useEffect(() => {
+    if (!dance) {
+      return;
+    }
+    setStep(1);
+    let frame = 1;
+    const timer = window.setInterval(() => {
+      frame += 1;
+      if (frame > 8) {
+        window.clearInterval(timer);
+        return;
+      }
+      setStep(frame);
+    }, Math.round(1000 / 12));
+    return () => window.clearInterval(timer);
+  }, [dance]);
   return (
     <aside className="gk-panel">
+      {dance ? <img className="gk-kit-dance" data-kit-dance={step} src={art(`goat-dance-${step}.png`)} alt="" /> : null}
       <h2>Your kit</h2>
       <p className="gk-muted">greyed = not yet earned</p>
       {queenPost.groups.map((group) => {
@@ -2559,15 +2583,26 @@ function DriveView({
   onNext: () => void;
   onSettled: () => void;
 }) {
-  const held = seek == null ? null : frameNear(result.frames, seek);
+  const [skipped, setSkipped] = useState(false);
+  const last = result.frames[result.frames.length - 1] ?? result.frames[0];
+  const held = skipped && result.ok ? last : seek == null ? null : frameNear(result.frames, seek);
   const frame = usePlayback(result, held, onSettled);
   const rows = pieceRows(lengths, result.cause, result.broke);
   const calm = rows.every((row) => row.state === "fit") && result.peakForce < 1000 * 0.6;
   const madeIt = result.ok && frame.mode === "arrived";
-  const showButtons = import.meta.env.VITEST || frame.celebrate >= 1.5;
+  const showButtons = import.meta.env.VITEST || skipped || frame.celebrate >= CELEBRATE_S;
+  const big = result.massKg >= BIG_GOAT_MASS;
   return (
     <div className="gk-body">
-      <div className="gk-scene-col">
+      <div
+        className="gk-scene-col"
+        data-skip-celebrate={madeIt ? "1" : undefined}
+        onClick={() => {
+          if (madeIt) {
+            setSkipped(true);
+          }
+        }}
+      >
         <CrossingPicture frame={frame} extras={lengths} />
         <div className="gk-strip">
           <p>
@@ -2590,7 +2625,7 @@ function DriveView({
         <div className="gk-load">
           <small>LOAD ON THE BRIDGE</small>
           <strong>{formatWeight(result.massKg)}</strong>
-          <span className="gk-muted">{result.massKg === 40 ? "one goat" : "a heavier goat"}</span>
+          <span className="gk-muted">{big ? "the big goat" : "one goat"}</span>
           <div className="gk-bar">
             <i style={{ width: `${result.loadPercent}%`, background: "#3C7A2B" }} />
           </div>
@@ -2658,7 +2693,7 @@ function WreckView({
   const own = numericLengths(lengths);
   const numbers = own.top == null && own["post-a"] == null ? own : { ...numericLengths(filledLengths()), ...own };
   const rows = pieceRows(numbers, result.cause, result.broke);
-  const line = stareLine(numbers, result.cause);
+  const line = stareLine(numbers, result.cause, result.massKg >= BIG_GOAT_MASS);
   const hint = causeHint(result.cause, numbers);
   const glaring = frame?.mode === "glare";
   return (

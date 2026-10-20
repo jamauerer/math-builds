@@ -164,6 +164,13 @@
     { "line": "I have four legs and none of them swim well.", "cause": "general" },
     { "line": "Same goat. New bridge. Whenever you are ready.", "cause": "general" }
   ],
+  "bigDunks": [
+    { "line": "I stayed dry. The bridge did not.", "cause": "general" },
+    { "line": "That was not heavy. That was loose.", "cause": "general" },
+    { "line": "Bolts next time. I am not coming back for a swim.", "cause": "general" },
+    { "line": "I am still standing. The gussets are not.", "cause": "general" },
+    { "line": "Fix the joints. I will wait.", "cause": "general" }
+  ],
   "slots": [
     {
       "id": "bottom-a",

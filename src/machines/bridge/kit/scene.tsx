@@ -363,30 +363,38 @@ function PlankHoles({ placed }: { placed: Record<string, boolean> }) {
 
 const BANK_BOTTOM = 610;
 
-function drawRank(slot: { id: string; kind: string }): number {
-  if (slot.kind === "beam" && slot.id !== "top") {
-    return 1;
+function drawRank(slot: { id: string; kind: string }, layer: "far" | "near" = "near"): number {
+  if (layer === "far") {
+    return slot.kind === "brace" ? 1 : 2;
   }
   if (slot.kind === "plank") {
-    return 2;
-  }
-  if (slot.kind === "post") {
     return 3;
   }
-  if (slot.kind === "brace") {
-    return 4;
-  }
-  if (slot.id === "top") {
+  if (slot.kind === "beam" && slot.id !== "top") {
     return 5;
   }
-  if (slot.kind === "gusset") {
+  if (slot.kind === "post") {
     return 6;
   }
-  if (slot.kind === "bolt") {
+  if (slot.kind === "brace") {
     return 7;
   }
-  return 3;
+  if (slot.id === "top") {
+    return 8;
+  }
+  if (slot.kind === "gusset") {
+    return 9;
+  }
+  if (slot.kind === "bolt") {
+    return 10;
+  }
+  if (slot.kind === "rail") {
+    return 11;
+  }
+  return 5;
 }
+
+const GOAT_Z = 4;
 
 function spriteFor(pose: PiecePose): string {
   if (pose.broken === "left") {
@@ -407,7 +415,7 @@ function spriteFor(pose: PiecePose): string {
   return "beam-side.png";
 }
 
-function poseStyle(pose: PiecePose): CSSProperties {
+function poseStyle(pose: PiecePose, layer: "far" | "near" = "near"): CSSProperties {
   const px = queenPost.scene.originX + queenPost.pxPerMetre * pose.x;
   const py = queenPost.scene.deckY - queenPost.pxPerMetre * pose.y;
   const along = pose.length * queenPost.pxPerMetre;
@@ -437,7 +445,8 @@ function poseStyle(pose: PiecePose): CSSProperties {
     height,
     transform: `rotate(${rotation}rad)`,
     transformOrigin: "center center",
-    zIndex: drawRank(pose),
+    zIndex: drawRank(pose, layer),
+    ...(layer === "far" ? { filter: "brightness(0.62)" } : {}),
   };
 }
 
@@ -453,8 +462,27 @@ function fit(src: string, width: number, height: number) {
   return { src, width: Math.round(width * 0.5), height: Math.round(height * 0.5) };
 }
 
-export function goatSprite(mode: GoatMode, walkFrame: number): { src: string; width: number; height: number } {
+const SMALL_H = 150;
+const BIG_H = 300;
+
+function scaleTo(src: string, natW: number, natH: number, height: number) {
+  return { src, width: Math.round((natW * height) / natH), height };
+}
+
+export function goatSprite(
+  mode: GoatMode,
+  walkFrame: number,
+  kind: "small" | "big" = "small",
+  celebrate = 0,
+): { src: string; width: number; height: number } {
+  if (kind === "big") {
+    return bigGoatSprite(mode, walkFrame, celebrate);
+  }
   if (mode === "arrived") {
+    const frame = danceFrame(celebrate, 28, 12);
+    if (frame) {
+      return scaleTo(`goat-dance-${frame}.png`, 223, 240, SMALL_H);
+    }
     return { src: "goat-arrived.png", width: 149, height: 150 };
   }
   if (mode === "walk") {
@@ -488,6 +516,56 @@ export function goatSprite(mode: GoatMode, walkFrame: number): { src: string; wi
     return fit(walkFrame === 2 ? "goat-glare-2.png" : "goat-glare-1.png", walkFrame === 2 ? 347 : 353, walkFrame === 2 ? 293 : 322);
   }
   return { src: "goat-idle.png", width: 149, height: 150 };
+}
+
+function danceFrame(celebrate: number, count: number, fps: number): number | null {
+  if (celebrate <= 0) {
+    return null;
+  }
+  const frame = 1 + Math.floor(celebrate * fps);
+  return frame <= count ? frame : null;
+}
+
+function bigGoatSprite(mode: GoatMode, walkFrame: number, celebrate: number): { src: string; width: number; height: number } {
+  const sized = (src: string, natW = 295, natH = 335) => scaleTo(src, natW, natH, BIG_H);
+  if (mode === "arrived") {
+    const frame = danceFrame(celebrate, 15, 12);
+    if (frame) {
+      return sized(`biggoat-dance-${frame}.png`);
+    }
+    return sized("biggoat-idle.png", 1238, 1116);
+  }
+  if (mode === "walk") {
+    return sized(`biggoat-walk-${Math.min(6, Math.max(1, walkFrame))}.png`);
+  }
+  if (mode === "slip") {
+    return sized("biggoat-slip.png");
+  }
+  if (mode === "flail") {
+    return sized("biggoat-leap.png");
+  }
+  if (mode === "fall") {
+    return sized("biggoat-fall.png");
+  }
+  if (mode === "tumble") {
+    return sized("biggoat-tumble.png");
+  }
+  if (mode === "splash") {
+    return sized(walkFrame > 1 ? "biggoat-splash.png" : "biggoat-splash-in.png");
+  }
+  if (mode === "swim") {
+    return sized(`biggoat-swim-${walkFrame === 2 ? 2 : 1}.png`);
+  }
+  if (mode === "drip") {
+    return sized(`biggoat-drip-${Math.min(3, Math.max(1, walkFrame))}.png`);
+  }
+  if (mode === "shake") {
+    return sized("biggoat-climb-out.png");
+  }
+  if (mode === "glare") {
+    return sized("biggoat-swim-glare.png");
+  }
+  return sized("biggoat-idle.png", 1238, 1116);
 }
 
 export function frameNear(frames: CrossingFrame[], metres: number): CrossingFrame {
@@ -576,106 +654,133 @@ function Abutments() {
   );
 }
 
-const FIREWORK_BURSTS = [0.05, 0.5, 0.95];
-const FIREWORK_EACH = 24;
+const ROCKET_AT = [0, 0.3, 0.6];
+const FW_COLORS = ["gold", "blue", "red", "rainbow", "purple", "green"] as const;
 
 export function fireworkDraws(t: number): number {
   if (t <= 0) {
     return 0;
   }
-  let count = 0;
-  for (const start of FIREWORK_BURSTS) {
+  let count = t <= 2 ? 1 : 0;
+  for (const start of ROCKET_AT) {
     const age = t - start;
-    if (age >= 0 && age <= 0.7) {
-      count += FIREWORK_EACH * 3;
+    if (age < 0) {
+      continue;
+    }
+    if (age < 0.5) {
+      count += 2;
+    } else if (age < 1.4) {
+      count += 1;
     }
   }
   return count;
+}
+
+function rocketHue(index: number): (typeof FW_COLORS)[number] {
+  return FW_COLORS[index % FW_COLORS.length];
+}
+
+function rocketPair(color: (typeof FW_COLORS)[number]): { rocket: string; trail: string } {
+  const hue = color === "rainbow" ? "gold" : color;
+  return { rocket: `fw-rocket-${hue}.png`, trail: `fw-trail-${hue}.png` };
 }
 
 function Fireworks({ t }: { t: number }) {
   if (t <= 0) {
     return null;
   }
-  const colors = ["#E0661A", "#2E7FB0", "#3C7A2B", "#F2B544"];
-  const origin = { x: 816, y: 250 };
+  const origin = { x: 800, y: 268 };
   return (
     <>
-      {FIREWORK_BURSTS.map((start, index) => {
+      {ROCKET_AT.map((start, index) => {
         const age = t - start;
-        if (age < 0 || age > 0.7) {
+        if (age < 0 || age > 1.4) {
           return null;
         }
-        const spread = 20 + age * 90;
-        return Array.from({ length: FIREWORK_EACH }, (_, dot) => {
-          const angle = (dot / FIREWORK_EACH) * Math.PI * 2 + index * 0.35;
-          const x = origin.x + Math.cos(angle) * spread;
-          const y = origin.y + Math.sin(angle) * spread - age * 40;
+        const color = rocketHue(index);
+        if (age < 0.5) {
+          const rise = (age / 0.5) * 180;
+          const pair = rocketPair(color);
           return (
-            <span key={`${index}-${dot}`}>
-              {[0, 1, 2].map((trail) => (
-                <i
-                  key={trail}
-                  data-firework="1"
-                  style={{
-                    position: "absolute",
-                    left: x - Math.cos(angle) * trail * 7,
-                    top: y - Math.sin(angle) * trail * 7 + trail * 4,
-                    width: 8 - trail * 2,
-                    height: 8 - trail * 2,
-                    borderRadius: "50%",
-                    opacity: 1 - trail * 0.28,
-                    background: colors[(dot + index) % colors.length],
-                  }}
-                />
-              ))}
+            <span key={`rocket-${index}`} data-firework="rocket" style={{ position: "absolute", left: origin.x - 10, top: origin.y - rise, width: 28, height: 52, zIndex: 12 }}>
+              <img src={art(pair.trail)} alt="" style={{ position: "absolute", left: 6, top: 18, width: 14, height: 34 }} />
+              <img src={art(pair.rocket)} alt="" style={{ position: "absolute", left: 2, top: 0, width: 22, height: 28 }} />
             </span>
           );
-        });
+        }
+        const fadeAge = age - 0.5;
+        const fade = 1 + Math.min(5, Math.floor((fadeAge / 0.9) * 6));
+        const burst = fadeAge < 0.18;
+        return (
+          <img
+            key={`burst-${index}`}
+            data-firework={burst ? "burst" : "fade"}
+            src={art(burst ? `fw-burst-${color}.png` : `fw-fade-${fade}.png`)}
+            alt=""
+            style={{ position: "absolute", left: origin.x - 72, top: origin.y - 180 - 72, width: 144, height: 144, zIndex: 13 }}
+          />
+        );
       })}
+      {t <= 2 ? (
+        <img
+          data-firework="confetti"
+          src={art("fw-confetti-sparse.png")}
+          alt=""
+          style={{ position: "absolute", left: 820, top: 170 + t * 36, width: 170, height: 130, opacity: Math.max(0.25, 1 - t / 2), zIndex: 12 }}
+        />
+      ) : null}
     </>
   );
 }
 
 /** Pieces and the goat drawn from one simulation frame. The camera does not move. */
 export function CrossingPicture({ frame, extras = {} }: { frame: CrossingFrame; extras?: Record<string, number> }) {
-  const goat = goatSprite(frame.mode, frame.walkFrame);
+  const goat = goatSprite(frame.mode, frame.walkFrame, frame.goat, frame.celebrate);
   const left = queenPost.scene.originX + queenPost.pxPerMetre * frame.goatX - goat.width / 2;
   const wet = frame.mode === "swim" || frame.mode === "splash";
   const belly = Math.round(goat.height * 0.62);
-  let top =
-    frame.mode === "arrived"
-      ? queenPost.scene.deckY - goat.height - hopPixels(frame.celebrate)
-      : wet
-        ? waterPixel() - belly
-        : queenPost.scene.deckY - queenPost.pxPerMetre * frame.goatY - goat.height;
+  let top = wet
+    ? waterPixel() - belly
+    : queenPost.scene.deckY - queenPost.pxPerMetre * (frame.mode === "arrived" ? 0 : frame.goatY) - goat.height;
   top = Math.min(top, BANK_BOTTOM - goat.height);
-  const fittings = queenPost.slots.filter((slot) => (slot.kind === "gusset" || slot.kind === "bolt") && extras[slot.id] != null);
+  const fittings = queenPost.slots.filter((slot) => (slot.kind === "gusset" || slot.kind === "bolt" || slot.kind === "rail") && extras[slot.id] != null);
+  const far = frame.pieces.filter((pose) => pose.kind === "post" || pose.kind === "brace");
+  const near = [...frame.pieces].sort((leftPose, rightPose) => drawRank(leftPose) - drawRank(rightPose));
   return (
     <div className="gk-scene-scale">
-    <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode}>
+    <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode} data-goat-kind={frame.goat}>
       <img className="banks" src={art("banks.png")} alt="" />
       <Abutments />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
-      <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
+      <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110, zIndex: 8 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
       <Fireworks t={frame.celebrate} />
-      {[...frame.pieces]
-        .sort((left, right) => drawRank(left) - drawRank(right))
-        .map((pose) => (
-          <img
-            key={pose.id}
-            className="gk-piece"
-            alt=""
-            data-piece={pose.id}
-            data-kind={pose.kind}
-            src={art(spriteFor(pose))}
-            style={poseStyle(pose)}
-          />
-        ))}
+      {far.map((pose) => (
+        <img
+          key={`far-${pose.id}`}
+          className="gk-piece"
+          alt=""
+          data-piece={`far-${pose.id}`}
+          data-kind={pose.kind}
+          data-layer="far"
+          src={art(spriteFor(pose))}
+          style={poseStyle(pose, "far")}
+        />
+      ))}
+      {near.map((pose) => (
+        <img
+          key={pose.id}
+          className="gk-piece"
+          alt=""
+          data-piece={pose.id}
+          data-kind={pose.kind}
+          src={art(spriteFor(pose))}
+          style={poseStyle(pose)}
+        />
+      ))}
       {fittings
         .slice()
-        .sort((left, right) => drawRank(left) - drawRank(right))
+        .sort((leftSlot, rightSlot) => drawRank(leftSlot) - drawRank(rightSlot))
         .map((slot) => (
           <img
             key={slot.id}
@@ -700,28 +805,18 @@ export function CrossingPicture({ frame, extras = {} }: { frame: CrossingFrame; 
               data-splash="1"
               alt=""
               src={art("splash.png")}
-              style={{ left: x, top: y, width: 320, height: 130, opacity: Math.max(0, 0.95 - age * 1.2) }}
+              style={{ left: x, top: y, width: 320, height: 130, opacity: Math.max(0, 0.95 - age * 1.2), zIndex: 3 }}
             />
           );
         })}
-      <img src={art(goat.src)} alt="" data-goat="lead" data-belly={wet ? waterPixel() : undefined} style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: 3 }} />
-      {frame.follower
-        ? (() => {
-            const second = goatSprite(frame.follower.mode, frame.walkFrame);
-            const wetSecond = frame.follower.mode === "swim" || frame.follower.mode === "splash";
-            const secondLeft = queenPost.scene.originX + queenPost.pxPerMetre * frame.follower.x - second.width / 2;
-            let secondTop = wetSecond ? waterPixel() - Math.round(second.height * 0.62) : queenPost.scene.deckY - queenPost.pxPerMetre * frame.follower.y - second.height;
-            secondTop = Math.min(secondTop, BANK_BOTTOM - second.height);
-            return (
-              <img
-                src={art(second.src)}
-                alt=""
-                data-goat="follow"
-                style={{ position: "absolute", left: secondLeft, top: secondTop, width: second.width, height: second.height, zIndex: 3 }}
-              />
-            );
-          })()
-        : null}
+      <img
+        src={art(goat.src)}
+        alt=""
+        data-goat="lead"
+        data-goat-kind={frame.goat}
+        data-belly={wet ? waterPixel() : undefined}
+        style={{ position: "absolute", left, top, width: goat.width, height: goat.height, zIndex: GOAT_Z }}
+      />
     </div>
     </div>
   );

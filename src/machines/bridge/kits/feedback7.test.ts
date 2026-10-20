@@ -109,7 +109,8 @@ describe("feedback 7", () => {
     expect(earnPrompt(word.current)).toMatch(/plank/i);
   });
 
-  it("counts at least 60 firework draws in the first second", () => {
-    expect(fireworkDraws(1)).toBeGreaterThanOrEqual(60);
+  it("counts firework sprites while the rockets and burst play", () => {
+    expect(fireworkDraws(0.2)).toBeGreaterThanOrEqual(2);
+    expect(fireworkDraws(1)).toBeGreaterThanOrEqual(3);
   });
 });

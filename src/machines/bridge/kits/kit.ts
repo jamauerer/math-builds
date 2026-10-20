@@ -57,6 +57,7 @@ export type QueenPostKit = {
   rounds: KitRound[];
   guide: { piece: string; say: string }[];
   dunks: { line: string; cause: DunkTag }[];
+  bigDunks: { line: string; cause: DunkTag }[];
   slots: KitSlot[];
 };
 
@@ -265,11 +266,12 @@ export function dunkTag(cause: WreckCause | null, lengths: Record<string, number
   return "general";
 }
 
-export function stareLine(lengths: Record<string, number>, cause: WreckCause | null = null): string {
+export function stareLine(lengths: Record<string, number>, cause: WreckCause | null = null, heavy = false): string {
   const tag = dunkTag(cause, lengths);
-  const tagged = queenPost.dunks.filter((item) => item.cause === tag);
-  const pool = tagged.length > 0 ? tagged : queenPost.dunks.filter((item) => item.cause === "general");
-  if (lengths.top === 3) {
+  const lines = heavy ? queenPost.bigDunks : queenPost.dunks;
+  const tagged = lines.filter((item) => item.cause === tag);
+  const pool = tagged.length > 0 ? tagged : lines.filter((item) => item.cause === "general");
+  if (lengths.top === 3 && !heavy) {
     const named = pool.find((item) => item.line.includes("needed a 4")) ?? queenPost.dunks.find((item) => item.line.includes("needed a 4"));
     if (named) {
       return named.line;

@@ -8,7 +8,7 @@ import { queenPost, waterPixel } from "./kit";
 import { simulateCrossing } from "./simulate";
 import { blueDominates, measuredWaterY, pixelAt, BANKS_LAYOUT } from "./water-line";
 import { GoatKit } from "../kit/GoatKit";
-import { CrossingPicture } from "../kit/scene";
+import { CrossingPicture, goatSprite } from "../kit/scene";
 import type { KitProfile } from "../../../storage/progress";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -216,20 +216,19 @@ describe("physics 2", () => {
   });
 
   it("sags under a heavier goat without bolts and holds when the bolts are in", () => {
-    const loose = simulateCrossing(truss(), 80);
+    const loose = simulateCrossing(truss(), 120);
     expect(loose.ok).toBe(false);
+    expect(loose.frames.every((frame) => frame.follower == null)).toBe(true);
+    expect(loose.frames[0]?.goat).toBe("big");
     expect(loose.frames.some((frame) => frame.pieces.some((piece) => piece.y - 0.06 < queenPost.scene.waterY * -1 + 0.05) || frame.goatY < 0)).toBe(true);
 
-    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, 80);
+    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, 120);
     expect(held.ok).toBe(true);
     expect(held.goatX).toBeGreaterThanOrEqual(8);
-    const hop = held.frames.filter((frame) => frame.celebrate > 0.2 && frame.celebrate < 1.3);
-    expect(hop.some((frame) => frame.goatY > 0.05)).toBe(true);
-    expect(hop.some((frame) => (frame.follower?.y ?? 0) > 0.05)).toBe(true);
+    expect(held.massKg).toBe(120);
+    expect(held.frames.every((frame) => frame.follower == null)).toBe(true);
     expect(held.frames.some((frame) => frame.celebrate >= 1.5)).toBe(true);
-
-    const openRail = simulateCrossing({ ...truss(), bolts: 1 }, 80);
-    expect(openRail.frames.some((frame) => frame.follower?.mode === "fall" || frame.follower?.mode === "swim")).toBe(true);
+    expect(held.frames.some((frame) => frame.mode === "arrived" && frame.celebrate > 0.2 && goatSprite(frame.mode, frame.walkFrame, frame.goat, frame.celebrate).src.includes("biggoat-dance"))).toBe(true);
   });
 
   it("seats Test beam sprites on the abutment row at both ends", async () => {
@@ -254,6 +253,45 @@ describe("physics 2", () => {
     const plank = container.querySelector('[data-kind="plank"]') as HTMLElement;
     expect(gusset).toBeTruthy();
     expect(parseInt(gusset.style.zIndex || "0", 10)).toBeGreaterThan(parseInt(plank.style.zIndex || "0", 10));
+    root.unmount();
+    container.remove();
+  });
+
+  it("covers the goat center column with the left post at 2 ft", async () => {
+    const result = simulateCrossing({ ...truss(), bolts: 1 });
+    const atPost = result.frames.find((frame) => frame.mode === "walk" && Math.abs(frame.goatX - 2) < 0.15);
+    expect(atPost).toBeTruthy();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<CrossingPicture frame={atPost!} extras={{ "gusset-n2": 1 }} />);
+    });
+    const goat = container.querySelector('[data-goat="lead"]') as HTMLElement;
+    const post = container.querySelector('[data-piece="post-a"]') as HTMLElement;
+    expect(goat).toBeTruthy();
+    expect(post).toBeTruthy();
+    const goatZ = parseInt(goat.style.zIndex || "0", 10);
+    const postZ = parseInt(post.style.zIndex || "0", 10);
+    expect(postZ).toBeGreaterThan(goatZ);
+    const goatCenter = parseFloat(goat.style.left) + parseFloat(goat.style.width) / 2;
+    const postLeft = parseFloat(post.style.left);
+    const postRight = postLeft + parseFloat(post.style.width);
+    expect(goatCenter).toBeGreaterThanOrEqual(postLeft);
+    expect(goatCenter).toBeLessThanOrEqual(postRight);
+    const canvas = document.createElement("canvas");
+    canvas.width = 1000;
+    canvas.height = 620;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#00ff00";
+      ctx.fillRect(parseFloat(goat.style.left), parseFloat(goat.style.top), parseFloat(goat.style.width), parseFloat(goat.style.height));
+      ctx.fillStyle = "#8B5A2B";
+      ctx.fillRect(postLeft, parseFloat(post.style.top), parseFloat(post.style.width), parseFloat(post.style.height));
+      const sample = ctx.getImageData(Math.round(goatCenter), Math.round(parseFloat(post.style.top) + parseFloat(post.style.height) / 2), 1, 1).data;
+      expect(sample[0]).toBeGreaterThan(sample[1]);
+      expect(sample[1]).toBeLessThan(100);
+    }
     root.unmount();
     container.remove();
   });

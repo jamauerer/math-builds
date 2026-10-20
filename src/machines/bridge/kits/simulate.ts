@@ -4,8 +4,12 @@ import { kitNode, pieceEnd, plankCovers, plankStart, queenPost, roundTrial, wate
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
-const GOAT_MASS = 40;
+export const SMALL_GOAT_MASS = 40;
+export const BIG_GOAT_MASS = 120;
+export const CELEBRATE_S = 2.6;
+const GOAT_MASS = SMALL_GOAT_MASS;
 const WALK_SPEED = 1;
+const BIG_WALK_SPEED = 0.7;
 const DECK_Y = 0;
 const DRIFT = 0.3;
 
@@ -39,6 +43,7 @@ export type CrossingFrame = {
   pieces: PiecePose[];
   splashes: SplashMark[];
   celebrate: number;
+  goat: "small" | "big";
   follower: { x: number; y: number; mode: GoatMode } | null;
 };
 
@@ -360,10 +365,9 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   const plankRides = addPlankBodies(world, pieces, lengths);
 
   const trial = roundTrial(lengths);
-  const heavy = massKg >= 80;
+  const heavy = massKg >= BIG_GOAT_MASS;
   const bolted = lengths.bolts != null;
-  const railed = lengths["rail-a"] != null && lengths["rail-b"] != null;
-  const breakN = heavy && !bolted ? 280 : BREAK_N;
+  const breakN = bolted ? 4000 : heavy ? 280 : BREAK_N;
   if (trial === "fold") {
     for (const piece of pieces) {
       piece.body.setStatic();
@@ -410,14 +414,23 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let driftLeft = 0;
   let climbing = false;
   let celebrate = 0;
-  let followX = -2.7;
-  let followY = 0;
-  let followMode: GoatMode = "idle";
-  let followOff = false;
+  const walkSpeed = heavy ? BIG_WALK_SPEED : WALK_SPEED;
 
   const capture = (t: number) => {
-    const cycle =
-      mode === "swim" ? 1 + (Math.floor(swimTime * 6) % 5) : mode === "glare" ? 1 + (Math.floor(glareTime / 0.8) % 2) : 1 + (Math.floor(walkTime * 8) % 5);
+    const climb = Math.max(0, sinceWet - 1.5);
+    const cycle = heavy
+      ? mode === "swim"
+        ? 1 + (Math.floor(swimTime * 4) % 2)
+        : mode === "drip"
+          ? 1 + (Math.floor(climb * 6) % 3)
+          : mode === "walk" || mode === "idle"
+            ? 1 + (Math.floor(walkTime * 6) % 6)
+            : 1
+      : mode === "swim"
+        ? 1 + (Math.floor(swimTime * 6) % 5)
+        : mode === "glare"
+          ? 1 + (Math.floor(glareTime / 0.8) % 2)
+          : 1 + (Math.floor(walkTime * 8) % 5);
     frames.push({
       t,
       goatX,
@@ -438,7 +451,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }),
       splashes: splashes.map((mark) => ({ ...mark })),
       celebrate,
-      follower: heavy ? { x: followX, y: followY, mode: followMode } : null,
+      goat: heavy ? "big" : "small",
+      follower: null,
     });
   };
 
@@ -452,13 +466,13 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       goat.setLinearVelocity(new Vec2(0, 0));
     } else if (!goatDynamic && mode !== "arrived") {
       walkTime += TIME_STEP;
-      const nextX = -1.1 + WALK_SPEED * walkTime;
+      const nextX = -1.1 + walkSpeed * walkTime;
       if (nextX <= 0) {
         goatX = nextX;
         feetY = 0;
         mode = "walk";
         goat.setPosition(new Vec2(goatX, 0.45));
-        goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
+        goat.setLinearVelocity(new Vec2(walkSpeed, 0));
       } else if (nextX < 8 && !plankCovers(lengths, nextX)) {
         goat.setDynamic();
         goat.setAwake(true);
@@ -485,12 +499,12 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
           goatX = nextX;
           feetY = nextX >= 8 && support.y > -0.25 ? 0 : support.y;
           goat.setPosition(new Vec2(goatX, feetY + 0.28));
-          goat.setLinearVelocity(new Vec2(WALK_SPEED, 0));
+          goat.setLinearVelocity(new Vec2(walkSpeed, 0));
           support.piece.body.applyForce(new Vec2(0, -massKg * 10), new Vec2(Math.min(goatX, 8), feetY), true);
           if (support.y < -0.2) {
             goat.setDynamic();
             goat.setAwake(true);
-            goat.setLinearVelocity(new Vec2(WALK_SPEED, -0.4));
+            goat.setLinearVelocity(new Vec2(walkSpeed, -0.4));
             goat.setAngularVelocity(2.6);
             goatDynamic = true;
             mode = "slip";
@@ -514,7 +528,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         } else {
           goat.setDynamic();
           goat.setAwake(true);
-          goat.setLinearVelocity(new Vec2(WALK_SPEED, -0.2));
+          goat.setLinearVelocity(new Vec2(walkSpeed, -0.2));
           goat.setAngularVelocity(2.6);
           goatDynamic = true;
           mode = "slip";
@@ -646,30 +660,11 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
 
-    if (heavy) {
-      if (followOff) {
-        followY -= 0.12;
-        followMode = followY < waterY ? "swim" : "fall";
-      } else {
-        followX = Math.max(-2.7, goatX - 1.6);
-        followY = feetY;
-        followMode = mode;
-        if (!railed && followX > 0.4 && followX < 8 && mode !== "arrived") {
-          followOff = true;
-        }
-      }
-    }
     if (mode === "arrived" && !failed && goatX >= 8) {
       celebrate += TIME_STEP;
-      const hop = Math.abs(Math.sin((celebrate * Math.PI * 2) / 1.5)) * 0.22;
-      feetY = hop;
-      goat.setPosition(new Vec2(8, hop + 0.45));
+      feetY = 0;
+      goat.setPosition(new Vec2(8, 0.45));
       goat.setLinearVelocity(new Vec2(0, 0));
-      if (heavy && !followOff) {
-        followX = 8 - 1.6;
-        followY = hop;
-        followMode = "arrived";
-      }
     }
 
     if (step % 2 === 0) {
@@ -680,7 +675,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       sinceFail += TIME_STEP;
     }
     const arrived = mode === "arrived" && goatX >= 8 && !failed;
-    if (arrived && celebrate >= 1.5) {
+    if (arrived && celebrate >= CELEBRATE_S) {
       capture(t);
       break;
     }
