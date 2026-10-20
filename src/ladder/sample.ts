@@ -1,8 +1,18 @@
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk, settleLadder } from "./place";
-import { serveQuestion, type ServedQuestion } from "./serve";
-import { legalSteps } from "./steps";
-import { answerEarn, blankEarn, currentQuestion, earnPrompt, startGuided } from "../machines/bridge/kits/earn";
-import { skillsFromLevels, withState } from "../machines/bridge/kits/skills";
+import { serveQuestion } from "./serve";
+import { validateStep } from "./generate";
+import {
+  beginSession,
+  bookCeiling,
+  bookCurrentStep,
+  closeTallies,
+  markLearning,
+  rememberAnswer,
+  runPlan,
+  skillsFromLevels,
+  warmUpPlan,
+} from "../machines/bridge/kits/skills";
+import { ladderStep } from "./steps";
 
 export type SampleLine = {
   n: number;
@@ -10,9 +20,39 @@ export type SampleLine = {
   stepId: string;
   prompt: string;
   answer: string;
+  round: number;
+  current: string;
 };
 
-export function sampleLearnerQuestions(grade: number, seed = 1): SampleLine[] {
+export type PlayedRound = {
+  index: number;
+  lines: SampleLine[];
+  currentAtStart: Partial<Record<"A" | "S" | "M" | "D", string>>;
+  currentAtEnd: Partial<Record<"A" | "S" | "M" | "D", string>>;
+};
+
+function currentLabel(stepId: string, book: ReturnType<typeof skillsFromLevels>, grade: number): string {
+  const step = ladderStep(stepId);
+  if (!step) {
+    return stepId;
+  }
+  return bookCurrentStep(book, step.op, grade).id;
+}
+
+function snapshot(book: ReturnType<typeof skillsFromLevels>, grade: number): Partial<Record<"A" | "S" | "M" | "D", string>> {
+  const out: Partial<Record<"A" | "S" | "M" | "D", string>> = {};
+  for (const op of ["A", "S", "M", "D"] as const) {
+    out[op] = bookCurrentStep(book, op, grade).id;
+  }
+  return out;
+}
+
+export function playLearner(
+  grade: number,
+  seed = 1,
+  rounds = 5,
+  correctAt: (asked: number) => boolean = () => true,
+): { placement: SampleLine[]; rounds: PlayedRound[]; lines: SampleLine[] } {
   const lines: SampleLine[] = [];
   let place = beginLadderPlace(grade);
   while (!place.done && lines.length < 12) {
@@ -23,56 +63,87 @@ export function sampleLearnerQuestions(grade: number, seed = 1): SampleLine[] {
       stepId: question.stepId ?? "?",
       prompt: question.prompt,
       answer: question.answer,
+      round: 0,
+      current: question.stepId ?? "?",
     });
-    place = ladderPlaceAnswer(place, grade, lines.length % 3 !== 0);
+    place = ladderPlaceAnswer(place, grade, correctAt(lines.length - 1));
   }
   const settled = settleLadder(place, grade);
-  const legal = legalSteps(grade);
-  const firstAdd = legal.find((step) => step.op === "A")?.skillId ?? "adding.1.a1";
-  const firstSub = legal.find((step) => step.op === "S")?.skillId ?? "adding.1.s1";
-  const book = withState(withState(skillsFromLevels(settled.levels, "2026-10-20"), firstAdd, "practicing"), firstSub, "practicing");
-  let state = blankEarn(settled.levels, seed + 20, book, "2026-10-20", 0, grade);
-  let guard = 0;
-  while (lines.length < 60 && guard < 80) {
-    guard += 1;
-    if (state.phase === "learn") {
-      const question = state.current;
-      lines.push({
-        n: lines.length + 1,
-        phase: "learn",
-        stepId: question.stepId ?? question.skillId ?? "?",
-        prompt: earnPrompt(question),
+  const starts = {
+    adding: settled.adding,
+    subtracting: settled.subtracting,
+    multiplying: settled.multiplying,
+    dividing: settled.dividing,
+  };
+  let book = skillsFromLevels(settled.levels, "2026-10-20", starts);
+  const played: PlayedRound[] = [];
+  for (let index = 1; index <= rounds; index += 1) {
+    const day = `2026-10-${19 + index}`;
+    book = beginSession(book);
+    const start = snapshot(book, grade);
+    const warmup = warmUpPlan(book, 3, "adding", settled.levels, day, grade);
+    const rest = runPlan(book, "adding", settled.levels.adding ?? 1, 10, seed + index * 19, grade);
+    const slots = [
+      ...warmup.map((slot) => ({ ...slot, phase: "warmup" as const })),
+      ...rest.map((slot) => ({ ...slot, phase: "plain" as const })),
+    ];
+    const collected: SampleLine[] = [];
+    const seen = new Set<string>();
+    const ceiling = bookCeiling(book, grade);
+    for (const slot of slots) {
+      let question = serveQuestion({
+        grade,
+        skillId: slot.skillId,
+        seed: seed + index * 50 + collected.length * 17,
+        kind: slot.phase === "warmup" ? "warmup" : "run",
+        ceiling,
+      });
+      for (let extra = 1; extra < 24 && (seen.has(question.prompt) || (question.item && question.stepId && !validateStep(ladderStep(question.stepId) ?? ladderStep(slot.skillId)!, question.item))); extra += 1) {
+        question = serveQuestion({
+          grade,
+          skillId: slot.skillId,
+          seed: seed + index * 50 + collected.length * 17 + extra * 23,
+          kind: slot.phase === "warmup" ? "warmup" : "run",
+          ceiling,
+        });
+      }
+      seen.add(question.prompt);
+      const stepId = question.stepId ?? question.skillId ?? "?";
+      if (book.skills[question.skillId]?.state === "new") {
+        book = markLearning(book, question.skillId);
+      }
+      collected.push({
+        n: lines.length + collected.length + 1,
+        phase: slot.phase,
+        stepId,
+        prompt: question.prompt,
         answer: question.answer,
+        round: index,
+        current: currentLabel(stepId, book, grade),
       });
-      state = startGuided(state, settled.levels);
-      continue;
+      const asked = lines.length + collected.length - 1;
+      book = rememberAnswer(book, question.skillId, question.prompt, correctAt(asked), false, { day, mixed: slot.phase === "warmup" });
     }
-    const question = currentQuestion(state);
-    if (!question || state.phase === "done") {
-      const legal = legalSteps(grade);
-      const extra: ServedQuestion = serveQuestion({ grade, step: legal[(lines.length + seed) % legal.length], seed: seed + lines.length * 7, kind: "run" });
-      lines.push({
-        n: lines.length + 1,
-        phase: "run",
-        stepId: extra.stepId ?? "?",
-        prompt: extra.prompt,
-        answer: extra.answer,
-      });
-      continue;
-    }
-    lines.push({
-      n: lines.length + 1,
-      phase: state.phase,
-      stepId: question.stepId ?? question.skillId ?? "?",
-      prompt: earnPrompt(question),
-      answer: question.answer,
+    book = closeTallies(book, day);
+    played.push({
+      index,
+      lines: collected,
+      currentAtStart: start,
+      currentAtEnd: snapshot(book, grade),
     });
-    state = answerEarn(state, question.answer, settled.levels).state;
+    lines.push(...collected);
   }
-  return lines.slice(0, 60);
+  return { placement: lines.filter((line) => line.round === 0), rounds: played, lines };
+}
+
+export function sampleLearnerQuestions(grade: number, seed = 1): SampleLine[] {
+  return playLearner(grade, seed, 5, (asked) => asked >= 12 || asked % 3 !== 2).lines.slice(0, 60);
 }
 
 export function sampleMarkdown(grade: number, lines: SampleLine[]): string {
-  const rows = lines.map((line) => `${line.n}. [${line.phase}] ${line.stepId}  ${line.prompt}  → ${line.answer}`);
-  return `# Grade ${grade} sample\n\n60 questions as a learner would see them in placement and a first round.\n\n${rows.join("\n")}\n`;
+  const rows = lines.map((line) => {
+    const tag = line.round === 0 ? "placement" : `round ${line.round}, ${line.current}`;
+    return `${line.n}. [${tag}] ${line.stepId}  ${line.prompt}  → ${line.answer}`;
+  });
+  return `# Grade ${grade} sample\n\nPlacement, then rounds as a learner would see them. Each question is tagged with the round and the current step.\n\n${rows.join("\n")}\n`;
 }

@@ -65,7 +65,20 @@ function divide(a: number, b: number, answer: string, operands: number[], long =
   };
 }
 
+function stackOp(step: LadderStep): LadderLayout["op"] {
+  return step.op === "A" ? "+" : step.op === "S" ? "−" : step.op === "M" ? "×" : "÷";
+}
+
 function wrap(step: LadderStep, parts: Pick<LadderItem, "prompt" | "answer" | "operands" | "layout">, steps: string[], why: string, draw?: PlainDraw): LadderItem {
+  let layout = parts.layout;
+  if (step.form === "stacked" && !layout && parts.operands.length >= 2) {
+    layout = {
+      kind: "stacked",
+      top: String(parts.operands[0]),
+      bottom: String(parts.operands[1]),
+      op: stackOp(step),
+    };
+  }
   return {
     stepId: step.id,
     skillId: step.skillId,
@@ -75,6 +88,7 @@ function wrap(step: LadderStep, parts: Pick<LadderItem, "prompt" | "answer" | "o
     why,
     draw,
     ...parts,
+    layout,
   };
 }
 
@@ -275,7 +289,7 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
     return wrap(step, minus(a, b, a - b), [`Ones ${ones} can give ${b}.`], "No crossing 10.");
   }
   if (step.n === 6) {
-    const ones = intBetween(rng, 0, 8);
+    const ones = intBetween(rng, 1, 8);
     const a = 10 + ones;
     const b = intBetween(rng, ones + 1, 9);
     return wrap(step, minus(a, b, a - b), [`Count back through 10.`], "Crossing 10.");
@@ -287,7 +301,7 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
   }
   if (step.n === 8) {
     const ones = intBetween(rng, 1, 9);
-    const a = intBetween(rng, 1, 9) * 10 + ones;
+    const a = intBetween(rng, 2, 9) * 10 + ones;
     const b = intBetween(rng, 0, ones);
     return wrap(step, minus(a, b, a - b), [`Ones can give ${b}.`], "No borrow.");
   }
@@ -355,7 +369,7 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
   return wrap(
     step,
     {
-      prompt: `${shownA} - ${shownB} = ?`,
+      prompt: `${shownA} − ${shownB} = ?`,
       answer: shown,
       operands: [a, b],
       layout: { kind: "stacked", top: shownA, bottom: shownB, op: "−" },
@@ -527,7 +541,7 @@ function makeDiv(step: LadderStep, rng: Rng): LadderItem {
   return wrap(step, { ...divide(a, b, shown.replace(/\.0$/, ""), [a, b], true) }, [`Keep dividing past the ones.`], "To a decimal.");
 }
 
-export function generateStep(step: LadderStep, seed: number): LadderItem {
+function makeStep(step: LadderStep, seed: number): LadderItem {
   const rng = createRng((seed + 1) * 997 + step.n * 131 + salt(step.id));
   if (step.op === "A") {
     return makeAdd(step, rng);
@@ -541,6 +555,16 @@ export function generateStep(step: LadderStep, seed: number): LadderItem {
   return makeDiv(step, rng);
 }
 
+export function generateStep(step: LadderStep, seed: number): LadderItem {
+  for (let extra = 0; extra < 40; extra += 1) {
+    const item = makeStep(step, seed + extra * 19);
+    if (validateStep(step, item)) {
+      return item;
+    }
+  }
+  return makeStep(step, seed);
+}
+
 export function generateSkill(skillId: string, seed: number): LadderItem | null {
   const step = ladderStep(skillId);
   if (!step) {
@@ -549,7 +573,7 @@ export function generateSkill(skillId: string, seed: number): LadderItem | null 
   return generateStep(step, seed);
 }
 
-export function inStepRange(step: LadderStep, item: LadderItem): boolean {
+export function validateStep(step: LadderStep, item: LadderItem): boolean {
   const [a, b, c] = item.operands;
   const value = Number(item.answer);
   if (step.op === "A") {
@@ -624,19 +648,19 @@ export function inStepRange(step: LadderStep, item: LadderItem): boolean {
       return a === 10 && b >= 0 && b <= 10 && value === 10 - b;
     }
     if (step.n === 5) {
-      return a >= 10 && a <= 19 && b >= 0 && b <= 9 && a % 10 >= b && value === a - b;
+      return a >= 11 && a <= 19 && b >= 0 && b <= 9 && a % 10 >= b && value === a - b;
     }
     if (step.n === 6) {
-      return a >= 10 && a <= 19 && b >= 0 && b <= 9 && a % 10 < b && value === a - b;
+      return a >= 11 && a <= 19 && b >= 1 && b <= 9 && a % 10 < b && value === a - b;
     }
     if (step.n === 7) {
       return a % 10 === 0 && b % 10 === 0 && a >= 10 && b >= 0 && a >= b && value === a - b;
     }
     if (step.n === 8) {
-      return a >= 10 && a <= 99 && b >= 0 && b <= 9 && a % 10 >= b && value === a - b;
+      return a >= 20 && a <= 99 && b >= 0 && b <= 9 && a % 10 >= b && value === a - b;
     }
     if (step.n === 9) {
-      return a >= 10 && a <= 99 && b >= 0 && b <= 9 && a % 10 < b && value === a - b;
+      return a >= 20 && a <= 99 && b >= 1 && b <= 9 && a % 10 < b && value === a - b;
     }
     if (step.n === 10) {
       return a >= 10 && b >= 10 && a % 10 >= b % 10 && Math.floor(a / 10) >= Math.floor(b / 10) && value === a - b;
@@ -725,6 +749,8 @@ export function inStepRange(step: LadderStep, item: LadderItem): boolean {
   }
   return a >= 1 && b >= 2 && Math.abs(value - a / b) < 0.011;
 }
+
+export const inStepRange = validateStep;
 
 export function allLadderSkills(): string[] {
   return LADDER_STEPS.map((step) => step.skillId);

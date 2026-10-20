@@ -588,24 +588,27 @@ export function GoatKit({
     ].slice(-80);
     if (stepped.done) {
       const settled = settleLadder(stepped, grade ?? 3);
-      const levels = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
+      const starts = {
+        adding: settled.adding,
+        subtracting: settled.subtracting,
+        multiplying: settled.multiplying,
+        dividing: settled.dividing,
+      };
+      const other = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
+      const levels = { ...other, adding: settled.levels.adding, multiplying: settled.levels.multiplying, dividing: settled.levels.dividing };
       const placedAt = new Date().toISOString().slice(0, 10);
+      const skills = skillsFromLevels(levels, placedAt, starts);
       writeProfile({
         grade: grade ?? "unsure",
         levels,
         history,
-        skills: skillsFromLevels(levels, placedAt),
+        skills,
         placedAt,
         fastRuns: {},
         ladderAt: LADDER_VERSION,
-        ladderSteps: {
-          adding: settled.adding,
-          subtracting: settled.subtracting,
-          multiplying: settled.multiplying,
-          dividing: settled.dividing,
-        },
+        ladderSteps: starts,
       });
-      setEarn(blankEarn(levels, 1, null, "2026-10-19", 0, grade ?? 3));
+      setEarn(blankEarn(levels, 1, skills, "2026-10-19", 0, grade ?? 3));
       setStage("where");
       return;
     }
@@ -627,24 +630,27 @@ export function GoatKit({
     ].slice(-80);
     if (stepped.done) {
       const settled = settleLadder(stepped, grade ?? 3);
-      const levels = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
+      const starts = {
+        adding: settled.adding,
+        subtracting: settled.subtracting,
+        multiplying: settled.multiplying,
+        dividing: settled.dividing,
+      };
+      const other = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
+      const levels = { ...other, adding: settled.levels.adding, multiplying: settled.levels.multiplying, dividing: settled.levels.dividing };
       const placedAt = new Date().toISOString().slice(0, 10);
+      const skills = skillsFromLevels(levels, placedAt, starts);
       writeProfile({
         grade: grade ?? "unsure",
         levels,
         history,
-        skills: skillsFromLevels(levels, placedAt),
+        skills,
         placedAt,
         fastRuns: {},
         ladderAt: LADDER_VERSION,
-        ladderSteps: {
-          adding: settled.adding,
-          subtracting: settled.subtracting,
-          multiplying: settled.multiplying,
-          dividing: settled.dividing,
-        },
+        ladderSteps: starts,
       });
-      setEarn(blankEarn(levels, 1, null, "2026-10-19", 0, grade ?? 3));
+      setEarn(blankEarn(levels, 1, skills, "2026-10-19", 0, grade ?? 3));
       setStage("where");
       return;
     }

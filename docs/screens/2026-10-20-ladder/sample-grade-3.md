@@ -1,64 +1,64 @@
 # Grade 3 sample
 
-60 questions as a learner would see them in placement and a first round.
+Placement, then rounds as a learner would see them. Each question is tagged with the round and the current step.
 
 1. [placement] A8  10 + 20 = ?  → 30
 2. [placement] S7  60 − 30 = ?  → 30
 3. [placement] M4  1 × 3 = ?  → 3
 4. [placement] D3  12 ÷ 3 = ?  → 4
 5. [placement] A9  52 + 0 = ?  → 52
-6. [placement] S8  22 − 2 = ?  → 20
+6. [placement] S8  32 − 2 = ?  → 30
 7. [placement] M3  4 × 5 = ?  → 20
 8. [placement] D4  0 ÷ 9 = ?  → 0
 9. [placement] A10  77 + 8 = ?  → 85
-10. [warmup] A1  0 + 2 = ?  → 2
-11. [warmup] S1  5 − 5 = ?  → 0
-12. [warmup] A2  8 + 0 = ?  → 8
-13. [plain] D1  12 ÷ 3 = ?  → 4
-14. [learn] D1  16 ÷ 4 = ?  → 4
-15. [guided] D1  9 ÷ 3 = ?  → 3
-16. [guided] D1  10 ÷ 5 = ?  → 2
-17. [plain] D1  5 ÷ 5 = ?  → 1
-18. [plain] D1  20 ÷ 4 = ?  → 5
-19. [plain] D1  20 ÷ 5 = ?  → 4
-20. [plain] D1  4 ÷ 4 = ?  → 1
-21. [plain] D1  6 ÷ 2 = ?  → 3
-22. [plain] fractions.2.halves  Tap the plank cut in half  → half
-23. [learn] fractions.2.halves  Tap the plank cut in half  → half
-24. [guided] fractions.2.halves  Tap the plank cut in half  → half
-25. [guided] fractions.2.halves  Tap the plank cut in half  → half
-26. [plain] fractions.2.halves  Tap the plank cut in half  → half
-27. [plain] fractions.2.halves  Tap the plank cut in half  → half
-28. [learn] counting.1.to-10  Drag 9 bolts into the box  → 9
-29. [guided] counting.1.to-10  Drag 5 bolts into the box  → 5
-30. [guided] counting.1.to-10  Drag 8 bolts into the box  → 8
-31. [plain] counting.1.to-10  Drag 3 bolts into the box  → 3
-32. [plain] counting.1.to-10  Drag 2 bolts into the box  → 2
-33. [run] A11  50 + 20 = ?  → 70
-34. [run] S11  61 − 16 = ?  → 45
-35. [run] A12  63 + 27 = ?  → 90
-36. [run] S12  524 − 178 = ?  → 346
-37. [run] A13  62 + 52 = ?  → 114
-38. [run] S13  505 − 225 = ?  → 280
-39. [run] A14  7 + 4 + 6 = ?  → 17
-40. [run] S14  9,576 − 1,396 = ?  → 8180
-41. [run] A15  712 + 124 = ?  → 836
-42. [run] A16  389 + 365 = ?  → 754
-43. [run] A17  82,186 + 38,853 = ?  → 121039
-44. [run] A1  4 + 0 = ?  → 4
-45. [run] S1  0 − 0 = ?  → 0
-46. [run] M1  4 × 4 = ?  → 16
-47. [run] D1  12 ÷ 3 = ?  → 4
-48. [run] A2  5 + 4 = ?  → 9
-49. [run] S2  3 − 0 = ?  → 3
-50. [run] M2  9 × 10 = ?  → 90
-51. [run] D2  5 ÷ 5 = ?  → 1
-52. [run] A3  7 + 2 = ?  → 9
-53. [run] S3  5 − 1 = ?  → 4
-54. [run] M3  4 × 5 = ?  → 20
-55. [run] D3  20 ÷ 4 = ?  → 5
-56. [run] A4  0 + ? = 10  → 10
-57. [run] S4  10 − 8 = ?  → 2
-58. [run] M4  4 × 4 = ?  → 16
-59. [run] D4  45 ÷ 9 = ?  → 5
-60. [run] A5  19 + 0 = ?  → 19
+10. [round 1, A8] A7  6 + 7 = ?  → 13
+11. [round 1, S6] S5  18 − 5 = ?  → 13
+12. [round 1, M3] M2  3 × 2 = ?  → 6
+13. [round 1, A8] A8  30 + 50 = ?  → 80
+14. [round 1, A8] A8  60 + 30 = ?  → 90
+15. [round 1, S6] S6  15 − 6 = ?  → 9
+16. [round 1, A8] A8  70 + 20 = ?  → 90
+17. [round 1, A8] A8  80 + 10 = ?  → 90
+18. [round 1, S6] S6  11 − 2 = ?  → 9
+19. [round 1, A8] A8  60 + 20 = ?  → 80
+20. [round 1, A8] A6  7 + 9 = ?  → 16
+21. [round 1, S6] S5  18 − 3 = ?  → 15
+22. [round 1, A8] A4  3 + ? = 10  → 7
+23. [round 2, A9] A8  30 + 20 = ?  → 50
+24. [round 2, S6] S5  14 − 2 = ?  → 12
+25. [round 2, M3] M2  7 × 2 = ?  → 14
+26. [round 2, A9] A9  73 + 2 = ?  → 75
+27. [round 2, S6] S6  17 − 8 = ?  → 9
+28. [round 2, A9] A9  34 + 1 = ?  → 35
+29. [round 2, A9] A9  70 + 4 = ?  → 74
+30. [round 2, S6] S6  11 − 4 = ?  → 7
+31. [round 2, A9] A9  65 + 1 = ?  → 66
+32. [round 2, A9] A9  90 + 1 = ?  → 91
+33. [round 2, S6] S2  0 − 0 = ?  → 0
+34. [round 2, A9] A7  4 + 5 = ?  → 9
+35. [round 2, A9] A6  3 + 8 = ?  → 11
+36. [round 3, A10] A9  40 + 4 = ?  → 44
+37. [round 3, S6] S5  18 − 0 = ?  → 18
+38. [round 3, M3] M2  5 × 2 = ?  → 10
+39. [round 3, S6] S6  16 − 8 = ?  → 8
+40. [round 3, A10] A10  12 + 8 = ?  → 20
+41. [round 3, A10] A10  68 + 6 = ?  → 74
+42. [round 3, S6] S6  17 − 9 = ?  → 8
+43. [round 3, A10] A10  19 + 3 = ?  → 22
+44. [round 3, A10] A10  23 + 8 = ?  → 31
+45. [round 3, S6] S6  15 − 8 = ?  → 7
+46. [round 3, A10] A5  3 + 1 = ?  → 4
+47. [round 3, A10] A4  8 + ? = 10  → 2
+48. [round 3, S6] S1  0 − 0 = ?  → 0
+49. [round 4, A10] A9  96 + 1 = ?  → 97
+50. [round 4, S6] S5  19 − 2 = ?  → 17
+51. [round 4, M3] M2  10 × 2 = ?  → 20
+52. [round 4, A10] A10  31 + 9 = ?  → 40
+53. [round 4, A10] A10  52 + 8 = ?  → 60
+54. [round 4, S6] S6  11 − 6 = ?  → 5
+55. [round 4, A10] A10  67 + 3 = ?  → 70
+56. [round 4, A10] A10  25 + 8 = ?  → 33
+57. [round 4, S6] S6  11 − 8 = ?  → 3
+58. [round 4, A10] A10  68 + 4 = ?  → 72
+59. [round 4, A10] A4  5 + ? = 10  → 5
+60. [round 4, S6] S3  17 − 1 = ?  → 16

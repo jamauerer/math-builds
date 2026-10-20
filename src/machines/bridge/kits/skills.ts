@@ -1,5 +1,13 @@
-import { fitLevels, KIT_STRANDS } from "../../../engine/strand-placement";
-import { ladderStep } from "../../../ladder/steps";
+import { fitLevels, KIT_STRANDS, type GradeChoice } from "../../../engine/strand-placement";
+import {
+  currentLadderStep,
+  maxOpenStep,
+  passedLadderSteps,
+  startsFromIds,
+  type LadderStarts,
+  type ServeCeiling,
+} from "../../../ladder/current";
+import { gradeCap, ladderStep, opStrand, stepsForOp, strandAllowed, type LadderOp } from "../../../ladder/steps";
 import { CURRICULUM_SKILLS } from "../../../skills";
 
 export type SkillStateName = "new" | "learning" | "practicing" | "fluent" | "mastered";
@@ -52,6 +60,9 @@ export type SkillBook = {
   steps: number;
   placedAt?: string;
   fastRuns?: Record<string, number>;
+  ladderStarts?: LadderStarts;
+  roundStart?: ServeCeiling;
+  roundCeil?: ServeCeiling;
 };
 
 export type AnswerNote = {
@@ -126,14 +137,32 @@ function blankProgress(state: SkillStateName): SkillProgress {
   return { state, days: [], recent: [], warmUp: false, sessionsSince: 0, reviewInterval: 1, lastReview: null, fastDays: [] };
 }
 
-/** Skills below the placed level start mastered. The placed level starts new. */
-export function skillsFromLevels(levels: Record<string, number> | null, placedAt?: string): SkillBook {
+function applyLadderStarts(skills: Record<string, SkillProgress>, starts?: LadderStarts | null): void {
+  if (!starts) {
+    return;
+  }
+  for (const step of Object.values(startsFromIds(starts))) {
+    if (!step) {
+      continue;
+    }
+    for (const item of stepsForOp(step.op)) {
+      if (!skills[item.skillId]) {
+        continue;
+      }
+      skills[item.skillId] = blankProgress(item.n < step.n ? "mastered" : "new");
+    }
+  }
+}
+
+/** Skills below the placed level start mastered. The placed level starts new. Ladder starts sit one step below settle. */
+export function skillsFromLevels(levels: Record<string, number> | null, placedAt?: string, starts?: LadderStarts | null): SkillBook {
   const fitted = levels && Object.keys(levels).length > 0 ? fitLevels(levels) : null;
   const skills: Record<string, SkillProgress> = {};
   for (const skill of KIT_SKILLS) {
     const placed = fitted?.[skill.strandId] ?? 1;
     skills[skill.id] = blankProgress(skill.level < placed ? "mastered" : "new");
   }
+  applyLadderStarts(skills, starts);
   // Same-level prereqs on other strands start as learning so an earlier kit piece can open.
   let changed = true;
   while (changed) {
@@ -160,7 +189,18 @@ export function skillsFromLevels(levels: Record<string, number> | null, placedAt
       }
     }
   }
-  return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0, placedAt, fastRuns: {} };
+  applyLadderStarts(skills, starts);
+  return {
+    skills,
+    session: 0,
+    introduced: null,
+    earned: [],
+    tally: {},
+    steps: 0,
+    placedAt,
+    fastRuns: {},
+    ladderStarts: starts ?? undefined,
+  };
 }
 
 export function workingLevel(book: SkillBook, strandId: string, placed?: number): number {
@@ -225,6 +265,32 @@ export function currentSkillForOp(book: SkillBook, strandId: string, level: numb
   return at[0] ?? null;
 }
 
+function stateOf(book: SkillBook): (skillId: string) => SkillStateName | undefined {
+  return (skillId) => book.skills[skillId]?.state;
+}
+
+export function bookCurrentStep(book: SkillBook, op: LadderOp, grade?: GradeChoice | null): ReturnType<typeof currentLadderStep> {
+  return currentLadderStep(op, stateOf(book), grade);
+}
+
+export function bookCeiling(book: SkillBook, grade?: GradeChoice | null): ServeCeiling {
+  const ceiling: ServeCeiling = {};
+  for (const op of ["A", "S", "M", "D"] as const) {
+    if (gradeCap(op, grade) <= 0) {
+      continue;
+    }
+    ceiling[op] = maxOpenStep(op, stateOf(book), grade, book.roundCeil?.[op]);
+  }
+  return ceiling;
+}
+
+function useLadderPlan(book: SkillBook, grade?: GradeChoice | null): boolean {
+  if (book.ladderStarts) {
+    return true;
+  }
+  return typeof grade === "number" && grade <= 3;
+}
+
 function dueEvery(skillId: string): number {
   return skillId.charCodeAt(skillId.length - 1) % 2 === 0 ? 2 : 3;
 }
@@ -236,6 +302,29 @@ function withinLevel(skill: KitSkill, levels: Record<string, number> | null): bo
   return skill.level <= placed + 1 && skill.level >= placed - 2;
 }
 
+function ladderWarmSlots(book: SkillBook, count: number, grade?: GradeChoice | null): WarmSlot[] {
+  const slots: WarmSlot[] = [];
+  const used = new Set<string>();
+  const ops = (["A", "S", "M", "D"] as const).filter((op) => gradeCap(op, grade) > 0);
+  const pools = ops.map((op) => {
+    const current = bookCurrentStep(book, op, grade);
+    const passed = passedLadderSteps(op, stateOf(book), current);
+    return passed.length > 0 ? passed : [current];
+  });
+  let cursor = 0;
+  while (slots.length < count && cursor < 24) {
+    const pool = pools[cursor % pools.length] ?? [];
+    const step = pool[Math.floor(cursor / pools.length) % pool.length];
+    cursor += 1;
+    if (!step || used.has(step.skillId)) {
+      continue;
+    }
+    used.add(step.skillId);
+    slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level });
+  }
+  return slots;
+}
+
 /** Warm-up slots: due reviews first, then missed skills, then practicing skills. */
 export function warmUpPlan(
   book: SkillBook,
@@ -243,7 +332,14 @@ export function warmUpPlan(
   pieceStrand = "dividing",
   levels: Record<string, number> | null = null,
   day = "2026-10-20",
+  grade?: GradeChoice | null,
 ): WarmSlot[] {
+  if (useLadderPlan(book, grade)) {
+    const ladder = ladderWarmSlots(book, count, grade);
+    if (ladder.length >= count) {
+      return ladder;
+    }
+  }
   const legal = (skill: KitSkill) => withinLevel(skill, levels);
   const due = KIT_SKILLS.filter((skill) => skillIsDue(book.skills[skill.id], day) && legal(skill));
   const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp && legal(skill) && !due.includes(skill));
@@ -314,8 +410,46 @@ function interleaveOps(skills: KitSkill[]): KitSkill[] {
   return mixed;
 }
 
+function pickLadderStep(book: SkillBook, op: LadderOp, review: boolean, index: number, seed: number, grade?: GradeChoice | null) {
+  const current = bookCurrentStep(book, op, grade);
+  const maxN = maxOpenStep(op, stateOf(book), grade, book.roundCeil?.[op]);
+  const served = current.n <= maxN ? current : stepsForOp(op).find((step) => step.n === maxN) ?? current;
+  const passed = passedLadderSteps(op, stateOf(book), served).filter((step) => step.n <= maxN);
+  if (review && passed.length > 0) {
+    return passed[Math.abs(index + seed) % passed.length];
+  }
+  return served;
+}
+
+function ladderRunSlots(book: SkillBook, ops: LadderOp[], length: number, seed: number, grade?: GradeChoice | null): RunSlot[] {
+  const slots: RunSlot[] = [];
+  const reviewCount = Math.round(length * 0.3);
+  for (let index = 0; index < length; index += 1) {
+    const review = index >= length - reviewCount;
+    const op = ops.length > 1 && (index + seed) % 3 === 0 ? (ops[1] ?? ops[0]) : (ops[0] ?? "A");
+    const step = pickLadderStep(book, op, review, index, seed, grade);
+    slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level, mixed: review });
+  }
+  return slots;
+}
+
 /** Every question in a piece run is that piece's strand, at the learner's working level. Adding mixes in subtracting. */
-export function runPlan(book: SkillBook, strandId: string, level: number, length: number, seed: number): RunSlot[] {
+export function runPlan(book: SkillBook, strandId: string, level: number, length: number, seed: number, grade?: GradeChoice | null): RunSlot[] {
+  if (useLadderPlan(book, grade)) {
+    if (strandId === "multiplying" && gradeCap("M", grade) > 0) {
+      return ladderRunSlots(book, ["M"], length, seed, grade);
+    }
+    if (strandId === "dividing" && gradeCap("D", grade) > 0) {
+      return ladderRunSlots(book, ["D"], length, seed, grade);
+    }
+    if (strandId === "adding" || strandId === "subtracting" || (grade != null && !strandAllowed(strandId, grade))) {
+      const ops: LadderOp[] = ["A"];
+      if (gradeCap("S", grade) > 0) {
+        ops.push("S");
+      }
+      return ladderRunSlots(book, ops, length, seed, grade);
+    }
+  }
   const focus = currentSkill(book, strandId, level);
   const add = strandId === "adding" ? currentSkillForOp(book, strandId, level, "A") : null;
   const sub = strandId === "adding" ? currentSkillForOp(book, strandId, level, "S") : null;
@@ -346,7 +480,14 @@ export function beginSession(book: SkillBook): SkillBook {
     const sessionsSince = progress.state === "practicing" ? progress.sessionsSince + 1 : progress.sessionsSince;
     skills[id] = { ...progress, sessionsSince };
   }
-  return { ...book, skills, session: book.session + 1, introduced: null, tally: {} };
+  const roundStart: ServeCeiling = {};
+  const roundCeil: ServeCeiling = {};
+  for (const op of ["A", "S", "M", "D"] as const) {
+    const current = currentLadderStep(op, (id) => skills[id]?.state);
+    roundStart[op] = current.n;
+    roundCeil[op] = current.n + 1;
+  }
+  return { ...book, skills, session: book.session + 1, introduced: null, tally: {}, roundStart, roundCeil };
 }
 
 function applyReview(progress: SkillProgress, correct: boolean, day: string, half = false): SkillProgress {
@@ -498,7 +639,13 @@ export function noteSession(book: SkillBook, skillId: string, day: string, right
   const counted = days.filter((entry) => entry.asked >= 5 && entry.right >= 4);
   let state: SkillStateName = progress.state;
   if (state === "learning" && counted.length >= 1) {
-    state = "practicing";
+    const step = ladderStep(skillId);
+    const startN = step ? book.roundStart?.[step.op] : undefined;
+    if (step && startN != null && step.n > startN) {
+      state = "learning";
+    } else {
+      state = "practicing";
+    }
   }
   return { ...book, skills: { ...book.skills, [skillId]: { ...progress, state, days } } };
 }
@@ -628,5 +775,8 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
       record.fastRuns && typeof record.fastRuns === "object"
         ? Object.fromEntries(Object.entries(record.fastRuns).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
         : {},
+    ladderStarts: record.ladderStarts,
+    roundStart: record.roundStart,
+    roundCeil: record.roundCeil,
   };
 }
