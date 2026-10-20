@@ -65,7 +65,8 @@ describe("physics 1", () => {
 
   it("names missing planks as the cause and a long top beam as not the cause", () => {
     setUnitSystem("us");
-    const lengths: Record<string, number> = { ...correctLengths(), top: 6 };
+    const lengths = correctLengths();
+    lengths.top = 6;
     for (const slot of queenPost.slots) {
       if (slot.kind === "plank") {
         delete lengths[slot.id];

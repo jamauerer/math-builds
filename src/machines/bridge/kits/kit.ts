@@ -287,7 +287,173 @@ export function stareLine(lengths: Record<string, number>, cause: WreckCause | n
   return pool[hash]?.line ?? pool[0].line;
 }
 
-export const queenPost = raw as unknown as QueenPostKit;
+function isDunkTag(value: string): value is DunkTag {
+  switch (value) {
+    case "general":
+    case "short beam":
+    case "long beam":
+    case "missing planks":
+    case "missing brace":
+    case "missing post":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function isSlotKind(value: string): value is KitSlot["kind"] {
+  switch (value) {
+    case "beam":
+    case "post":
+    case "brace":
+    case "gusset":
+    case "bolt":
+    case "rail":
+    case "plank":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function readObject(value: unknown, label: string): Record<string, unknown> {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function readString(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string`);
+  }
+  return value;
+}
+
+function readNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a number`);
+  }
+  return value;
+}
+
+function readArray(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array`);
+  }
+  return value;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function optionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function readDunk(value: unknown): { line: string; cause: DunkTag } {
+  const dunk = readObject(value, "dunk");
+  const cause = readString(dunk.cause, "dunk.cause");
+  if (!isDunkTag(cause)) {
+    throw new Error(`dunk.cause is not a known tag: ${cause}`);
+  }
+  return { line: readString(dunk.line, "dunk.line"), cause };
+}
+
+function readSlot(value: unknown): KitSlot {
+  const slot = readObject(value, "slot");
+  const kind = readString(slot.kind, "slot.kind");
+  if (!isSlotKind(kind)) {
+    throw new Error(`slot.kind is not a known kind: ${kind}`);
+  }
+  return {
+    id: readString(slot.id, "slot.id"),
+    group: readString(slot.group, "slot.group"),
+    name: readString(slot.name, "slot.name"),
+    kind,
+    sprite: readString(slot.sprite, "slot.sprite"),
+    from: optionalString(slot.from),
+    to: optionalString(slot.to),
+    at: optionalString(slot.at),
+    length: slot.length == null ? null : readNumber(slot.length, "slot.length"),
+    structural: optionalBoolean(slot.structural),
+    bonus: optionalBoolean(slot.bonus),
+    need: optionalString(slot.need),
+  };
+}
+
+function readGroup(value: unknown): KitGroup {
+  const group = readObject(value, "group");
+  return {
+    id: readString(group.id, "group.id"),
+    name: readString(group.name, "group.name"),
+    count: readNumber(group.count, "group.count"),
+    sprite: readString(group.sprite, "group.sprite"),
+    blurb: readString(group.blurb, "group.blurb"),
+    strand: readString(group.strand, "group.strand"),
+    lengthLabel: readString(group.lengthLabel, "group.lengthLabel"),
+    questions: optionalString(group.questions),
+    bonus: optionalBoolean(group.bonus),
+  };
+}
+
+function readRound(value: unknown): KitRound {
+  const round = readObject(value, "round");
+  const runs: Record<string, number> = {};
+  for (const [id, amount] of Object.entries(readObject(round.runs, "round.runs"))) {
+    runs[id] = readNumber(amount, `round.runs.${id}`);
+  }
+  return {
+    groups: readArray(round.groups, "round.groups").map((id, index) => readString(id, `round.groups.${index}`)),
+    runs,
+    trial: readString(round.trial, "round.trial"),
+    say: readString(round.say, "round.say"),
+    coming: optionalString(round.coming),
+    marks: typeof round.marks === "number" ? round.marks : undefined,
+  };
+}
+
+function readQueenPost(value: unknown): QueenPostKit {
+  const kit = readObject(value, "queen-post");
+  const scene = readObject(kit.scene, "scene");
+  return {
+    version: readNumber(kit.version, "version"),
+    id: readString(kit.id, "id"),
+    name: readString(kit.name, "name"),
+    intro: readString(kit.intro, "intro"),
+    kind: readString(kit.kind, "kind"),
+    span: readNumber(kit.span, "span"),
+    marks: readNumber(kit.marks, "marks"),
+    pxPerMetre: readNumber(kit.pxPerMetre, "pxPerMetre"),
+    scene: {
+      width: readNumber(scene.width, "scene.width"),
+      height: readNumber(scene.height, "scene.height"),
+      originX: readNumber(scene.originX, "scene.originX"),
+      deckY: readNumber(scene.deckY, "scene.deckY"),
+      waterY: readNumber(scene.waterY, "scene.waterY"),
+    },
+    nodes: readArray(kit.nodes, "nodes").map((node, index) => {
+      const item = readObject(node, `nodes.${index}`);
+      return {
+        id: readString(item.id, `nodes.${index}.id`),
+        m: readNumber(item.m, `nodes.${index}.m`),
+        h: readNumber(item.h, `nodes.${index}.h`),
+      };
+    }),
+    groups: readArray(kit.groups, "groups").map(readGroup),
+    rounds: readArray(kit.rounds, "rounds").map(readRound),
+    guide: readArray(kit.guide, "guide").map((step, index) => {
+      const item = readObject(step, `guide.${index}`);
+      return { piece: readString(item.piece, `guide.${index}.piece`), say: readString(item.say, `guide.${index}.say`) };
+    }),
+    dunks: readArray(kit.dunks, "dunks").map(readDunk),
+    bigDunks: readArray(kit.bigDunks, "bigDunks").map(readDunk),
+    slots: readArray(kit.slots, "slots").map(readSlot),
+  };
+}
+
+export const queenPost = readQueenPost(raw);
 
 /** Highest round whose structural pieces are all present in this build. */
 export function testedRound(lengths: Record<string, number>): number {

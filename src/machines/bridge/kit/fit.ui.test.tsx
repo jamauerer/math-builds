@@ -30,30 +30,35 @@ const screens = [
   { name: "wreck", start: "wreck", lesson: null },
 ] as const;
 
+function htmlParentOf(node: HTMLElement): HTMLElement | null {
+  const parent = node.parentElement;
+  return parent instanceof HTMLElement ? parent : null;
+}
+
 /** Happy-dom returns an empty DOMRect, so the box is read from computed style down the column. */
 function actionBox(action: HTMLElement, viewportHeight: number): { top: number; bottom: number; left: number; right: number; height: number } {
   const style = getComputedStyle(action);
   const height = px(style.height, viewportHeight);
   const width = px(style.width, viewportHeight) || action.parentElement?.clientWidth || 120;
   let top = 0;
-  let node: HTMLElement | null = action;
-  while (node && node !== document.body) {
-    const parent: HTMLElement | null = node.parentElement;
-    if (!parent) {
+  let current: HTMLElement | null = action;
+  while (current && current !== document.body) {
+    const parentNode = htmlParentOf(current);
+    if (!parentNode) {
       break;
     }
-    const parentStyle = getComputedStyle(parent);
+    const parentStyle = getComputedStyle(parentNode);
     const column = parentStyle.display === "flex" && parentStyle.flexDirection !== "row" && parentStyle.flexDirection !== "row-reverse";
     if (column) {
-      for (const sibling of [...parent.children]) {
-        if (sibling === node) {
+      for (const sibling of [...parentNode.children]) {
+        if (sibling === current) {
           break;
         }
         top += px(getComputedStyle(sibling).height, viewportHeight);
       }
     }
     top += px(parentStyle.paddingTop, viewportHeight);
-    node = parent;
+    current = parentNode;
   }
   return { top, bottom: top + height, left: 0, right: width, height };
 }
