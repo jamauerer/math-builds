@@ -42,6 +42,18 @@ const FALLBACK: ExplainPicture[] = ["symbol", "tape-marks", "grid", "beam", "tri
 /** A worked example when there is no curriculum skill: numbers, at least three steps, a new picture each step. */
 export function workedExample(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
   const fact = question.fact;
+  if (fact.kind === "piece" && /\bplanks?\b/i.test(fact.prompt) && (/\bwide\b/i.test(fact.prompt) || /cover the path|cover the gap/i.test(fact.prompt))) {
+    const widthMatch = fact.prompt.match(/each plank is\s+([^.]+?)\s*wide/i);
+    const width = widthMatch?.[1]?.trim() ?? String(fact.used[0] ?? "");
+    return {
+      steps: [
+        { text: width ? `Each plank is ${width} wide.` : "Each plank has a width.", picture: "plank", a: fact.used[0] },
+        { text: fact.used[1] != null ? `The path uses ${fact.used[1]} along the gap.` : "The path runs along the gap.", picture: "beam", a: fact.used[1] },
+        { text: `Widths that cover the path: ${question.answer}.`, picture: "plank-apart", a: fact.used[0], b: Number(question.answer) || 8 },
+      ],
+      why: "A plank's width is how much of the gap it covers.",
+    };
+  }
   if (fact.kind === "plain") {
     if (!fact.draw) {
       return { steps: fromNumbers(numbersOf(fact, question), question.answer), why: fact.why };

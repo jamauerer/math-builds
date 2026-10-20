@@ -10,6 +10,7 @@ import {
   plankStart,
   queenPost,
   slotNodes,
+  slotAlong,
   slotRunLabel,
   waterPixel,
   waterWorld,
@@ -256,7 +257,7 @@ export function BridgeScene({
         ? queenPost.slots
             .filter((slot) => slot.structural && !placed[slot.id])
             .map((slot) => {
-              const style = memberStyle(slot, slot.length ?? 1);
+              const style = memberStyle(slot, slotAlong(slot) ?? 1);
               return (
                 <div
                   key={slot.id}
@@ -290,7 +291,7 @@ export function BridgeScene({
         .slice()
         .sort((left, right) => drawRank(left) - drawRank(right))
         .map((slot) => {
-          const typed = lengths[slot.id] ?? slot.length ?? 1;
+          const typed = lengths[slot.id] ?? slotAlong(slot) ?? 1;
           const style = { ...memberStyle(slot, typed), zIndex: drawRank(slot) };
           return (
             <span key={`${slot.id}:${typed}`}>
@@ -760,7 +761,7 @@ export function CrossingPicture({ frame, extras = {} }: { frame: CrossingFrame; 
             data-piece={slot.id}
             data-kind={slot.kind}
             src={art(slot.sprite)}
-            style={{ ...memberStyle(slot, slot.length ?? 1), zIndex: drawRank(slot) }}
+            style={{ ...memberStyle(slot, slotAlong(slot) ?? 1), zIndex: drawRank(slot) }}
           />
         ))}
       {frame.splashes

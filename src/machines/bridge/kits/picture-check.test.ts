@@ -3,6 +3,7 @@ import { pictureAgrees } from "../../../pictures/check";
 import { dividingPicture } from "../../../pictures/dividing";
 import { earnAtWord, earnPicture, earnPrompt, attachPlainPicture, openRun, type EarnQuestion } from "./earn";
 import { queenPost } from "./kit";
+import { pieceQuestion } from "./pieces";
 import { KIT_STRANDS } from "../../../engine/strand-placement";
 import { plainQuestion } from "./plain";
 import { setUnitSystem } from "../../../units";
@@ -53,24 +54,40 @@ describe("question pictures", () => {
     expect(pictureAgrees("56 ÷ 8 = ?", "7", drawn.picture)).toBe(true);
   });
 
-  it("labels the plank word problem with the lengths in the words", () => {
+  it("labels the plank word problem with the widths in the words", () => {
     setUnitSystem("us");
     for (const level of [4, 9, 12]) {
       const word = earnAtWord({ ...levels, counting: level }, "planks");
       const picture = earnPicture(word.current);
       const prompt = earnPrompt(word.current);
-      if (picture) {
+      if (picture && /each plank is/i.test(prompt)) {
+        expect(picture.measure?.text).toBe("width");
         expect(pictureAgrees(prompt, word.current.answer, picture)).toBe(true);
       }
     }
-    const high = Object.fromEntries(KIT_STRANDS.map((id) => [id, 12]));
-    const long = earnAtWord(high, "planks");
-    const highPrompt = earnPrompt(long.current);
-    if (long.current.stepId) {
-      expect(highPrompt.length).toBeGreaterThan(0);
-    } else {
-      expect(highPrompt).toContain("15");
-    }
+    const cover = pieceQuestion("planks", 4);
+    const coverQuestion: EarnQuestion = {
+      groupId: "planks",
+      strandId: "dividing",
+      level: 4,
+      answer: cover.answer,
+      word: cover.prompt,
+      fact: { kind: "piece", prompt: cover.prompt, answer: cover.answer, used: cover.used, slots: cover.slots },
+    };
+    const coverPicture = earnPicture(coverQuestion);
+    expect(coverPicture?.measure?.text).toBe("width");
+    expect(earnPrompt(coverQuestion)).toMatch(/wide/);
+    const highCover = pieceQuestion("planks", 12);
+    const highQuestion: EarnQuestion = {
+      groupId: "planks",
+      strandId: "dividing",
+      level: 12,
+      answer: highCover.answer,
+      word: highCover.prompt,
+      fact: { kind: "piece", prompt: highCover.prompt, answer: highCover.answer, used: highCover.used, slots: highCover.slots },
+    };
+    expect(earnPrompt(highQuestion)).toContain("15");
+    expect(earnPicture(highQuestion)).toBeNull();
   });
 
   it("puts only kit lengths on picture labels", () => {
@@ -79,7 +96,16 @@ describe("question pictures", () => {
       const word = earnAtWord({ ...levels, [group.strand]: 4 }, group.id);
       const picture = earnPicture(word.current);
       const kitLens = new Set(
-        queenPost.slots.filter((slot) => slot.length != null).map((slot) => String(slot.length)),
+        queenPost.slots.flatMap((slot) => {
+          const nums: string[] = [];
+          if (slot.length != null) {
+            nums.push(String(slot.length));
+          }
+          if (slot.width != null) {
+            nums.push(String(slot.width));
+          }
+          return nums;
+        }),
       );
       for (const label of picture?.labels ?? []) {
         const token = label.text.replace(/[^\d.]/g, "");

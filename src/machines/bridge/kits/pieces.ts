@@ -169,7 +169,7 @@ function railing(level: number): PieceQuestion {
 function planks(level: number): PieceQuestion {
   if (level <= 4) {
     return {
-      prompt: `Each plank is ${formatLength(1)} long. The path is two beams of ${formatLength(4)} laid end to end. How many planks cover the path?`,
+      prompt: `Each plank is ${formatLength(1)} wide. The path is two beams of ${formatLength(4)} laid end to end. How many planks cover the path?`,
       answer: "8",
       used: [1, 4],
       slots: PLANKS,
@@ -177,9 +177,9 @@ function planks(level: number): PieceQuestion {
     };
   }
   if (level <= 8) {
-    return { prompt: `Each plank is ${formatLength(2)}. The path is ${formatLength(10)}. How many planks cover the path?`, answer: "5", used: [2, 10], slots: PLANKS, skillId: "dividing.4.d2" };
+    return { prompt: `Each plank is ${formatLength(2)} wide. The path is ${formatLength(10)}. How many planks cover the path?`, answer: "5", used: [2, 10], slots: PLANKS, skillId: "dividing.4.d2" };
   }
-  return { prompt: `Each plank is ${formatLength(3)}. The path is ${formatLength(15)}. How many planks cover the path?`, answer: "5", used: [3, 15], slots: PLANKS, skillId: "dividing.5.d7" };
+  return { prompt: `Each plank is ${formatLength(3)} wide. The path is ${formatLength(15)}. How many planks cover the path?`, answer: "5", used: [3, 15], slots: PLANKS, skillId: "dividing.5.d7" };
 }
 
 /** Word problems for strands that are not a kit piece. */

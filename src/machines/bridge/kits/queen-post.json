@@ -97,7 +97,8 @@
       "sprite": "plank-side.png",
       "strand": "fractions",
       "blurb": "the path the goat walks",
-      "lengthLabel": "1 m",
+      "lengthLabel": "3 m",
+      "widthLabel": "1 m",
       "questions": "halves (2), name (3), fraction of a number (5), area of the deck (measuring 4)"
     }
   ],
@@ -136,7 +137,7 @@
     { "piece": "brace-a", "say": "Brace. It stops the posts from folding over." },
     { "piece": "brace-b", "say": "Brace. It stops the posts from folding over." },
     { "piece": "gussets", "say": "Gussets hold the corners." },
-    { "piece": "planks", "say": "Planks are the floor." }
+    { "piece": "planks", "say": "Planks are the floor. They lie across the beams." }
   ],
   "dunks": [
     { "line": "Nobody was hurt. Mostly.", "cause": "general" },
@@ -327,13 +328,13 @@
       "length": 8,
       "bonus": true
     },
-    { "id": "plank-1", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-2", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-3", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-4", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-5", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-6", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-7", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 },
-    { "id": "plank-8", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "length": 1 }
+    { "id": "plank-1", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-2", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-3", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-4", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-5", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-6", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-7", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 },
+    { "id": "plank-8", "group": "planks", "name": "Plank", "kind": "plank", "sprite": "plank-side.png", "width": 1, "length": 3 }
   ]
 }

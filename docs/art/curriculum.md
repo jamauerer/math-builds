@@ -73,7 +73,7 @@ Adding hands over to algebra at level 9.
 | 3 | multiplying.3.equal-groups | Equal groups as repeated adding | "3 x 4 = ?" with 3 rows of 4 shown | whole | 3 rows of 4 bolts | bolts: 2 per gusset | adding.2.to-20 |
 | 3 | multiplying.3.doubles | Times 2 | "2 x 7 = ?" | whole | pairs | | multiplying.3.equal-groups |
 | 4 | multiplying.4.tables-5 | Times tables to 5 | "4 x 5 = ?" | whole | rows of bolts | bolts | multiplying.3.equal-groups |
-| 4 | multiplying.4.tables-10 | Times tables to 10 | "7 x 8 = ?" | whole | rows of bolts, the 10x10 grid | planks: 8 planks x 1 ft | multiplying.4.tables-5 |
+| 4 | multiplying.4.tables-10 | Times tables to 10 | "7 x 8 = ?" | whole | rows of bolts, the 10x10 grid | planks: 8 planks 1 ft wide | multiplying.4.tables-5 |
 | 4 | multiplying.4.by-10-100 | Multiply by 10 and 100 | "34 x 10 = ?" | whole | digits slide left | | multiplying.4.tables-10 |
 | 5 | multiplying.5.two-by-one | Two-digit by one-digit | "47 x 6 = ?" | whole | 40 x 6 and 7 x 6 added | beam weight: 12 lb per ft x length | multiplying.4.tables-10 |
 | 5 | multiplying.5.multi-digit | Multi-digit | "123 x 45 = ?" | whole | area model, four boxes | | multiplying.5.two-by-one |

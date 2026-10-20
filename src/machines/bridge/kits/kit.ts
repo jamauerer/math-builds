@@ -13,6 +13,7 @@ export type KitGroup = {
   blurb: string;
   strand: string;
   lengthLabel: string;
+  widthLabel?: string;
   questions?: string;
   bonus?: boolean;
 };
@@ -27,6 +28,7 @@ export type KitSlot = {
   to?: string;
   at?: string;
   length: number | null;
+  width?: number;
   structural?: boolean;
   bonus?: boolean;
   need?: string;
@@ -80,6 +82,27 @@ export function plankSlots(): KitSlot[] {
 
 export function plankStart(slot: KitSlot): number {
   return Math.max(0, plankSlots().findIndex((item) => item.id === slot.id));
+}
+
+/**
+ * Size used along the gap. Length is the longest side of a piece.
+ * Deck planks lie across the beams, so that longest side is side to side;
+ * width is how much of the gap one plank covers.
+ */
+export function slotAlong(slot: KitSlot): number | null {
+  if (slot.kind === "plank") {
+    return slot.width ?? slot.length ?? null;
+  }
+  return slot.length ?? null;
+}
+
+export function plankWidth(): number {
+  const first = plankSlots()[0];
+  return (first ? slotAlong(first) : 1) ?? 1;
+}
+
+export function plankWidthLabel(): string {
+  return `${formatLength(plankWidth())} wide`;
 }
 
 /** True when a placed plank covers this point along the deck. */
@@ -263,8 +286,9 @@ export function dunkTag(cause: WreckCause | null, lengths: Record<string, number
     return "missing post";
   }
   const slot = queenPost.slots.find((item) => item.id === cause.id);
-  if (slot?.length != null && lengths[slot.id] != null) {
-    const delta = slot.length - lengths[slot.id];
+  const need = slot ? slotAlong(slot) : null;
+  if (slot && need != null && lengths[slot.id] != null) {
+    const delta = need - lengths[slot.id];
     if (delta > 0.05) {
       return "short beam";
     }
@@ -386,6 +410,7 @@ function readSlot(value: unknown): KitSlot {
     to: optionalString(slot.to),
     at: optionalString(slot.at),
     length: slot.length == null ? null : readNumber(slot.length, "slot.length"),
+    width: slot.width == null ? undefined : readNumber(slot.width, "slot.width"),
     structural: optionalBoolean(slot.structural),
     bonus: optionalBoolean(slot.bonus),
     need: optionalString(slot.need),
@@ -402,6 +427,7 @@ function readGroup(value: unknown): KitGroup {
     blurb: readString(group.blurb, "group.blurb"),
     strand: readString(group.strand, "group.strand"),
     lengthLabel: readString(group.lengthLabel, "group.lengthLabel"),
+    widthLabel: optionalString(group.widthLabel),
     questions: optionalString(group.questions),
     bonus: optionalBoolean(group.bonus),
   };
@@ -525,14 +551,16 @@ export function pieceEnd(slot: KitSlot, typed: number): { m: number; h: number }
 }
 
 export function lengthDelta(slot: KitSlot, typed: number): number {
-  if (slot.length == null) {
+  const need = slotAlong(slot);
+  if (need == null) {
     return 0;
   }
-  return Math.round((slot.length - typed) * 100) / 100;
+  return Math.round((need - typed) * 100) / 100;
 }
 
 export function wreckLine(slot: KitSlot, typed: number): string | null {
-  if (slot.length == null || slot.bonus) {
+  const need = slotAlong(slot);
+  if (need == null || slot.bonus) {
     return null;
   }
   const delta = lengthDelta(slot, typed);
@@ -548,14 +576,14 @@ export function wreckLine(slot: KitSlot, typed: number): string | null {
   if (slot.id === "top" && slot.need) {
     return `Top beam, ${formatLength(typed)}, needed ${slot.need} ${lengthAbbrev()}, ${formatLength(amount)} ${way}`;
   }
-  return `${slot.name}, ${formatLength(typed)}, needed ${formatLength(slot.length)}, ${formatLength(amount)} ${way}`;
+  return `${slot.name}, ${formatLength(typed)}, needed ${formatLength(need)}, ${formatLength(amount)} ${way}`;
 }
 
 /** When the top beam does not reach the far post, that post has nothing to hold. */
 export function wreckLines(lengths: Record<string, number>): string[] {
   const lines: string[] = [];
   for (const slot of queenPost.slots) {
-    if (slot.length == null || lengths[slot.id] == null) {
+    if (slotAlong(slot) == null || lengths[slot.id] == null) {
       continue;
     }
     const line = wreckLine(slot, lengths[slot.id]);
@@ -645,7 +673,7 @@ export function slotFact(slot: KitSlot, printed = false): string {
     return `It runs from ${formatLength(left)} to ${formatLength(right)} on the tape.${printed ? "" : " How long?"}`;
   }
   if (slot.kind === "plank") {
-    return `${formatLength(queenPost.span)} of bridge, ${formatLength(1)} each, so ${plankSlots().length} planks.`;
+    return `${formatLength(queenPost.span)} of bridge, each plank ${formatLength(plankWidth())} wide, so ${plankSlots().length} planks.`;
   }
   if (slot.kind === "gusset") {
     return "They go on every corner.";
@@ -673,8 +701,9 @@ export function typedLine(name: string, value: string): string | null {
 export function correctLengths(): Record<string, number> {
   const lengths: Record<string, number> = {};
   for (const slot of queenPost.slots) {
-    if (slot.length != null) {
-      lengths[slot.id] = slot.length;
+    const along = slotAlong(slot);
+    if (along != null) {
+      lengths[slot.id] = along;
     }
   }
   return lengths;

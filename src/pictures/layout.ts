@@ -1,4 +1,4 @@
-import { kitNode, nodePixel, plankStart, queenPost, type KitSlot } from "../machines/bridge/kits/kit";
+import { kitNode, nodePixel, plankStart, queenPost, slotAlong, type KitSlot } from "../machines/bridge/kits/kit";
 import type { Picture, PictureBit, PictureLabel } from "./parts";
 
 /** Question stage. Scene pixels shift into this box; they are not placed by hand. */
@@ -86,7 +86,7 @@ function shift(x: number, y: number): { x: number; y: number } {
 
 /** Same geometry as the bridge scene, in scene pixels. */
 function slotFrame(slot: KitSlot): { x: number; y: number; w: number; h: number; rotate?: number } {
-  const typed = slot.length ?? 1;
+  const typed = slotAlong(slot) ?? 1;
   if (slot.kind === "gusset" && slot.at) {
     const node = kitNode(slot.at);
     const point = nodePixel(node);

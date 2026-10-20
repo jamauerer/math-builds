@@ -5,13 +5,13 @@ import { skillHint, skillQuestion, type ActionKind, type ChoiceOption } from "..
 import { skillExplain } from "../../../skills/explain";
 import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
-import { labelAt, slice } from "../../../pictures/layout";
+import { labelAt, pictureSlot, slice } from "../../../pictures/layout";
 import { pictureAgrees } from "../../../pictures/check";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { fitLevels, KIT_STRANDS, strandName, type GradeChoice } from "../../../engine/strand-placement";
 import { workedExample, type ExplainStep } from "./explain";
-import { queenPost, type KitGroup } from "./kit";
+import { plankWidth, queenPost, slotAlong, type KitGroup } from "./kit";
 import { pieceQuestion, strandWord } from "./pieces";
 import { tapeOnPosts } from "../../../pictures/tape";
 import type { LadderLayout } from "../../../ladder/generate";
@@ -160,7 +160,7 @@ export function earnPrompt(question: EarnQuestion): string {
   }
   switch (fact.kind) {
     case "count-planks":
-      return "How many planks reach across?";
+      return "How many planks cover the gap?";
     case "count-posts":
       return "How many posts?";
     case "count-pieces":
@@ -220,7 +220,9 @@ function rawHint(question: EarnQuestion): string {
     case "plain":
       return "";
     case "piece":
-      return "Hint: use the numbers you were given.";
+      return question.groupId === "planks"
+        ? "Hint: a plank's width is how much of the path it covers."
+        : "Hint: use the numbers you were given.";
     case "count-posts":
       return "Hint: count the posts.";
     case "count-planks":
@@ -249,7 +251,7 @@ export function earnHint(question: EarnQuestion): string {
   return hint;
 }
 
-function wordPicture(question: EarnQuestion): EarnPicture {
+function wordPicture(question: EarnQuestion): EarnPicture | null {
   const fact = question.fact;
   if (fact.kind !== "piece") {
     return factPicture(fact);
@@ -257,8 +259,13 @@ function wordPicture(question: EarnQuestion): EarnPicture {
   const prompt = question.word ?? fact.prompt;
   const count = Number(question.answer);
   if (question.groupId === "planks" && Number.isFinite(count) && count >= 1 && count <= 8) {
+    const named = plankCoverWidth(prompt);
+    if (named != null && Math.abs(named - plankWidth()) > 0.02) {
+      return null;
+    }
     const ids = ["plank-1", "plank-2", "plank-3", "plank-4", "plank-5", "plank-6", "plank-7", "plank-8"].slice(0, count);
-    return slice(ids, kitLengthLabels(ids, prompt));
+    const picture = slice(ids, kitLengthLabels(ids, prompt));
+    return { ...picture, measure: plankWidthBar(ids[0]) };
   }
   if (question.strandId === "counting") {
     return slice(fact.slots);
@@ -266,14 +273,25 @@ function wordPicture(question: EarnQuestion): EarnPicture {
   return slice(fact.slots, kitLengthLabels(fact.slots, prompt));
 }
 
+function plankCoverWidth(prompt: string): number | null {
+  const match = prompt.match(/each plank is\s+(\d+(?:\.\d+)?)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function plankWidthBar(slotId: string): NonNullable<EarnPicture["measure"]> {
+  const bit = pictureSlot(slotId);
+  return { x: bit.x, y: Math.max(2, bit.y - 22), w: bit.w, text: "width" };
+}
+
 function kitLengthLabels(slots: string[], prompt: string) {
   return slots.flatMap((id) => {
     const slot = queenPost.slots.find((item) => item.id === id);
-    if (slot?.length == null) {
+    const size = slot ? slotAlong(slot) : null;
+    if (size == null) {
       return [];
     }
-    const text = formatLength(slot.length);
-    if (!prompt.includes(text) && !prompt.includes(String(slot.length))) {
+    const text = formatLength(size);
+    if (!prompt.includes(text) && !prompt.includes(String(size))) {
       return [];
     }
     return [labelAt(id, text)];
@@ -508,7 +526,7 @@ function wordFor(group: KitGroup, level: number, skillId: string | undefined, gr
     answer: piece.answer,
     strandId: group.strand,
   });
-  if (guarded.item) {
+  if (group.id !== "planks" && guarded.item) {
     const sentence = wordPrompt(guarded.item);
     return {
       ...fromServed(group.id, guarded, false),
@@ -516,12 +534,12 @@ function wordFor(group: KitGroup, level: number, skillId: string | undefined, gr
       fact: { kind: "plain", prompt: sentence, steps: guarded.item.steps, why: guarded.item.why, draw: guarded.item.draw },
     };
   }
-  if (guarded.skillId !== (piece.skillId ?? id)) {
+  if (group.id !== "planks" && guarded.skillId !== (piece.skillId ?? id)) {
     return fromServed(group.id, guarded, false);
   }
   return {
     groupId: group.id,
-    strandId: group.strand,
+    strandId: (piece.skillId ?? id).split(".")[0] ?? group.strand,
     level,
     skillId: piece.skillId ?? id,
     answer: piece.answer,

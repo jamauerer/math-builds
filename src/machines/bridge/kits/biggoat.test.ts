@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queenPost, stareLine } from "./kit";
+import { queenPost, slotAlong, stareLine } from "./kit";
 import { BIG_GOAT_MASS, SMALL_GOAT_MASS, simulateCrossing } from "./simulate";
 import { fireworkDraws, frameNear, goatSprite } from "../kit/scene";
 
@@ -10,8 +10,11 @@ function planks(): Record<string, number> {
 function truss(): Record<string, number> {
   const lengths: Record<string, number> = { ...planks() };
   for (const slot of queenPost.slots) {
-    if (slot.length != null && slot.kind !== "rail" && slot.group !== "bolts") {
-      lengths[slot.id] = slot.length;
+    if (slot.kind !== "rail" && slot.group !== "bolts") {
+      const along = slotAlong(slot);
+      if (along != null) {
+        lengths[slot.id] = along;
+      }
     }
   }
   return lengths;

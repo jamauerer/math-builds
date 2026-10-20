@@ -80,9 +80,12 @@ import {
   pieceGroup,
   pieceRows,
   plankSlots,
+  plankWidth,
+  plankWidthLabel,
   preCut,
   queenPost,
   rowLabel,
+  slotAlong,
   slotFact,
   stareLine,
   testedRound,
@@ -126,7 +129,7 @@ function slotById(id: string) {
 
 function needsLength(id: string): boolean {
   const slot = slotById(id);
-  return Boolean(slot && slot.length != null && !slot.bonus && slot.kind !== "rail");
+  return Boolean(slot && slotAlong(slot) != null && !slot.bonus && slot.kind !== "rail");
 }
 
 export function GoatKit({
@@ -868,7 +871,7 @@ export function GoatKit({
 
   function layPlank(id: string) {
     const measuring = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
-    const length = preCut(measuring) ? "1" : lengths.planks || "1";
+    const length = preCut(measuring) ? String(plankWidth()) : lengths.planks || String(plankWidth());
     setLengths((current) => ({ ...current, [id]: length }));
     setPlaced((current) => ({ ...current, [id]: true }));
   }
@@ -2869,7 +2872,7 @@ function AssembleView({
               >
                 <span className="gk-thumb">
                   <img src={art("plank-side.png")} alt="" />
-                  {!cut ? <em className="gk-stamp">{formatLength(1)}</em> : null}
+                  {!cut ? <em className="gk-stamp">{plankWidthLabel()}</em> : null}
                 </span>
                 <div className="gk-row-copy">
                   <b>8 planks</b>
@@ -2879,7 +2882,7 @@ function AssembleView({
                   <label className="gk-cut" onPointerDown={(event) => event.stopPropagation()}>
                     <input
                       className={lengths.planks ? "gk-len" : "gk-len empty"}
-                      aria-label="Plank length"
+                      aria-label="Plank width"
                       value={lengths.planks ?? ""}
                       placeholder="?"
                       onKeyDown={(event) => {
@@ -3276,8 +3279,9 @@ function roundLengths(round: number | null): Record<string, number> | null {
 function filledLengths(): Record<string, string> {
   const lengths: Record<string, string> = {};
   for (const slot of queenPost.slots) {
-    if (slot.length != null) {
-      lengths[slot.id] = String(slot.length);
+    const along = slotAlong(slot);
+    if (along != null) {
+      lengths[slot.id] = String(along);
     } else if (slot.kind === "gusset" || slot.kind === "bolt") {
       lengths[slot.id] = "1";
     }

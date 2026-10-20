@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
-import { deckBeamBox, queenPost, waterPixel } from "./kit";
+import { deckBeamBox, queenPost, slotAlong, waterPixel } from "./kit";
 import { simulateCrossing } from "./simulate";
 import { blueDominates, measuredWaterY, pixelAt } from "./water-line";
 import { GoatKit } from "../kit/GoatKit";
@@ -28,8 +28,11 @@ function planks(): Record<string, number> {
 function truss(): Record<string, number> {
   const lengths: Record<string, number> = { ...planks() };
   for (const slot of queenPost.slots) {
-    if (slot.length != null && slot.kind !== "rail" && slot.group !== "bolts") {
-      lengths[slot.id] = slot.length;
+    if (slot.kind !== "rail" && slot.group !== "bolts") {
+      const along = slotAlong(slot);
+      if (along != null) {
+        lengths[slot.id] = along;
+      }
     }
   }
   return lengths;

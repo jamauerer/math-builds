@@ -29,6 +29,9 @@ export function skillExplain(
   answer: string,
   draw?: PlainDraw,
 ): { steps: ExplainStep[]; why: string } {
+  if (isDeckPlankCover(prompt)) {
+    return plankCoverExplain(prompt, answer);
+  }
   const step = ladderStep(skillId);
   if (step) {
     const card = explainStep(skillId);
@@ -186,7 +189,28 @@ function halvesSteps(): ExplainStep[] {
   ];
 }
 
+function isDeckPlankCover(prompt: string): boolean {
+  return /\bplanks?\b/i.test(prompt) && (/\bwide\b/i.test(prompt) || /cover the path|cover the gap/i.test(prompt));
+}
+
+function plankCoverExplain(prompt: string, answer: string): { steps: ExplainStep[]; why: string } {
+  const widthMatch = prompt.match(/each plank is\s+([^.]+?)\s*wide/i);
+  const width = widthMatch?.[1]?.trim() ?? (numbers(prompt)[0] != null ? String(numbers(prompt)[0]) : null);
+  const along = numbers(prompt)[1];
+  return {
+    steps: [
+      { text: width != null ? `Each plank is ${width} wide.` : "Each plank has a width.", picture: "plank", a: numbers(prompt)[0] ?? 1 },
+      { text: along != null ? `The path uses ${along} along the gap.` : "The path runs along the gap.", picture: "beam", a: along },
+      { text: `Widths that cover the path: ${answer}.`, picture: "plank-apart", a: numbers(prompt)[0] ?? 1, b: Number(answer) || 8 },
+    ],
+    why: "A plank's width is how much of the gap it covers.",
+  };
+}
+
 function plankSteps(prompt: string, answer: string, a?: number, b?: number, c?: number): ExplainStep[] {
+  if (isDeckPlankCover(prompt)) {
+    return plankCoverExplain(prompt, answer).steps;
+  }
   const parts = Math.max(2, Math.min(8, Math.abs(c ?? b ?? 2)));
   return [
     { text: numbers(prompt)[0] != null ? `Start with the plank and ${numbers(prompt)[0]}.` : "Start with one plank.", picture: "plank", a: a ?? 1, b: parts },

@@ -669,8 +669,9 @@
   font-family: Fraunces, serif;
   font-style: normal;
   font-weight: 800;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 1px 1px 0 #22201c;
