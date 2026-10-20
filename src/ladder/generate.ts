@@ -99,7 +99,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
   if (step.n === 3) {
     const a = intBetween(rng, 0, 18);
     const b = pick(rng, [1, 2]);
-    return wrap(step, plus(a, b, a + b), [`Add ${b}.`], "Count on 1 or 2.");
+    return wrap(step, plus(a, b, a + b), [`Add ${b}.`], "Count on 1 or 2.", { op: "add", a, b });
   }
   if (step.n === 4) {
     const a = intBetween(rng, 0, 10);
@@ -261,11 +261,11 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
   if (step.n === 3) {
     const b = pick(rng, [1, 2]);
     const a = intBetween(rng, Math.max(2, b), 20);
-    return wrap(step, minus(a, b, a - b), [`Count back ${b}.`], "Take 1 or 2.");
+    return wrap(step, minus(a, b, a - b), [`Count back ${b}.`], "Take 1 or 2.", { op: "sub", a, b });
   }
   if (step.n === 4) {
     const b = intBetween(rng, 0, 10);
-    return wrap(step, minus(10, b, 10 - b), [`10 minus ${b}.`], "Subtract from 10.");
+    return wrap(step, minus(10, b, 10 - b), [`10 minus ${b}.`], "Subtract from 10.", { op: "sub", a: 10, b });
   }
   if (step.n === 5) {
     const ones = intBetween(rng, 1, 9);

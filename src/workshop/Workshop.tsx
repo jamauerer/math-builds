@@ -15,7 +15,7 @@ import type { Challenge } from "../machines/types";
 import { exportProgress, importProgress } from "../progress/transfer";
 import { paintMachine, resultAllowed, sceneIdFor, subjectsFor, type ScenePainter } from "./scenes";
 import { awardStars, cameraFrame, failureLine, featBadges, rankFor, rememberSnapshot, showcaseFor, successPlate, weeklyId, xpFor, PRIZES } from "./craft";
-import { playTone, tap } from "./feel";
+import { tap } from "./feel";
 import { blankWorkshop, type SavedProgress, type WorkshopSave } from "../storage/progress";
 import { AnswerPanel } from "../ui/AnswerPanel";
 import { ProblemBoard } from "../ui/ProblemBoard";
@@ -204,7 +204,6 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
     setNote("");
     setDust(true);
     window.setTimeout(() => setDust(false), 280);
-    playTone(save.sound, "drop");
     tap(save.haptic);
   }
 
@@ -295,7 +294,6 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
       return;
     }
     awarded.current = token;
-    playTone(save.sound, report.ok ? "success" : "fail");
     if (!report.ok) {
       return;
     }
@@ -455,9 +453,6 @@ export function Workshop({ map, progress, onProgress, onSkillPass, onPractice }:
               {name[0].toUpperCase() + name.slice(1)}
             </button>
           ))}
-          <button type="button" className={save.sound ? "on" : ""} onPointerUp={() => write({ ...save, sound: !save.sound })}>
-            {save.sound ? "Sound on" : "Sound off"}
-          </button>
           <button type="button" className={save.haptic ? "on" : ""} onPointerUp={() => write({ ...save, haptic: !save.haptic })}>
             {save.haptic ? "Tap on" : "Tap off"}
           </button>

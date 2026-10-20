@@ -1,7 +1,7 @@
 /** @vitest-environment happy-dom */
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { KIT_STRANDS } from "../../../engine/strand-placement";
 import { skills } from "../../../data/load-skills";
@@ -23,23 +23,7 @@ describe("learning system", () => {
     }
   });
 
-  it("renders a level 1 question with no keypad and fires speech", async () => {
-    const spoken: string[] = [];
-    vi.stubGlobal(
-      "SpeechSynthesisUtterance",
-      class {
-        text = "";
-        lang = "";
-        constructor(text: string) {
-          this.text = text;
-        }
-      },
-    );
-    vi.stubGlobal("speechSynthesis", {
-      speak: (utterance: { text: string }) => spoken.push(utterance.text),
-      cancel: () => undefined,
-      getVoices: () => [],
-    });
+  it("renders a level 1 question with no keypad and no speech", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -66,11 +50,11 @@ describe("learning system", () => {
     expect(container.querySelector(".gk-keys")).toBeNull();
     expect(container.querySelector('input[aria-label="Answer"]')).toBeNull();
     expect(container.querySelector("[data-action='drag-count']")).toBeTruthy();
-    expect(container.querySelector("[data-speak='replay']")).toBeTruthy();
-    expect(spoken.some((line) => line.toLowerCase().includes("drag") || line.toLowerCase().includes("bolt"))).toBe(true);
+    expect(container.querySelector("[data-speak]")).toBeNull();
+    expect(container.textContent).not.toContain("Hear it");
+    expect(container.querySelector("[data-picture-help='count-tray']")).toBeTruthy();
     root.unmount();
     container.remove();
-    vi.unstubAllGlobals();
   });
 
   it("reaches Fluent only after 3 separate days under the time target", () => {

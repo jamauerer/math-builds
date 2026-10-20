@@ -61,7 +61,8 @@ import {
   type EarnState,
 } from "../kits/earn";
 import type { ActionKind, ChoiceOption } from "../../../skills/generate";
-import { cancelSpeech, speakText, speechLang } from "../../../locale/speech";
+import { isPreReader, pictureHelpFor, type PictureHelp } from "../../../silent/pre-reader";
+import { ComparePilesPad, GoatHop, HandDemo, PatternGapPad, PictureCue, SilentCountPad } from "../../../silent/pads";
 import {
   demoFluentBook,
   demoReviewBook,
@@ -1067,6 +1068,7 @@ export function GoatKit({
               setTyped={setTyped}
               country={kitProfile?.country ?? seeded ?? undefined}
               countingLevel={levelsNow.counting ?? 1}
+              forceHand={demo === "hand"}
               fading={celebrate != null}
               pulse={pulse}
               dance={roundDance || earn.phase === "done"}
@@ -1381,12 +1383,14 @@ function EarnView({
   earned,
   country,
   countingLevel,
+  forceHand = false,
 }: {
   earn: EarnState;
   typed: string;
   setTyped: (value: string) => void;
   country?: string;
   countingLevel: number;
+  forceHand?: boolean;
   fading?: boolean;
   pulse?: string | null;
   dance?: boolean;
@@ -1403,6 +1407,13 @@ function EarnView({
   const picture = question ? earnPicture(question) : null;
   const hint = question ? earnHint(question) : "";
   const keys = question ? keysFor(question.answer, question.truth) : [];
+  const silent = question ? isPreReader(question) : isPreReader(earn.current);
+  const help = question ? pictureHelpFor(question) : pictureHelpFor(earn.current);
+  const [feel, setFeel] = useState<"" | "hop" | "slide">("");
+  useEffect(() => {
+    setFeel("");
+  }, [earn.phase, question?.skillId, question?.answer, earn.runGot]);
+  void country;
   if (earn.phase === "done") {
     return (
       <div className="gk-body">
@@ -1435,15 +1446,9 @@ function EarnView({
             <div className="gk-kicker">
               <span>Learn</span>
             </div>
-            <SpokenPrompt
-              text={`${learn?.title ?? skill?.name}. ${line}`}
-              label={learn?.title ?? skill?.name}
-              country={country}
-              parent={earn.current.level <= 2}
-              skillId={skill?.id ?? ""}
-            />
+            <PromptLine text={learn?.title ?? skill?.name ?? ""} parent={silent} skillId={skill?.id ?? ""} />
             <LearnSketch draw={draw ?? null} line={line} />
-            <p className={earn.current.level <= 2 ? "gk-parent-words" : undefined}>{explained.why}</p>
+            <p className={silent || earn.current.level <= 2 ? "gk-parent-words" : undefined}>{explained.why}</p>
             <button className="gk-check" type="button" data-action="primary" onClick={onLearn}>
               Now you try
             </button>
@@ -1515,7 +1520,7 @@ function EarnView({
   return (
     <div className="gk-body">
       <div className="gk-earn">
-        <div className={fading ? "gk-card is-fading" : "gk-card"}>
+        <div className={fading ? "gk-card is-fading" : "gk-card"} data-silent={silent ? "1" : undefined}>
           <div className="gk-kicker gk-kicker-stack">
             <span>{counter}</span>
             <span className="gk-qstrand">{strandName(question.strandId)}</span>
@@ -1523,12 +1528,14 @@ function EarnView({
           </div>
           <div className="gk-work">
             <div className="gk-card-main">
-          <SpokenPrompt text={earnPrompt(question)} country={country} parent={question.level <= 2} />
-          {question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
+          <PromptLine text={earnPrompt(question)} parent={silent || question.level <= 2} skillId={question.skillId} />
+          {silent ? <PictureCue kind={help} /> : null}
+          {silent ? <HandDemo kind={help} force={forceHand} mid={forceHand} /> : null}
+          {!silent && question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
             <OperandMarks draw={question.fact.draw} />
           ) : null}
-          {picture ? <EarnSketch question={question} /> : null}
-          {openHint ? <p className={question.level <= 2 ? "gk-hint gk-parent-words" : "gk-hint"}>{openHint}</p> : null}
+          {!silent && picture ? <EarnSketch question={question} /> : null}
+          {openHint ? <p className={silent || question.level <= 2 ? "gk-hint gk-parent-words" : "gk-hint"}>{openHint}</p> : null}
           <AnswerPad
             phase={earn.phase}
             typed={typed}
@@ -1543,9 +1550,12 @@ function EarnView({
             sizes={question.sizes}
             draw={question.fact.kind === "plain" ? question.fact.draw : undefined}
             showDots={countingLevel < 3}
+            silent={silent}
+            pictureHelp={help}
             onType={setTyped}
             onCommit={(attempt) => onCheck(attempt)}
             onHelp={onHelp}
+            onFeel={setFeel}
           />
             </div>
             <ScratchPad
@@ -1557,7 +1567,7 @@ function EarnView({
         </div>
         <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
         <RoundMark round={earn.round} />
-        <GoatWait />
+        <GoatWait hop={feel === "hop"} />
       </div>
       <KitPanel earned={earned} current={groupId} pulse={pulse} dance={dance} />
     </div>
@@ -1634,6 +1644,15 @@ function OperandMarks({ draw }: { draw: { op: string; a: number; b: number } }) 
 }
 
 function questionAction(question: EarnQuestion, countingLevel: number): ActionKind {
+  if (isPreReader(question)) {
+    if (question.action === "order") {
+      return "order";
+    }
+    if (question.choices && question.choices.length > 0) {
+      return "tap-choice";
+    }
+    return "drag-count";
+  }
   if (question.choices && question.choices.length > 0) {
     return "tap-choice";
   }
@@ -1651,33 +1670,19 @@ function questionAction(question: EarnQuestion, countingLevel: number): ActionKi
   return question.action ?? "keypad";
 }
 
-function SpokenPrompt({
+function PromptLine({
   text,
-  label,
-  country,
   parent,
   skillId,
 }: {
   text: string;
-  label?: string;
-  country?: string;
   parent?: boolean;
   skillId?: string;
 }) {
-  const lang = speechLang(country);
-  useEffect(() => {
-    speakText(text, lang);
-    return () => cancelSpeech();
-  }, [text, lang]);
   return (
-    <div className="gk-spoken">
-      <h2 className={parent ? "gk-prompt is-parent" : "gk-prompt"} data-skill={skillId ?? ""}>
-        {label ?? text}
-      </h2>
-      <button className="gk-speak" type="button" data-speak="replay" aria-label="Hear it again" onClick={() => speakText(text, lang)}>
-        Hear it
-      </button>
-    </div>
+    <h2 className={parent ? "gk-prompt is-parent" : "gk-prompt"} data-skill={skillId ?? ""}>
+      {text}
+    </h2>
   );
 }
 
@@ -1814,15 +1819,21 @@ function AnswerPad({
   sizes,
   draw,
   showDots,
+  silent = false,
+  pictureHelp,
   onType,
   onCommit,
   onHelp,
+  onFeel,
 }: {
   phase: string;
   action?: ActionKind;
   sizes?: number[];
   draw?: { op: string; a: number; b: number };
   showDots?: boolean;
+  silent?: boolean;
+  pictureHelp?: PictureHelp;
+  onFeel?: (feel: "hop" | "slide") => void;
   typed: string;
   answer: string;
   truth?: number;
@@ -1922,11 +1933,42 @@ function AnswerPad({
     onType(`${typed}${key}`);
   }
 
+  if (silent && pictureHelp === "compare-piles") {
+    return (
+      <>
+        <ComparePilesPad
+          answer={answer}
+          draw={draw}
+          resetKey={resetKey}
+          kind={draw?.op === "compare" && draw.b === 0 ? "plank" : "bolt"}
+          onCommit={(value) => onCommit(value)}
+          onFeel={(next) => onFeel?.(next)}
+        />
+        <button className="gk-idk gk-parent-words" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
+  if (silent && pictureHelp === "pattern-gap" && action !== "order") {
+    return (
+      <>
+        <PatternGapPad answer={answer} choices={choices} resetKey={resetKey} onCommit={(value) => onCommit(value)} onFeel={(next) => onFeel?.(next)} />
+        <button className="gk-idk gk-parent-words" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
   if (action === "drag-count") {
     return (
       <>
-        <DragCountPad answer={answer} draw={draw} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
-        <button className="gk-idk" type="button" onClick={onHelp}>
+        {silent && pictureHelp ? (
+          <SilentCountPad answer={answer} draw={draw} help={pictureHelp} resetKey={resetKey} onCommit={(value) => onCommit(value)} onFeel={(next) => onFeel?.(next)} />
+        ) : (
+          <DragCountPad answer={answer} draw={draw} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
+        )}
+        <button className={silent ? "gk-idk gk-parent-words" : "gk-idk"} type="button" onClick={onHelp}>
           I don't know
         </button>
       </>
@@ -2341,13 +2383,8 @@ function RoundMark({ round }: { round: number }) {
   );
 }
 
-function GoatWait() {
-  return (
-    <div className="gk-goat-line">
-      <img src={art("goat-idle.png")} alt="" />
-      <p className="gk-note">The goat waits on the bank.</p>
-    </div>
-  );
+function GoatWait({ hop = false }: { hop?: boolean }) {
+  return <GoatHop hop={hop} />;
 }
 
 function IntroView({ onStart, precut }: { onStart: () => void; precut: boolean }) {

@@ -3,6 +3,7 @@ import { generateSkill, type LadderLayout } from "../ladder/generate";
 import { learnCard } from "../ladder/learn";
 import { ladderStep } from "../ladder/steps";
 import type { PlainDraw } from "../pictures/parts";
+import { isPreReader, pictureHelpFor, silentAction } from "../silent/pre-reader";
 import { curriculumSkill, type CurriculumSkill } from "./index";
 
 export type ChoiceOption = {
@@ -28,26 +29,42 @@ export type SkillItem = {
   layout?: LadderLayout;
 };
 
+function withSilent(item: SkillItem, skillId: string): SkillItem {
+  if (!isPreReader({ skillId, stepId: item.stepId })) {
+    return item;
+  }
+  if (item.choices && item.choices.length > 0) {
+    return { ...item, action: item.action === "order" ? "order" : "tap-choice" };
+  }
+  const help = pictureHelpFor({ skillId, stepId: item.stepId, fact: { kind: "plain", draw: item.draw } });
+  return { ...item, action: silentAction(help, item.action) };
+}
+
 /** One plain question in the curriculum notation form for this skill. */
 export function skillQuestion(skillId: string, seed: number): SkillItem {
   const generated = generateSkill(skillId, seed);
   if (generated) {
-    return {
-      prompt: generated.prompt,
-      answer: generated.answer,
-      steps: generated.steps,
-      why: generated.why,
-      draw: generated.draw ?? { op: "add", a: generated.operands[0] ?? 1, b: generated.operands[1] ?? 0 },
-      stepId: generated.stepId,
-      layout: generated.layout,
-    };
+    const step = ladderStep(skillId);
+    const fallbackOp = step?.op === "S" ? "sub" : "add";
+    return withSilent(
+      {
+        prompt: generated.prompt,
+        answer: generated.answer,
+        steps: generated.steps,
+        why: generated.why,
+        draw: generated.draw ?? { op: fallbackOp, a: generated.operands[0] ?? 1, b: generated.operands[1] ?? 0 },
+        stepId: generated.stepId,
+        layout: generated.layout,
+      },
+      skillId,
+    );
   }
   const skill = curriculumSkill(skillId);
   if (!skill) {
     throw new Error(`Unknown skill ${skillId}`);
   }
   const rng = createRng((seed + 1) * 997 + skill.level * 131 + salt(skillId));
-  return make(skill, rng);
+  return withSilent(make(skill, rng), skill.id);
 }
 
 function salt(id: string): number {

@@ -215,14 +215,6 @@ export function BridgeApp({
     return () => window.clearTimeout(timer);
   }, [session.results, session.stars]);
 
-  useEffect(() => {
-    if (!session.narration) return;
-    const text = document.querySelector("[data-narration]")?.textContent ?? "";
-    if (!text || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-  }, [session.phase, session.beat, session.narration]);
-
   function patch(partial: Partial<Session>) {
     setSession((current) => ({ ...current, ...partial }));
   }

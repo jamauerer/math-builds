@@ -542,15 +542,15 @@ export function kitQuestionTotal(round = 0, short = false): number {
 
 function fromServed(groupId: string, served: ReturnType<typeof serveQuestion>, hint: boolean, mixed = false): EarnQuestion {
   const item = served.item;
-  const skill = item
-    ? {
-        prompt: served.prompt,
-        answer: served.answer,
-        steps: item.steps,
-        why: item.why,
-        draw: item.draw ?? { op: "add" as const, a: item.operands[0] ?? 1, b: item.operands[1] ?? 0 },
-      }
-    : skillQuestion(served.skillId, 1);
+  const skill = skillQuestion(served.skillId, 1);
+  const draw = item?.draw ??
+    (item
+      ? {
+          op: (served.stepId?.startsWith("S") ? "sub" : "add") as "add" | "sub",
+          a: item.operands[0] ?? 1,
+          b: served.stepId === "A4" ? Number(served.answer) : (item.operands[1] ?? 0),
+        }
+      : skill.draw);
   return {
     groupId,
     strandId: served.strandId,
@@ -560,8 +560,10 @@ function fromServed(groupId: string, served: ReturnType<typeof serveQuestion>, h
     stepId: served.stepId,
     mixed,
     hint: hint ? skillHint(skill) : undefined,
-    layout: item?.layout,
-    fact: { kind: "plain", prompt: served.prompt, steps: skill.steps, why: skill.why, draw: skill.draw },
+    layout: item?.layout ?? skill.layout,
+    action: skill.action,
+    sizes: skill.sizes,
+    fact: { kind: "plain", prompt: served.prompt, steps: item?.steps ?? skill.steps, why: item?.why ?? skill.why, draw },
   };
 }
 

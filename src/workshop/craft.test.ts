@@ -8,7 +8,6 @@ import { exportProgress, importProgress } from "../progress/transfer";
 import { blankWorkshop, sanitizeProgress } from "../storage/progress";
 import { createLearnerMap } from "../engine/placement";
 import { awardStars, cameraFrame, featBadges, rankFor, rememberSnapshot, showcaseFor, skinColor, successPlate, weeklyId, xpFor } from "./craft";
-import { playTone } from "./feel";
 import { resultAllowed } from "./scenes";
 
 describe("craft stars and badges", () => {
@@ -77,7 +76,6 @@ describe("snapshots and export", () => {
     expect(resultAllowed(2)).toBe(true);
     expect(cameraFrame("winch", 0.5, "slow").caption).toBe("Slow motion");
     expect(cameraFrame("winch", 1, "result").scale).toBeLessThan(1);
-    expect(playTone(false, "success")).toBe(false);
     expect(successPlate("gears", { load: 20 }, [{ label: "Crank force", value: "6.67" }])).toContain("20 kg");
     expect(weeklyId(["gears-l04-a", "gears-l05-a"], 0)).toBe("gears-l04-a");
   });
