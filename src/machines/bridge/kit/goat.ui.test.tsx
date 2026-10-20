@@ -454,4 +454,147 @@ describe("goat bridge screens", () => {
     root.unmount();
     container.remove();
   });
+
+  it.each([300, 380] as const)("keeps tray rows inside %s px with stamp or cut field", async (width) => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const css = readFileSync(resolve("src/machines/bridge/kit/goat.css"), "utf8");
+    expect(css).toMatch(/\.gk-row-copy b[\s\S]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.gk-row-copy span[\s\S]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.gk-place[\s\S]*grid-column:\s*-1/);
+    expect(css).toMatch(/\.gk-row[\s\S]*grid-template-columns:\s*64px minmax\(0, 1fr\)/);
+
+    const container = document.createElement("div");
+    container.style.width = `${width}px`;
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          guideMode="off"
+          kitProfile={{ ...placedProfile, built: true, levels: { ...placedProfile.levels, measuring: 2 } }}
+        />,
+      );
+    });
+    const panel = container.querySelector("[data-drag]") as HTMLElement;
+    panel.style.width = `${width}px`;
+    const rows = [...panel.querySelectorAll(".gk-row")] as HTMLElement[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      row.style.width = `${width}px`;
+      row.style.maxWidth = `${width}px`;
+      row.style.boxSizing = "border-box";
+      const copy = row.querySelector(".gk-row-copy");
+      expect(copy?.querySelector("b")).toBeTruthy();
+      expect(copy?.querySelector(":scope > span")).toBeTruthy();
+      const place = row.querySelector(".gk-place") as HTMLElement | null;
+      if (place) {
+        expect(row.contains(place)).toBe(true);
+      }
+      const stamp = row.querySelector(".gk-stamp");
+      if (stamp) {
+        expect(row.querySelector(".gk-thumb")?.contains(stamp)).toBe(true);
+        expect(stamp.textContent).toMatch(/\d+\s*(ft|m)/);
+      }
+    }
+    expect(panel.querySelector(".gk-stamp")?.textContent).toMatch(/\d/);
+    expect(container.textContent).toContain("Pieces come cut to size. Put each one on its dotted line.");
+    root.unmount();
+    container.remove();
+
+    const cutBox = document.createElement("div");
+    cutBox.style.width = `${width}px`;
+    document.body.appendChild(cutBox);
+    const cutRoot = createRoot(cutBox);
+    await act(async () => {
+      cutRoot.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={5}
+          guideMode="off"
+          kitProfile={{ ...placedProfile, built: true }}
+        />,
+      );
+    });
+    const cutPanel = cutBox.querySelector("[data-drag]") as HTMLElement;
+    cutPanel.style.width = `${width}px`;
+    const cutRow = [...cutPanel.querySelectorAll(".gk-row")].find((row) => row.querySelector('input[aria-label="Bottom beam length"]')) as HTMLElement;
+    expect(cutRow).toBeTruthy();
+    cutRow.style.width = `${width}px`;
+    cutRow.style.maxWidth = `${width}px`;
+    cutRow.style.boxSizing = "border-box";
+    const cutField = cutRow.querySelector(".gk-cut") as HTMLElement;
+    expect(cutField.querySelector(".gk-unit")?.textContent).toBe("ft");
+    const input = cutField.querySelector("input.gk-len") as HTMLInputElement;
+    expect(input).toBeTruthy();
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    await act(async () => {
+      setValue?.call(input, "4");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const cutPlace = cutRow.querySelector(".gk-place") as HTMLElement;
+    expect(cutRow.contains(cutField)).toBe(true);
+    expect(cutRow.contains(cutPlace)).toBe(true);
+    expect(cutPlace.textContent).toBe("Place");
+    const kids = [...cutRow.children];
+    expect(kids.indexOf(cutField)).toBeLessThan(kids.indexOf(cutPlace));
+    cutRoot.unmount();
+    cutBox.remove();
+  });
+
+  it("names pre-cut mode on the intro card and parent profile", async () => {
+    const intro = document.createElement("div");
+    document.body.appendChild(intro);
+    const introRoot = createRoot(intro);
+    await act(async () => {
+      introRoot.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="intro"
+          level={2}
+          kitProfile={{ ...placedProfile, levels: { ...placedProfile.levels, measuring: 2 }, seenIntro: false }}
+        />,
+      );
+    });
+    expect(intro.querySelector("[data-precut]")?.textContent).toBe("Your pieces come already cut. You will cut them yourself later.");
+    introRoot.unmount();
+    intro.remove();
+
+    const profile = document.createElement("div");
+    document.body.appendChild(profile);
+    const profileRoot = createRoot(profile);
+    await act(async () => {
+      profileRoot.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="profile"
+          kitProfile={{ ...placedProfile, levels: { ...placedProfile.levels, measuring: 2 } }}
+        />,
+      );
+    });
+    expect(profile.querySelector("[data-cut-mode]")?.textContent).toContain("Pre-cut pieces");
+    expect(profile.querySelector("[data-cut-mode]")?.textContent).toContain("measuring level 2");
+    profileRoot.unmount();
+    profile.remove();
+  });
 });

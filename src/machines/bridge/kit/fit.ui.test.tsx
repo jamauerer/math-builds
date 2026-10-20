@@ -150,7 +150,7 @@ describe("learner screens fit a tablet", () => {
     const tray = container.querySelector("[data-drag]") as HTMLElement;
     expect(tray.textContent).toContain("Place");
     expect(tray.textContent).not.toContain("on the bridge");
-    expect(container.textContent).toContain("Put every piece on its dotted line.");
+    expect(container.textContent).toContain("Pieces come cut to size. Put each one on its dotted line.");
     expect(container.textContent).toContain("Test");
     expect(container.textContent).not.toContain("Drive");
     view.unmount();

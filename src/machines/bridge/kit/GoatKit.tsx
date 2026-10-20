@@ -879,7 +879,13 @@ export function GoatKit({
             </button>
             <div>
               <div className="gk-title">The Goat Bridge</div>
-              <div className="gk-sub">{stage === "assemble" ? (cut ? "Every piece needs a number." : "Put every piece on its dotted line.") : subtitle(stage)}</div>
+              <div className="gk-sub">
+                {stage === "assemble"
+                  ? cut
+                    ? "Every piece needs a number."
+                    : "Pieces come cut to size. Put each one on its dotted line."
+                  : subtitle(stage)}
+              </div>
             </div>
             <div className="gk-chips">
               {(["pick", "earn", "assemble", "drive"] as const).map((chip) => (
@@ -915,6 +921,7 @@ export function GoatKit({
           </header>
           {stage === "intro" ? (
             <IntroView
+              precut={!cut}
               onStart={() => {
                 resetKit();
                 setStage("earn");
@@ -1045,7 +1052,7 @@ function subtitle(stage: Stage): string {
     return "Every right answer earns a piece.";
   }
   if (stage === "assemble") {
-    return "Put every piece on its dotted line.";
+    return "Pieces come cut to size. Put each one on its dotted line.";
   }
   if (stage === "drive") {
     return "Send the goat.";
@@ -1831,12 +1838,13 @@ function GoatWait() {
   );
 }
 
-function IntroView({ onStart }: { onStart: () => void }) {
+function IntroView({ onStart, precut }: { onStart: () => void; precut: boolean }) {
   return (
     <div className="gk-intro">
       <BridgeScene placed={{}} lengths={{}} goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }} />
       <div className="gk-intro-card">
         <p>{queenPost.intro}</p>
+        {precut ? <p data-precut="">Your pieces come already cut. You will cut them yourself later.</p> : null}
         <button className="gk-check" type="button" onClick={onStart}>
           Start
         </button>
@@ -2183,18 +2191,7 @@ function AssembleView({
       : id === "gussets"
         ? gussetSlots().every((slot) => placed[slot.id]) || Boolean(placed.gussets)
         : Boolean(placed[id]);
-  const canPlace = (id: string) => {
-    if (rowDone(id)) {
-      return false;
-    }
-    if (id === "planks" || id === "gussets" || id === "bolts" || id === "rails") {
-      return !cut || id !== "planks" || Boolean(Number(lengths.planks));
-    }
-    if (!cut) {
-      return true;
-    }
-    return Boolean(Number(lengths[id]));
-  };
+  const canPlace = (id: string) => !rowDone(id);
   const ordered = [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b)));
   const pulseId = ordered.find((id) => canPlace(id)) ?? null;
   const laid = plankSlots().filter((slot) => placed[slot.id]).length;
@@ -2290,28 +2287,31 @@ function AssembleView({
                   onTap("planks");
                 }}
               >
-                <img src={art("plank-side.png")} alt="" />
-                <div>
-                  <b>8 planks, {formatLength(1)} each</b>
+                <span className="gk-thumb">
+                  <img src={art("plank-side.png")} alt="" />
+                  {!cut ? <em className="gk-stamp">{formatLength(1)}</em> : null}
+                </span>
+                <div className="gk-row-copy">
+                  <b>8 planks</b>
                   <span>{laid === 8 ? "on the bridge" : "in the tray"}</span>
                 </div>
                 {cut ? (
-                  <input
-                    className={lengths.planks ? "gk-len" : "gk-len empty"}
-                    aria-label="Plank length"
-                    value={lengths.planks ?? ""}
-                    placeholder="?"
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        onLay();
-                      }
-                    }}
-                    onChange={(event) => onLength("planks", event.target.value)}
-                  />
-                ) : (
-                  <span className="gk-printed">{formatLength(1)}</span>
-                )}
+                  <label className="gk-cut" onPointerDown={(event) => event.stopPropagation()}>
+                    <input
+                      className={lengths.planks ? "gk-len" : "gk-len empty"}
+                      aria-label="Plank length"
+                      value={lengths.planks ?? ""}
+                      placeholder="?"
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          onLay();
+                        }
+                      }}
+                      onChange={(event) => onLength("planks", event.target.value)}
+                    />
+                    <span className="gk-unit">{lengthAbbrev()}</span>
+                  </label>
+                ) : null}
                 {canPlace("planks") ? (
                   <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onLay()}>
                     Lay planks
@@ -2324,6 +2324,7 @@ function AssembleView({
           const group = queenPost.groups.find((item) => item.id === (slot?.group ?? id));
           const sprite = slot?.sprite ?? group?.sprite ?? "beam-side.png";
           const name = id === "gussets" ? "Gusset plate ×5" : id === "bolts" ? "Bolts ×10" : id === "rails" ? "Railing ×2" : slot?.name;
+          const stamp = !cut && slot && slot.length != null && !slot.bonus ? formatLength(slot.length) : null;
           const rowFocus = focus === id || (id === "gussets" && focus?.startsWith("gusset"));
           return (
             <div
@@ -2359,27 +2360,30 @@ function AssembleView({
                 onTrayUpSafe(event, id, placed, onUp);
               }}
             >
-              <img src={art(sprite)} alt="" />
-              <div>
+              <span className="gk-thumb">
+                <img src={art(sprite)} alt="" />
+                {stamp ? <em className="gk-stamp">{stamp}</em> : null}
+              </span>
+              <div className="gk-row-copy">
                 <b>{name}</b>
                 <span>{rowDone(id) ? "on the bridge" : "in the tray"}</span>
               </div>
               {cut && slot && slot.length != null && !slot.bonus ? (
-                <input
-                  className={lengths[id] ? "gk-len" : "gk-len empty"}
-                  aria-label={`${name} length`}
-                  value={lengths[id] ?? ""}
-                  placeholder="?"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      onTap(id);
-                    }
-                  }}
-                  onChange={(event) => onLength(id, event.target.value)}
-                />
-              ) : !cut && slot && slot.length != null && !slot.bonus ? (
-                <span className="gk-printed">{formatLength(slot.length)}</span>
+                <label className="gk-cut" onPointerDown={(event) => event.stopPropagation()}>
+                  <input
+                    className={lengths[id] ? "gk-len" : "gk-len empty"}
+                    aria-label={`${name} length`}
+                    value={lengths[id] ?? ""}
+                    placeholder="?"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        onTap(id);
+                      }
+                    }}
+                    onChange={(event) => onLength(id, event.target.value)}
+                  />
+                  <span className="gk-unit">{lengthAbbrev()}</span>
+                </label>
               ) : null}
               {canPlace(id) ? (
                 <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap(id)}>
@@ -3082,6 +3086,11 @@ function ProfileView({
         <p className="gk-sub">Marks never move these. Only answers do.</p>
         <p className="gk-sub" data-grade-system={gradeSystem}>
           Using {gradeSystemLabel(gradeSystem)}.
+        </p>
+        <p className="gk-sub" data-cut-mode="">
+          {preCut(profile.levels.measuring ?? 1)
+            ? `Pre-cut pieces (measuring level ${profile.levels.measuring ?? 1}). Lengths are stamped on each piece until measuring reaches level 4.`
+            : `Cut it yourself (measuring level ${profile.levels.measuring ?? 1}). Type each length before you place the piece.`}
         </p>
         {profile.notes.filter((note) => !/level\s+\d/i.test(note)).map((note) => (
           <p className="gk-note" key={note} data-log="level">

@@ -563,14 +563,23 @@
 }
 
 .gk-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 12px;
+  column-gap: 8px;
   border: 1.5px solid #e6e2da;
   background: #f6f4f0;
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   min-height: 64px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.gk-row:not(:has(.gk-cut)) {
+  grid-template-columns: 64px minmax(0, 1fr) auto;
 }
 
 .gk-row.earned {
@@ -585,13 +594,17 @@
 }
 
 .gk-place {
-  margin-left: auto;
+  grid-column: -1;
+  justify-self: end;
+  margin-left: 0;
   height: 36px;
-  padding: 0 14px;
+  padding: 0 10px;
   border-radius: 10px;
   border: 1.5px solid #22201c;
   background: #fff;
   font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
 @keyframes gk-row-pulse {
@@ -612,20 +625,80 @@
   filter: grayscale(1);
 }
 
-.gk-row img {
-  width: 92px;
-  height: 42px;
-  object-fit: contain;
+.gk-thumb {
+  position: relative;
+  width: 64px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.gk-thumb img,
+.gk-row img {
+  width: 64px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.gk-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  margin: 0;
+  padding: 1px 4px;
+  border: 2px solid #22201c;
+  border-radius: 3px;
+  background: rgba(255, 250, 242, 0.92);
+  color: #22201c;
+  font-family: Fraunces, serif;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 1px 1px 0 #22201c;
+}
+
+.gk-row-copy {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gk-row-copy b,
 .gk-row b {
   display: block;
   font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.gk-row span {
+.gk-row-copy span,
+.gk-row .gk-row-copy > span {
+  display: block;
   color: #6b6459;
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gk-cut {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.gk-unit {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5a5348;
+  white-space: nowrap;
 }
 
 .gk-ok {
@@ -1462,10 +1535,25 @@
 }
 
 .gk-printed {
-  margin-left: auto;
-  font-family: Caveat, cursive;
-  font-size: 28px;
-  color: #22201c;
+  display: none;
+}
+
+.gk-len {
+  width: 36px;
+  min-width: 36px;
+  height: 34px;
+  border-radius: 8px;
+  border: 2px solid #f2b544;
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.gk-len.empty {
+  border-style: dashed;
+  border-color: #b9b2a6;
+  color: #b9b2a6;
 }
 
 .gk-check-card {
@@ -1556,22 +1644,6 @@
 .gk-caption {
   font-size: 13px;
   color: #6b6459;
-}
-
-.gk-len {
-  min-width: 54px;
-  height: 36px;
-  border-radius: 8px;
-  border: 2px solid #f2b544;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.gk-len.empty {
-  border-style: dashed;
-  border-color: #b9b2a6;
-  color: #b9b2a6;
 }
 
 .gk-load {
