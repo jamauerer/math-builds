@@ -8,10 +8,16 @@ export function algebraPicture(draw: PlainDraw): Drawn {
       picture: slice(["top", "bottom-a", "bottom-b", "post-a", "post-b"], [labelAt("top", String(draw.a), -24)]),
     };
   }
-  if (draw.op === "line") {
+  if (draw.mark === "line") {
     return {
-      caption: "What is y?",
-      picture: slice(["gusset-n2", "gusset-n4", "gusset-n6"], [labelAt("bottom-a", String(draw.a), -36), labelAt("bottom-b", String(draw.b), -36)]),
+      caption: "",
+      picture: {
+        banks: false,
+        ruler: false,
+        bits: [],
+        labels: [],
+        figure: { kind: "line", rise: draw.a, run: Math.max(1, draw.b) },
+      },
     };
   }
   return {

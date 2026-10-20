@@ -58,6 +58,10 @@ describe("picture sense", () => {
 
     expect(pictures.length).toBeGreaterThan(0);
     for (const picture of pictures) {
+      expect(picture.bits.length > 0 || Boolean(picture.figure) || Boolean(picture.tape)).toBe(true);
+      if (picture.figure || (picture.tape && picture.bits.length === 0)) {
+        continue;
+      }
       expect(picture.bits.length).toBeGreaterThan(0);
       const ids = picture.bits.map((bit) => bit.slot);
       expect(new Set(ids).size).toBe(ids.length);

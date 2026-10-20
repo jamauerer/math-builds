@@ -7,6 +7,7 @@ import { geometryPicture } from "./geometry";
 import { measuringPicture } from "./measuring";
 import { multiplyingPicture } from "./multiplying";
 import { ratiosPicture } from "./ratios";
+import { pictureHasInk } from "./need";
 import type { Drawn, PictureLabel, PlainDraw } from "./parts";
 
 const generators: Record<string, (draw: PlainDraw) => Drawn> = {
@@ -24,8 +25,14 @@ const generators: Record<string, (draw: PlainDraw) => Drawn> = {
 export function drawPlain(strandId: string, draw: PlainDraw, answer: string): Drawn | null {
   const make = generators[strandId] ?? generators.algebra;
   const drawn = make(draw);
-  if (drawn.picture.bits.length === 0) {
+  if (!pictureHasInk(drawn.picture)) {
     return null;
+  }
+  if (drawn.picture.figure || (drawn.picture.tape && drawn.picture.bits.length === 0)) {
+    return drawn;
+  }
+  if (drawn.picture.bits.some((bit) => bit.mark) && drawn.picture.labels.length === 0) {
+    return drawn;
   }
   const token = answer.replace(/^-/, "");
   if (token.length > 0 && drawn.caption.split(/[^0-9.]+/).includes(token)) {

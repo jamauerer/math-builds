@@ -175,6 +175,14 @@
   filter: sepia(0.7) saturate(6) hue-rotate(350deg);
 }
 
+.gk-figure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 520px;
+  height: 180px;
+}
+
 .gk-qstage {
   position: absolute;
   left: 0;

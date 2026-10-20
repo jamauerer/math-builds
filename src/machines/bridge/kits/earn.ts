@@ -1,12 +1,13 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
-import { skillHint, skillQuestion, type ActionKind, type ChoiceOption } from "../../../skills/generate";
+import { pictureTemplate, promptNeedsPicture, skillHint, skillQuestion, type ActionKind, type ChoiceOption } from "../../../skills/generate";
 import { skillExplain } from "../../../skills/explain";
-import { curriculumSkill } from "../../../skills";
+import { CURRICULUM_SKILLS, curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
 import { labelAt, pictureSlot, slice } from "../../../pictures/layout";
-import { pictureAgrees } from "../../../pictures/check";
+import { choicesMatchPicture, pictureAgrees } from "../../../pictures/check";
+import { pictureHasInk } from "../../../pictures/need";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
 import { fitLevels, KIT_STRANDS, strandName, type GradeChoice } from "../../../engine/strand-placement";
@@ -17,7 +18,7 @@ import { tapeOnPosts } from "../../../pictures/tape";
 import type { LadderLayout } from "../../../ladder/generate";
 import { parseStackSpec } from "../../../ladder/stack";
 import { questionAboveCap, serveQuestion, type ServedKind } from "../../../ladder/serve";
-import { DOT_STEPS, ladderStep, strandAllowed } from "../../../ladder/steps";
+import { DOT_STEPS, gradeNumber, ladderStep, strandAllowed } from "../../../ladder/steps";
 import { wordAllowed, wordPrompt } from "../../../ladder/word";
 import {
   beginSession,
@@ -85,6 +86,8 @@ export type EarnQuestion = {
   sizes?: number[];
   stepId?: string;
   layout?: LadderLayout;
+  needsPicture?: boolean;
+  template?: string;
 };
 
 export type EarnState = {
@@ -368,7 +371,10 @@ export function earnPicture(question: EarnQuestion): EarnPicture | null {
     });
     picture = null;
   }
-  if (!picture || !wantsTape(question)) {
+  if (!picture || picture.figure || picture.tape) {
+    return picture;
+  }
+  if (!wantsTape(question)) {
     return picture;
   }
   return { ...picture, ruler: true, tape: tapeOnPosts(picture.bits, tapeMarks(question)) };
@@ -503,18 +509,28 @@ export function speedLine(totalMs: number, previousMs: number | null): string | 
 
 function wordFor(group: KitGroup, level: number, skillId: string | undefined, grade: GradeChoice | null, seed: number, book?: SkillBook): EarnQuestion {
   const id = skillId ?? currentSkill(book ?? skillsFromLevels(null), group.strand, level).id;
+  const finish = (question: EarnQuestion) => {
+    const ready = readyServedQuestion(question);
+    if (ready) {
+      return ready;
+    }
+    if (questionNeedsPicture(question)) {
+      return fromServed(group.id, serveQuestion({ grade, seed, kind: "run" }), false);
+    }
+    return question;
+  };
   if (book && !wordAllowed(book.skills[id]?.state)) {
-    return fromServed(group.id, serveQuestion({ grade, skillId: id, seed, kind: "run" }), false);
+    return finish(fromServed(group.id, serveQuestion({ grade, skillId: id, seed, kind: "run" }), false));
   }
   if (ladderStep(id)) {
     const served = serveQuestion({ grade, skillId: id, seed, kind: "word" });
     if (served.item) {
       const sentence = wordPrompt(served.item);
-      return {
+      return finish({
         ...fromServed(group.id, served, false),
         word: sentence,
         fact: { kind: "plain", prompt: sentence, steps: served.item.steps, why: served.item.why, draw: served.item.draw },
-      };
+      });
     }
   }
   const piece = pieceQuestion(group.id, level);
@@ -529,16 +545,16 @@ function wordFor(group: KitGroup, level: number, skillId: string | undefined, gr
   });
   if (group.id !== "planks" && guarded.item) {
     const sentence = wordPrompt(guarded.item);
-    return {
+    return finish({
       ...fromServed(group.id, guarded, false),
       word: sentence,
       fact: { kind: "plain", prompt: sentence, steps: guarded.item.steps, why: guarded.item.why, draw: guarded.item.draw },
-    };
+    });
   }
   if (group.id !== "planks" && guarded.skillId !== (piece.skillId ?? id)) {
-    return fromServed(group.id, guarded, false);
+    return finish(fromServed(group.id, guarded, false));
   }
-  return {
+  return finish({
     groupId: group.id,
     strandId: (piece.skillId ?? id).split(".")[0] ?? group.strand,
     level,
@@ -546,7 +562,7 @@ function wordFor(group: KitGroup, level: number, skillId: string | undefined, gr
     answer: piece.answer,
     word: piece.prompt,
     fact: { kind: "piece", prompt: piece.prompt, answer: piece.answer, used: piece.used, slots: piece.slots },
-  };
+  });
 }
 
 export function roundQuestionTotal(round = 0, short = false): number {
@@ -582,11 +598,13 @@ function fromServed(groupId: string, served: ReturnType<typeof serveQuestion>, h
     layout: item?.layout ?? skill.layout,
     action: skill.action,
     sizes: skill.sizes,
+    needsPicture: skill.needsPicture || promptNeedsPicture(served.prompt),
+    template: skill.template,
     fact: { kind: "plain", prompt: served.prompt, steps: item?.steps ?? skill.steps, why: item?.why ?? skill.why, draw },
   };
 }
 
-function slotQuestion(
+function rawSlotQuestion(
   groupId: string,
   slot: { skillId: string; strandId: string; level: number; mixed?: boolean },
   seed: number,
@@ -623,6 +641,8 @@ function slotQuestion(
       choices: fromSkill.choices,
       action: fromSkill.action,
       sizes: fromSkill.sizes,
+      needsPicture: fromSkill.needsPicture,
+      template: fromSkill.template,
       fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
     };
   }
@@ -648,8 +668,84 @@ function slotQuestion(
     skillId: slot.skillId,
     mixed: slot.mixed === true,
     hint: hint ? skillHint(fromSkill) : undefined,
+    needsPicture: promptNeedsPicture(fromSkill.prompt),
     fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
   };
+}
+
+function slotQuestion(
+  groupId: string,
+  slot: { skillId: string; strandId: string; level: number; mixed?: boolean },
+  seed: number,
+  hint: boolean,
+  grade: GradeChoice | null = 13,
+  kind: ServedKind = "run",
+): EarnQuestion {
+  return readyOrReplace(rawSlotQuestion(groupId, slot, seed, hint, grade, kind), groupId, slot, seed, hint, grade, kind);
+}
+
+export function questionNeedsPicture(question: EarnQuestion): boolean {
+  return question.needsPicture === true || promptNeedsPicture(earnPrompt(question));
+}
+
+function attachQuestionPicture(question: EarnQuestion): EarnQuestion {
+  if (question.word) {
+    return question;
+  }
+  if (question.picture && pictureHasInk(question.picture)) {
+    return question;
+  }
+  if (question.fact.kind !== "plain" || !question.fact.draw) {
+    return question;
+  }
+  const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
+  if (!drawn || !pictureHasInk(drawn.picture)) {
+    return question;
+  }
+  return { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
+}
+
+export function readyServedQuestion(question: EarnQuestion): EarnQuestion | null {
+  const attached = attachQuestionPicture(question);
+  const picture = earnPicture(attached);
+  const needs = questionNeedsPicture(question);
+  if (needs) {
+    if (!picture || !pictureHasInk(picture) || !pictureAgrees(earnPrompt(attached), attached.answer, picture)) {
+      return null;
+    }
+    if (!choicesMatchPicture(attached.choices, picture)) {
+      return null;
+    }
+    return { ...attached, picture, needsPicture: true };
+  }
+  if (picture && pictureHasInk(picture) && pictureAgrees(earnPrompt(attached), attached.answer, picture)) {
+    return { ...attached, picture, needsPicture: false };
+  }
+  return { ...attached, picture: undefined, needsPicture: false };
+}
+
+function readyOrReplace(
+  question: EarnQuestion,
+  groupId: string,
+  slot: { skillId: string; strandId: string; level: number; mixed?: boolean },
+  seed: number,
+  hint: boolean,
+  grade: GradeChoice | null,
+  kind: ServedKind,
+): EarnQuestion {
+  const ready = readyServedQuestion(question);
+  if (ready) {
+    return ready;
+  }
+  if (question.skillId && curriculumSkill(question.skillId) && !ladderStep(question.skillId)) {
+    for (let extra = 1; extra <= 20; extra += 1) {
+      const next = readyServedQuestion(rawSlotQuestion(groupId, slot, seed + extra * 31, hint, grade, kind));
+      if (next && (next.skillId === question.skillId || !questionNeedsPicture(next))) {
+        return next;
+      }
+    }
+  }
+  return fromServed(groupId, serveQuestion({ grade, seed: seed + 101, kind: "run" }), hint, slot.mixed === true);
 }
 
 type GuardContext = {
@@ -747,6 +843,9 @@ function takePlan(
 }
 
 function picturedStrand(question: EarnQuestion): boolean {
+  if (questionNeedsPicture(question)) {
+    return true;
+  }
   if (question.word) {
     return false;
   }
@@ -770,11 +869,14 @@ function picturedStrand(question: EarnQuestion): boolean {
 }
 
 function withPicture(question: EarnQuestion): EarnQuestion {
+  if (questionNeedsPicture(question)) {
+    return readyServedQuestion(question) ?? question;
+  }
   if (!picturedStrand(question) || question.fact.kind !== "plain" || !question.fact.draw) {
     return question;
   }
   const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
-  if (!drawn || drawn.picture.bits.length === 0) {
+  if (!drawn || !pictureHasInk(drawn.picture)) {
     return question;
   }
   if (!pictureAgrees(question.fact.prompt, question.answer, drawn.picture)) {
@@ -906,7 +1008,7 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   const seenPrompt = new Set<string>();
   const questions = [plan.current, ...plan.upcoming].map((question, index) => {
     const mask = pictureMask(plan.upcoming.length + 1, state.seed + groupIndex);
-    const drawn = mask[index] ? withPicture(question) : question;
+    const drawn = questionNeedsPicture(question) ? question : mask[index] ? withPicture(question) : question;
     const line = earnPrompt(drawn);
     if (drawn.picture && seenPrompt.has(line)) {
       seenPrompt.add(earnPrompt(question));
@@ -1573,13 +1675,12 @@ export function skillHold(skillId: string, seed = 3): EarnState {
     sizes: item.sizes,
     fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
   };
-  question = withPicture(question);
-  if (!question.picture && item.draw && (item.draw.op === "angle" || item.draw.op === "hyp")) {
-    const drawn = drawPlain(skill.strandId, item.draw, item.answer);
-    if (drawn?.picture.bits.length) {
-      question = { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
-    }
-  }
+  question = {
+    ...question,
+    needsPicture: item.needsPicture,
+    template: item.template,
+  };
+  question = readyServedQuestion(question) ?? withPicture(question);
   return {
     ...base,
     groupIndex,
@@ -1589,6 +1690,50 @@ export function skillHold(skillId: string, seed = 3): EarnState {
     upcoming: [],
     runGot: 1,
   };
+}
+
+/** One question a learner at this grade might be served. */
+export function serveGradeQuestion(grade: number, seed: number): EarnQuestion {
+  const cap = gradeNumber(grade) + 2;
+  const skills = CURRICULUM_SKILLS.filter((skill) => skill.level <= cap && strandAllowed(skill.strandId, grade));
+  const skill = skills[Math.abs(seed) % Math.max(skills.length, 1)];
+  if (!skill) {
+    return fromServed("bottom", serveQuestion({ grade, seed, kind: "run" }), false);
+  }
+  const groupId = queenPost.groups.find((group) => group.strand === skill.strandId)?.id ?? "bottom";
+  return slotQuestion(groupId, { skillId: skill.id, strandId: skill.strandId, level: skill.level }, seed, false, grade, "run");
+}
+
+export type PictureTemplateHold = {
+  id: string;
+  skillId: string;
+  prompt: string;
+  question: EarnQuestion;
+};
+
+/** One served example of every needsPicture template. */
+export function listPictureTemplates(): PictureTemplateHold[] {
+  const seen = new Set<string>();
+  const found: PictureTemplateHold[] = [];
+  for (const skill of CURRICULUM_SKILLS) {
+    for (const seed of [1, 2, 3, 4, 5, 8, 11, 17]) {
+      const item = skillQuestion(skill.id, seed);
+      if (!item.needsPicture) {
+        continue;
+      }
+      const id = item.template ?? pictureTemplate(item.prompt, item.draw);
+      if (seen.has(id)) {
+        continue;
+      }
+      const held = skillHold(skill.id, seed);
+      if (!held.current.picture || !pictureHasInk(held.current.picture)) {
+        continue;
+      }
+      seen.add(id);
+      found.push({ id, skillId: skill.id, prompt: earnPrompt(held.current), question: held.current });
+    }
+  }
+  return found;
 }
 
 export function stackHold(spec: string): EarnState {

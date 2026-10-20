@@ -131,12 +131,14 @@ export function serveQuestion(input: {
 
 export function servedToSkillItem(served: ServedQuestion): SkillItem {
   const item = served.item;
+  const prompt = served.prompt;
   return {
-    prompt: served.prompt,
+    prompt,
     answer: served.answer,
     steps: item?.steps ?? ["Use the numbers."],
     why: item?.why ?? "Ladder step.",
     draw: item?.draw ?? { op: "add", a: 1, b: 1 },
+    needsPicture: false,
   };
 }
 

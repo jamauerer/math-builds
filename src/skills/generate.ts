@@ -2,9 +2,12 @@ import { createRng, intBetween, pick, shuffle, type Rng } from "../engine/rng";
 import { generateSkill, type LadderLayout } from "../ladder/generate";
 import { learnCard } from "../ladder/learn";
 import { ladderStep } from "../ladder/steps";
+import { promptNeedsPicture } from "../pictures/need";
 import type { PlainDraw } from "../pictures/parts";
 import { isPreReader, pictureHelpFor, silentAction } from "../silent/pre-reader";
 import { curriculumSkill, type CurriculumSkill } from "./index";
+
+export { promptNeedsPicture };
 
 export type ChoiceOption = {
   value: string;
@@ -27,6 +30,8 @@ export type SkillItem = {
   sizes?: number[];
   stepId?: string;
   layout?: LadderLayout;
+  needsPicture: boolean;
+  template?: string;
 };
 
 function withSilent(item: SkillItem, skillId: string): SkillItem {
@@ -55,6 +60,7 @@ export function skillQuestion(skillId: string, seed: number): SkillItem {
         draw: generated.draw ?? { op: fallbackOp, a: generated.operands[0] ?? 1, b: generated.operands[1] ?? 0 },
         stepId: generated.stepId,
         layout: generated.layout,
+        needsPicture: promptNeedsPicture(generated.prompt),
       },
       skillId,
     );
@@ -71,10 +77,20 @@ function salt(id: string): number {
   return id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
 }
 
-function item(prompt: string, answer: number | string, steps: string[], why: string, draw: PlainDraw, choices?: ChoiceOption[]): SkillItem {
+function item(
+  prompt: string,
+  answer: number | string,
+  steps: string[],
+  why: string,
+  draw: PlainDraw,
+  choices?: ChoiceOption[],
+  needsPicture?: boolean,
+  template?: string,
+): SkillItem {
   const numeric = typeof answer === "number" ? answer : Number(answer);
   const whole = Number.isFinite(numeric) && Math.abs(numeric - Math.round(numeric)) < 1e-9;
   const shown = whole || !Number.isFinite(numeric) ? String(answer) : (Math.round(numeric * 10) / 10).toFixed(1);
+  const pictured = needsPicture ?? promptNeedsPicture(prompt);
   return {
     prompt,
     answer: shown,
@@ -84,7 +100,52 @@ function item(prompt: string, answer: number | string, steps: string[], why: str
     truth: whole || !Number.isFinite(numeric) ? undefined : numeric,
     choices,
     action: choices && choices.length > 0 ? "tap-choice" : "keypad",
+    needsPicture: pictured,
+    template: pictured ? (template ?? pictureTemplate(prompt, draw)) : undefined,
   };
+}
+
+export function pictureTemplate(prompt: string, draw: PlainDraw): string {
+  if (draw.mark === "ABC") {
+    return "tape-where";
+  }
+  if (draw.mark === "one") {
+    return "tape-mark";
+  }
+  if (draw.mark === "tape") {
+    return "tape-length";
+  }
+  if (draw.mark === "line") {
+    return "line-slope";
+  }
+  if (draw.op === "angle" && draw.a >= 10) {
+    return "angle-name";
+  }
+  if (draw.op === "angle") {
+    return /corner|side/i.test(prompt) ? "shape-corners" : "shape-name";
+  }
+  if (/on the tape/i.test(prompt) && /where is/i.test(prompt)) {
+    return "tape-where";
+  }
+  if (/on the tape/i.test(prompt) && /fraction/i.test(prompt)) {
+    return "tape-mark";
+  }
+  if (/on the tape/i.test(prompt)) {
+    return "tape-length";
+  }
+  if (/this angle|the angle/i.test(prompt)) {
+    return "angle-name";
+  }
+  if (/this shape|the shape/i.test(prompt)) {
+    return "shape-name";
+  }
+  if (/slope of this line/i.test(prompt)) {
+    return "line-slope";
+  }
+  if (/colored/i.test(prompt)) {
+    return "part-colored";
+  }
+  return "picture";
 }
 
 function choice(prompt: string, answer: string, steps: string[], why: string, draw: PlainDraw, options: ChoiceOption[], rng: Rng): SkillItem {
@@ -221,7 +282,32 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     );
   }
   if (id.includes("fractions.4.unit") || (id.includes("unit") && id.includes("fractions"))) {
-    return choice(`Where is 1/4 on the tape?`, "1/4", [`Find the mark on the tape.`], why, { op: "frac", a: 1, b: 4, c: 4 }, [labelOpt("1/4"), labelOpt("1/2"), labelOpt("3/4")], rng);
+    const spots = [
+      { letter: "A", n: 1, d: 4 },
+      { letter: "B", n: 1, d: 2 },
+      { letter: "C", n: 3, d: 4 },
+    ] as const;
+    const target = pick(rng, spots);
+    if (intBetween(rng, 0, 1) === 0) {
+      return choice(
+        `Where is ${target.n}/${target.d} on the tape?`,
+        target.letter,
+        [`Find the mark on the tape.`],
+        why,
+        { op: "frac", a: target.n, b: target.d, c: 4, mark: "ABC" },
+        spots.map((spot) => labelOpt(spot.letter)),
+        rng,
+      );
+    }
+    return choice(
+      `What fraction is marked on the tape?`,
+      `${target.n}/${target.d}`,
+      [`Read the mark on the tape.`],
+      why,
+      { op: "frac", a: target.n, b: target.d, c: 4, mark: "one" },
+      spots.map((spot) => labelOpt(`${spot.n}/${spot.d}`)),
+      rng,
+    );
   }
   if (id.includes("fractions.4.compare")) {
     return choice(`Which is bigger, 2/3 or 3/5?`, "2/3", [`Compare carefully.`], why, { op: "frac", a: 2, b: 3, c: 5 }, [labelOpt("2/3"), labelOpt("3/5")], rng);
@@ -246,20 +332,22 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], why, { op: "add", a: 45, b: 35 }, [labelOpt("3:20"), labelOpt("3:15"), labelOpt("2:80")], rng);
   }
   if (id.includes("angles") && id.includes("measuring")) {
-    return choice(`What angle is the brace?`, "acute", [`Compare it to a square corner.`], why, { op: "angle", a: 45, b: 90 }, [labelOpt("acute"), labelOpt("right"), labelOpt("obtuse")], rng);
+    return choice(`What is this angle?`, "acute", [`Compare it to a square corner.`], why, { op: "angle", a: 45, b: 90 }, [labelOpt("acute"), labelOpt("right"), labelOpt("obtuse")], rng);
   }
   if (id.includes("shapes")) {
+    const shapes = [
+      { name: "triangle", sides: 3 },
+      { name: "square", sides: 4 },
+      { name: "circle", sides: 0 },
+    ] as const;
+    const target = pick(rng, shapes);
     return choice(
-      `Tap the triangle`,
-      "triangle",
+      "What is this shape?",
+      target.name,
       [`Count each side.`],
       why,
-      { op: "angle", a: 3, b: 3 },
-      [
-        picOpt("triangle", { op: "angle", a: 3, b: 3 }),
-        picOpt("square", { op: "angle", a: 4, b: 4 }),
-        picOpt("circle", { op: "angle", a: 0, b: 0 }),
-      ],
+      { op: "angle", a: target.sides, b: target.sides },
+      shapes.map((shape) => labelOpt(shape.name)),
       rng,
     );
   }
@@ -517,10 +605,10 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`Tap the plank cut in half`, "half", [`Two equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 });
   }
   if (id.includes("fractions.3.name") || id.includes("name") && id.includes("fractions")) {
-    return item(`What part is colored?`, "2/3", [`2 of 3 parts.`], skill.learnPicture, { op: "frac", a: 2, b: 3, c: 3 });
+    return item(`What part of this plank is colored?`, "2/3", [`2 of 3 parts.`], skill.learnPicture, { op: "frac", a: 2, b: 3, c: 3 }, undefined, true, "part-colored");
   }
   if (id.includes("unit") && id.includes("fractions")) {
-    return item(`Where is 1/4 on the tape?`, "1/4", [`One of four equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 4, c: 4 });
+    return item(`Where is 1/4 on the tape?`, "A", [`One of four equal parts.`], skill.learnPicture, { op: "frac", a: 1, b: 4, c: 4, mark: "ABC" }, [labelOpt("A"), labelOpt("B"), labelOpt("C")]);
   }
   if (id.includes("equivalent")) {
     return item(`2/4 = ?/8`, "4", [`Double top and bottom.`], skill.learnPicture, { op: "frac", a: 2, b: 4, c: 8 });
@@ -587,7 +675,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`3 ft = ? in`, "36", [`12 inches in a foot.`], skill.learnPicture, { op: "mul", a: 3, b: 12 });
   }
   if (id.includes("decimal-length")) {
-    return item(`2.8 ft on the tape`, "2.8", [`Read the tenths.`], skill.learnPicture, { op: "add", a: 28, b: 10 });
+    return item(`2.8 ft on the tape`, "2.8", [`Read the tenths.`], skill.learnPicture, { op: "add", a: 28, b: 10, mark: "tape" });
   }
   if (id.includes("time")) {
     return item(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], skill.learnPicture, { op: "add", a: 45, b: 35 });
@@ -596,7 +684,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`3 × 4 × 2 = ? cubic ft`, "24", [`Multiply.`], skill.learnPicture, { op: "mul", a: 12, b: 2 });
   }
   if (id.includes("angles") && id.includes("measuring")) {
-    return item(`What angle is the brace?`, "acute", [`Less than 90.`], skill.learnPicture, { op: "angle", a: 45, b: 90 });
+    return item(`What is this angle?`, "acute", [`Less than 90.`], skill.learnPicture, { op: "angle", a: 45, b: 90 });
   }
   if (id.includes("circles") && id.includes("measuring")) {
     return item(`Radius 2, circumference = ?`, "12.6", [`About 2 × 3.14 × 2.`], skill.learnPicture, { op: "mul", a: 2, b: 2 });
@@ -606,10 +694,13 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   }
 
   if (id.includes("shapes")) {
-    return item(`Tap the triangle`, "triangle", [`Three sides.`], skill.learnPicture, { op: "angle", a: 3, b: 3 });
+    return item(`What is this shape?`, "triangle", [`Three sides.`], skill.learnPicture, { op: "angle", a: 3, b: 3 });
   }
-  if (id.includes("sides") || id.includes("triangles-count")) {
-    return item(`How many corners?`, "3", [`Count them.`], skill.learnPicture, { op: "add", a: 3, b: 0 });
+  if (id.includes("sides")) {
+    return item(`How many corners does this shape have?`, "3", [`Count them.`], skill.learnPicture, { op: "angle", a: 3, b: 3 }, undefined, true, "shape-corners");
+  }
+  if (id.includes("triangles-count")) {
+    return item(`How many triangles in the truss?`, "3", [`Count them.`], skill.learnPicture, { op: "hyp", a: 3, b: 2 });
   }
   if (id.includes("angles-names") || id.includes("symmetry") || id.includes("longest-side") || id.includes("triangles")) {
     return item(`Is this angle right, acute or obtuse?`, "right", [`A square corner.`], skill.learnPicture, { op: "angle", a: 90, b: 90 });
@@ -658,7 +749,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return item(`Which x make 3x < 12?`, "x < 4", [`Divide by 3.`], skill.learnPicture, { op: "mul", a: 3, b: 4 });
   }
   if (id.includes("graph-line")) {
-    return item(`What is the slope of this line?`, "1/2", [`Rise over run.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2 });
+    return item(`What is the slope of this line?`, "1/2", [`Rise over run.`], skill.learnPicture, { op: "frac", a: 1, b: 2, c: 2, mark: "line" });
   }
   if (id.includes("systems")) {
     return item(`x + y = 10, x − y = 2`, "6, 4", [`Add the equations.`], skill.learnPicture, { op: "add", a: 6, b: 4 });

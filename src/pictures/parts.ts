@@ -5,7 +5,41 @@ export type PlainDraw = {
   a: number;
   b: number;
   c?: number;
+  /** Tape letters (A/B/C), a single mark (one), a tape reading (tape), or a graphed line (line). */
+  mark?: string;
 };
+
+export type AngleFigure = {
+  kind: "angle";
+  deg: number;
+  ox: number;
+  oy: number;
+  arm: number;
+};
+
+export type ShapeFigure = {
+  kind: "shape";
+  name: "triangle" | "square" | "circle";
+};
+
+export type FracTapeMark = {
+  at: number;
+  letter?: string;
+};
+
+export type FracTapeFigure = {
+  kind: "frac-tape";
+  parts: number;
+  marks: FracTapeMark[];
+};
+
+export type LineFigure = {
+  kind: "line";
+  rise: number;
+  run: number;
+};
+
+export type PictureFigure = AngleFigure | ShapeFigure | FracTapeFigure | LineFigure;
 
 export type PictureBit = {
   slot: string;
@@ -45,6 +79,7 @@ export type Picture = {
   labels: PictureLabel[];
   measure?: { x: number; y: number; w: number; text: string };
   tape?: Tape;
+  figure?: PictureFigure;
 };
 
 export type Drawn = {

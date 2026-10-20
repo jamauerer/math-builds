@@ -437,6 +437,7 @@ describe("goat bridge screens", () => {
     expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("It runs from 0 ft to 4 ft on the tape");
     expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("How long?");
     expect(container.querySelector("[data-tape-hi]")).toBeTruthy();
+    expect(container.querySelector('input[aria-label="Bottom beam A length"], input[aria-label$="length"]')).toBeTruthy();
     root.unmount();
     container.remove();
   });

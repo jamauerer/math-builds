@@ -63,6 +63,7 @@ import {
   type EarnState,
 } from "../kits/earn";
 import type { ActionKind, ChoiceOption } from "../../../skills/generate";
+import { FigureSvg, pictureBoxSize } from "../../../pictures/view";
 import { isPreReader, pictureHelpFor, type PictureHelp } from "../../../silent/pre-reader";
 import { ComparePilesPad, GoatHop, HandDemo, PatternGapPad, PictureCue, SilentCountPad } from "../../../silent/pads";
 import {
@@ -1417,7 +1418,9 @@ function EarnView({
   const picture = question ? earnPicture(question) : null;
   const hint = question ? earnHint(question) : "";
   const keys = question ? keysFor(question.answer, question.truth) : [];
-  const silent = question ? isPreReader(question) : isPreReader(earn.current);
+  const silent = question
+    ? isPreReader(question) && !question.needsPicture && !picture
+    : isPreReader(earn.current);
   const help = question ? pictureHelpFor(question) : pictureHelpFor(earn.current);
   const [feel, setFeel] = useState<"" | "hop" | "slide">("");
   useEffect(() => {
@@ -1539,12 +1542,12 @@ function EarnView({
           <div className="gk-work">
             <div className="gk-card-main">
           <PromptLine text={earnPrompt(question)} parent={silent || question.level <= 2} skillId={question.skillId} />
-          {silent ? <PictureCue kind={help} /> : null}
-          {silent ? <HandDemo kind={help} force={forceHand} mid={forceHand} /> : null}
-          {!silent && question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
+          {silent && !picture ? <PictureCue kind={help} /> : null}
+          {silent && !picture ? <HandDemo kind={help} force={forceHand} mid={forceHand} /> : null}
+          {!silent && !picture && question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
             <OperandMarks draw={question.fact.draw} />
           ) : null}
-          {!silent && picture ? <EarnSketch question={question} /> : null}
+          {picture ? <EarnSketch question={question} /> : null}
           {openHint ? <p className={silent || question.level <= 2 ? "gk-hint gk-parent-words" : "gk-hint"}>{openHint}</p> : null}
           <AnswerPad
             phase={earn.phase}
@@ -2562,9 +2565,11 @@ function EarnSketch({ question }: { question: EarnQuestion }) {
   if (!picture) {
     return null;
   }
+  const box = pictureBoxSize(picture);
   return (
-    <div className="gk-qpic" data-picture={question.fact.kind}>
+    <div className="gk-qpic" data-picture={question.fact.kind} data-ink-w={box.width} data-ink-h={box.height} style={{ minWidth: 160, minHeight: 96 }}>
       <div className="gk-qstage">
+        {picture.figure ? <FigureSvg figure={picture.figure} /> : null}
         {picture.banks ? <img className="gk-qbanks" src={art("banks.png")} alt="" /> : null}
         {picture.ruler && !picture.tape ? <RulerStrip /> : null}
         {picture.bits.map((bit, index) => (
