@@ -46,6 +46,24 @@ export function weightName(count = 2, system: UnitSystem = unitSystem()): string
   return count === 1 ? "kilogram" : "kilograms";
 }
 
+/** 703801 → 703,801 in US, 703.801 in Metric/Europe. */
+export function formatCount(value: number | string, system: UnitSystem = unitSystem()): string {
+  const raw = String(value).trim();
+  const neg = raw.startsWith("-") || raw.startsWith("−");
+  const body = neg ? raw.slice(1) : raw;
+  const hasDec = body.includes(".");
+  const [wholeRaw, fracRaw] = hasDec ? body.split(".") : [body, ""];
+  const whole = (wholeRaw ?? "0").replace(/[^\d]/g, "") || "0";
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, system === "us" ? "," : ".");
+  const sign = neg ? "−" : "";
+  if (!hasDec) {
+    return `${sign}${grouped}`;
+  }
+  const frac = (fracRaw ?? "").replace(/[^\d]/g, "");
+  const dec = system === "us" ? "." : ",";
+  return `${sign}${grouped}${dec}${frac}`;
+}
+
 export function formatLength(value: number, system: UnitSystem = unitSystem()): string {
   return `${trimNumber(value)} ${lengthAbbrev(system)}`;
 }

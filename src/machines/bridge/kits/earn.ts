@@ -15,6 +15,7 @@ import { plankWidth, queenPost, slotAlong, type KitGroup } from "./kit";
 import { pieceQuestion, strandWord } from "./pieces";
 import { tapeOnPosts } from "../../../pictures/tape";
 import type { LadderLayout } from "../../../ladder/generate";
+import { parseStackSpec } from "../../../ladder/stack";
 import { questionAboveCap, serveQuestion, type ServedKind } from "../../../ladder/serve";
 import { DOT_STEPS, ladderStep, strandAllowed } from "../../../ladder/steps";
 import { wordAllowed, wordPrompt } from "../../../ladder/word";
@@ -1585,6 +1586,32 @@ export function skillHold(skillId: string, seed = 3): EarnState {
     phase: "plain",
     returnPhase: "plain",
     current: question,
+    upcoming: [],
+    runGot: 1,
+  };
+}
+
+export function stackHold(spec: string): EarnState {
+  const parsed = parseStackSpec(spec);
+  if (!parsed) {
+    throw new Error(`Unknown stack ${spec}`);
+  }
+  const strand = parsed.layout.op === "×" ? "multiplying" : parsed.layout.op === "÷" ? "dividing" : parsed.layout.op === "−" ? "adding" : "adding";
+  const levels = fitLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, 4])));
+  const base = blankEarn(levels, 1);
+  return {
+    ...base,
+    groupIndex: 0,
+    phase: "plain",
+    returnPhase: "plain",
+    current: {
+      groupId: "bottom",
+      strandId: strand,
+      level: 4,
+      answer: parsed.answer,
+      layout: parsed.layout,
+      fact: { kind: "plain", prompt: parsed.prompt, steps: ["Write the numbers in columns."], why: "The stack is in the sketch." },
+    },
     upcoming: [],
     runGot: 1,
   };

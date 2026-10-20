@@ -181,6 +181,7 @@ export function App() {
           seedGrade={kitLevel(new URLSearchParams(window.location.search).get("grade"))}
           placeAsked={kitLevel(new URLSearchParams(window.location.search).get("q")) ?? 0}
           demo={new URLSearchParams(window.location.search).get("demo")}
+          stack={new URLSearchParams(window.location.search).get("stack")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

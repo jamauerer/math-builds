@@ -1,6 +1,7 @@
 import type { LadderItem } from "./generate";
 import { ladderStep } from "./steps";
 import type { SkillStateName } from "../machines/bridge/kits/skills";
+import { formatCount } from "../units";
 
 export function wordAllowed(state: SkillStateName | undefined): boolean {
   return state === "practicing" || state === "fluent" || state === "mastered";
@@ -14,21 +15,21 @@ export function wordPrompt(item: LadderItem): string {
   }
   if (step.op === "A") {
     if (step.n === 4) {
-      return `What do you add to ${a} to make 10?`;
+      return `What do you add to ${formatCount(a)} to make 10?`;
     }
     if (c != null) {
-      return `${a} and ${b} and ${c} go together. How many is that?`;
+      return `${formatCount(a)} and ${formatCount(b)} and ${formatCount(c)} go together. How many is that?`;
     }
-    return `${a} and ${b} more. How many is that?`;
+    return `${formatCount(a)} and ${formatCount(b)} more. How many is that?`;
   }
   if (step.op === "S") {
-    return `Start with ${a}. Take away ${b}. How many left?`;
+    return `Start with ${formatCount(a)}. Take away ${formatCount(b)}. How many left?`;
   }
   if (step.op === "M") {
-    return `${a} groups of ${b}. How many is that?`;
+    return `${formatCount(a)} groups of ${formatCount(b)}. How many is that?`;
   }
   if (step.n === 6) {
-    return `Share ${a} into groups of ${b}. How many groups, and how many left?`;
+    return `Share ${formatCount(a)} into groups of ${formatCount(b)}. How many groups, and how many left?`;
   }
-  return `Share ${a} into ${b} equal groups. How many in each?`;
+  return `Share ${formatCount(a)} into ${formatCount(b)} equal groups. How many in each?`;
 }

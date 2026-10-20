@@ -1,4 +1,5 @@
 import { createRng, intBetween, pick, type Rng } from "../engine/rng";
+import { formatCount } from "../units";
 import type { PlainDraw } from "../pictures/parts";
 import { LADDER_STEPS, ladderStep, type LadderForm, type LadderStep } from "./steps";
 
@@ -30,7 +31,7 @@ function salt(id: string): number {
 
 function plus(a: number, b: number, answer: number, stacked = false): Pick<LadderItem, "prompt" | "answer" | "operands" | "layout"> {
   return {
-    prompt: `${a} + ${b} = ?`,
+    prompt: `${formatCount(a)} + ${formatCount(b)} = ?`,
     answer: String(answer),
     operands: [a, b],
     layout: stacked ? { kind: "stacked", top: String(a), bottom: String(b), op: "+" } : undefined,
@@ -39,7 +40,7 @@ function plus(a: number, b: number, answer: number, stacked = false): Pick<Ladde
 
 function minus(a: number, b: number, answer: number, stacked = false): Pick<LadderItem, "prompt" | "answer" | "operands" | "layout"> {
   return {
-    prompt: `${a} - ${b} = ?`,
+    prompt: `${formatCount(a)} − ${formatCount(b)} = ?`,
     answer: String(answer),
     operands: [a, b],
     layout: stacked ? { kind: "stacked", top: String(a), bottom: String(b), op: "−" } : undefined,
@@ -48,7 +49,7 @@ function minus(a: number, b: number, answer: number, stacked = false): Pick<Ladd
 
 function times(a: number, b: number, answer: number, stacked = false): Pick<LadderItem, "prompt" | "answer" | "operands" | "layout"> {
   return {
-    prompt: `${a} × ${b} = ?`,
+    prompt: `${formatCount(a)} × ${formatCount(b)} = ?`,
     answer: String(answer),
     operands: [a, b],
     layout: stacked ? { kind: "stacked", top: String(a), bottom: String(b), op: "×" } : undefined,
@@ -57,7 +58,7 @@ function times(a: number, b: number, answer: number, stacked = false): Pick<Ladd
 
 function divide(a: number, b: number, answer: string, operands: number[], long = false): Pick<LadderItem, "prompt" | "answer" | "operands" | "layout"> {
   return {
-    prompt: `${a} ÷ ${b} = ?`,
+    prompt: `${formatCount(a)} ÷ ${formatCount(b)} = ?`,
     answer,
     operands,
     layout: long ? { kind: "long-division", top: String(a), bottom: String(b), op: "÷" } : undefined,
@@ -192,7 +193,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
     const c = intBetween(rng, 0, 9);
     return wrap(
       step,
-      { prompt: `${a} + ${b} + ${c} = ?`, answer: String(a + b + c), operands: [a, b, c] },
+      { prompt: `${formatCount(a)} + ${formatCount(b)} + ${formatCount(c)} = ?`, answer: String(a + b + c), operands: [a, b, c] },
       [`Find a pair that makes 10, then add ${[a, b, c].sort((x, y) => x - y)[0]}.`],
       "Three one-digit numbers.",
     );
@@ -491,7 +492,7 @@ function makeDiv(step: LadderStep, rng: Rng): LadderItem {
     const a = b * q + r;
     return wrap(
       step,
-      { prompt: `${a} ÷ ${b} = ? r ?`, answer: `${q} r ${r}`, operands: [a, b, q, r] },
+      { prompt: `${formatCount(a)} ÷ ${formatCount(b)} = ? r ?`, answer: `${q} r ${r}`, operands: [a, b, q, r] },
       [`${b} goes into ${a} ${q} times, leftover ${r}.`],
       "Remainders.",
     );

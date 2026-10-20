@@ -14,6 +14,7 @@ import {
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk, settleLadder, type LadderPlace } from "../../../ladder/place";
 import { LADDER_VERSION } from "../../../ladder/steps";
 import type { LadderLayout } from "../../../ladder/generate";
+import { drawPencilCarries, drawStack, stackGeom } from "../../../ladder/stack";
 import {
   countryByCode,
   countryFromLocale,
@@ -55,6 +56,7 @@ import {
   runLength,
   WARMUP_COUNT,
   skillHold,
+  stackHold,
   startGuided,
   startPractice,
   type EarnQuestion,
@@ -166,6 +168,7 @@ export function GoatKit({
   kitProfile = null,
   onKitProfile,
   demo = null,
+  stack = null,
 }: {
   map: LearnerMap;
   marks: number;
@@ -200,6 +203,7 @@ export function GoatKit({
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
   demo?: string | null;
+  stack?: string | null;
 }) {
   setUnitSystem(units);
   void map;
@@ -213,7 +217,7 @@ export function GoatKit({
     if (demo === "fluent") {
       return "profile";
     }
-    if (skill) {
+    if (skill || stack) {
       return "earn";
     }
     const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
@@ -231,6 +235,9 @@ export function GoatKit({
   const [earn, setEarn] = useState<EarnState>(() => {
     if (demo === "review") {
       return blankEarn(savedLevels ?? Object.fromEntries(KIT_STRANDS.map((id) => [id, 4])), 1, demoReviewBook(), "2026-10-20");
+    }
+    if (stack) {
+      return stackHold(stack);
     }
     if (skill) {
       const held = skillHold(skill, skillSeed ?? 3);
@@ -2190,19 +2197,37 @@ function ScratchPad({
   layout?: LadderLayout;
   marks?: "carry" | "borrow";
 }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgRef = useRef<HTMLCanvasElement>(null);
+  const inkRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const tool = useRef<"pencil" | "eraser">("pencil");
   const [mode, setMode] = useState<"pencil" | "eraser">("pencil");
-  useEffect(() => {
-    const canvas = canvasRef.current;
+  const geom = layout && (layout.kind === "stacked" || layout.kind === "long-division") ? stackGeom(layout) : null;
+  const canvasW = geom?.canvasWidth ?? 640;
+  const canvasH = geom?.canvasHeight ?? 280;
+  function paintBg() {
+    const canvas = bgRef.current;
     const context = canvas?.getContext("2d");
-    if (canvas && context) {
-      context.clearRect(0, 0, canvas.width, canvas.height);
+    if (!canvas || !context) {
+      return;
     }
-  }, [resetKey]);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (geom) {
+      drawStack(context, geom);
+    }
+  }
+  useEffect(() => {
+    paintBg();
+    const ink = inkRef.current?.getContext("2d");
+    if (ink && inkRef.current) {
+      ink.clearRect(0, 0, inkRef.current.width, inkRef.current.height);
+      if (geom && marks === "carry") {
+        drawPencilCarries(ink, geom);
+      }
+    }
+  }, [resetKey, canvasW, canvasH, layout?.top, layout?.bottom, layout?.op, layout?.kind, marks]);
   function point(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
+    const canvas = inkRef.current;
     if (!canvas) {
       return { x: 0, y: 0 };
     }
@@ -2213,8 +2238,7 @@ function ScratchPad({
     };
   }
   function start(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
+    const context = inkRef.current?.getContext("2d");
     if (!context) {
       return;
     }
@@ -2232,7 +2256,7 @@ function ScratchPad({
     if (!drawing.current) {
       return;
     }
-    const context = canvasRef.current?.getContext("2d");
+    const context = inkRef.current?.getContext("2d");
     if (!context) {
       return;
     }
@@ -2241,29 +2265,38 @@ function ScratchPad({
     context.stroke();
   }
   function clear() {
-    const canvas = canvasRef.current;
+    const canvas = inkRef.current;
     const context = canvas?.getContext("2d");
     if (canvas && context) {
       context.clearRect(0, 0, canvas.width, canvas.height);
     }
+    paintBg();
   }
   return (
-    <div className="gk-scratch" data-sketch="on">
-      {layout ? <StackLayout layout={layout} marks={marks} /> : null}
-      <canvas
-        ref={canvasRef}
-        width={640}
-        height={280}
-        aria-label="Work it out"
-        onPointerDown={start}
-        onPointerMove={move}
-        onPointerUp={() => {
-          drawing.current = false;
-        }}
-        onPointerLeave={() => {
-          drawing.current = false;
-        }}
-      />
+    <div className="gk-scratch" data-sketch="on" data-stack={layout?.kind ?? ""}>
+      <div
+        className="gk-scratch-stage"
+        style={{ aspectRatio: `${canvasW} / ${canvasH}`, minHeight: Math.min(220, canvasH) }}
+        data-carry-y={geom ? String(Math.round(geom.carry.y)) : undefined}
+        data-cols={geom ? geom.columns.map((col) => Math.round(col.centerX)).join(",") : undefined}
+      >
+        <canvas ref={bgRef} className="gk-scratch-bg" width={canvasW} height={canvasH} aria-hidden="true" />
+        <canvas
+          ref={inkRef}
+          className="gk-scratch-ink"
+          width={canvasW}
+          height={canvasH}
+          aria-label="Work it out"
+          onPointerDown={start}
+          onPointerMove={move}
+          onPointerUp={() => {
+            drawing.current = false;
+          }}
+          onPointerLeave={() => {
+            drawing.current = false;
+          }}
+        />
+      </div>
       <div className="gk-scratch-tools">
         <button
           type="button"
@@ -2289,55 +2322,6 @@ function ScratchPad({
           Clear
         </button>
       </div>
-    </div>
-  );
-}
-
-function StackLayout({ layout, marks }: { layout: LadderLayout; marks?: "carry" | "borrow" }) {
-  if (layout.kind === "long-division") {
-    return (
-      <div className="gk-longdiv" aria-hidden="true">
-        <span className="gk-longdiv-quot" />
-        <div className="gk-longdiv-row">
-          <span className="gk-longdiv-div">{layout.bottom}</span>
-          <span className="gk-longdiv-bracket">
-            <i />
-            <b>{layout.top}</b>
-          </span>
-        </div>
-      </div>
-    );
-  }
-  const top = layout.top.replace(/,/g, "");
-  const bottom = layout.bottom.replace(/,/g, "");
-  const width = Math.max(top.length, bottom.length);
-  const topPad = top.padStart(width, " ");
-  const botPad = bottom.padStart(width, " ");
-  return (
-    <div className="gk-stack" data-op={layout.op} aria-hidden="true">
-      <div className="gk-stack-row gk-stack-carry">
-        {Array.from({ length: width }, (_, index) => (
-          <span key={`c-${index}`} className="gk-stack-cell">
-            {marks === "carry" && index === width - 2 ? "1" : ""}
-          </span>
-        ))}
-      </div>
-      <div className="gk-stack-row">
-        {Array.from(topPad).map((char, index) => (
-          <span key={`t-${index}`} className="gk-stack-cell">
-            {marks === "borrow" && index === width - 1 && char !== " " ? `${10 + Number(char)}` : marks === "borrow" && index === width - 2 ? <s>{char === " " ? "" : char}</s> : char === " " ? "" : char}
-          </span>
-        ))}
-      </div>
-      <div className="gk-stack-row">
-        <span className="gk-stack-op">{layout.op}</span>
-        {Array.from(botPad).map((char, index) => (
-          <span key={`b-${index}`} className="gk-stack-cell">
-            {char === " " ? "" : char}
-          </span>
-        ))}
-      </div>
-      <div className="gk-stack-line" />
     </div>
   );
 }
