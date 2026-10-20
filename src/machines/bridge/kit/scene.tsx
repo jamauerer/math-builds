@@ -358,6 +358,9 @@ function spriteFor(pose: PiecePose): string {
   if (pose.broken === "right") {
     return "beam-broken-right.png";
   }
+  if (pose.kind === "plank") {
+    return "plank-side.png";
+  }
   if (pose.kind === "post") {
     return "post.png";
   }
@@ -373,11 +376,18 @@ function poseStyle(pose: PiecePose): CSSProperties {
   const along = pose.length * queenPost.pxPerMetre;
   const vertical = pose.kind === "post";
   const plank = pose.kind === "plank";
-  const width = vertical ? 32 : along;
-  const height = plank ? 14 : vertical ? along : pose.kind === "brace" ? 15 : 22;
+  const width = vertical ? 32 : plank ? Math.max(8, along - 4) : along;
+  const height = plank ? PLANK_THICK_PX : vertical ? along : pose.kind === "brace" ? 15 : 22;
   const rotation = vertical ? -pose.angle + Math.PI / 2 : -pose.angle;
   const deckBeam = pose.kind === "beam" && Math.abs(pose.angle) < 0.25;
-  let top = plank ? py - height : deckBeam ? py + queenPost.pxPerMetre * 0.06 - height : py - height / 2;
+  const onDeck = plank && Math.abs(pose.angle) < 0.35 && pose.y > -0.15;
+  let top = onDeck
+    ? queenPost.scene.deckY
+    : plank
+      ? py - height / 2
+      : deckBeam
+        ? py + queenPost.pxPerMetre * 0.06 - height
+        : py - height / 2;
   if (!deckBeam && !plank && pose.y <= waterWorld() + 0.02) {
     top = Math.max(top, waterPixel() - height / 2);
   }
@@ -390,6 +400,7 @@ function poseStyle(pose: PiecePose): CSSProperties {
     height,
     transform: `rotate(${rotation}rad)`,
     transformOrigin: "center center",
+    zIndex: plank ? 6 : 1,
   };
 }
 
@@ -460,22 +471,62 @@ export function frameNear(frames: CrossingFrame[], metres: number): CrossingFram
   return best;
 }
 
+/** Abutment inset into the bank: outer edge 0.3 m inside the bank face. */
+export const ABUTMENT_INSET_M = 0.3;
+
 function Abutments() {
   const top = abutmentTopPx();
   const span = queenPost.scene.originX + 8 * queenPost.pxPerMetre;
   const width = 110;
   const height = 70;
-  const style = (left: number): CSSProperties => ({
+  const inset = ABUTMENT_INSET_M * queenPost.pxPerMetre;
+  // Gap face of each bank is at originX / span. Outer edge of the block sits 0.3 m inside that face.
+  const leftX = queenPost.scene.originX - inset - width;
+  const rightX = span + inset;
+  const faceTop = top + height * 0.42;
+  const faceHeight = height * 0.58;
+  const banksLeft = -79;
+  const banksTop = 224;
+  const banksW = 1158;
+  const banksH = 386;
+  // Brick only on the upper part; bank art drawn on top of the lower half so the block reads set into the wall.
+  const brick = (left: number): CSSProperties => ({
     position: "absolute",
     left,
     top,
     width,
     height,
+    zIndex: 1,
+    clipPath: "inset(0 0 58% 0)",
+  });
+  const face = (left: number): CSSProperties => ({
+    position: "absolute",
+    left,
+    top: faceTop,
+    width,
+    height: faceHeight,
+    overflow: "hidden",
+    pointerEvents: "none",
+    zIndex: 2,
   });
   return (
     <>
-      <img className="gk-piece" data-piece="abutment-left" alt="" src={art("brick-side.png")} style={style(queenPost.scene.originX - width)} />
-      <img className="gk-piece" data-piece="abutment-right" alt="" src={art("brick-side.png")} style={style(span)} />
+      <img className="gk-piece gk-abutment" data-piece="abutment-left" alt="" src={art("brick-side.png")} style={brick(leftX)} />
+      <img className="gk-piece gk-abutment" data-piece="abutment-right" alt="" src={art("brick-side.png")} style={brick(rightX)} />
+      <span className="gk-abutment-face" data-abutment-face="left" style={face(leftX)}>
+        <img
+          alt=""
+          src={art("banks.png")}
+          style={{ position: "absolute", left: banksLeft - leftX, top: banksTop - faceTop, width: banksW, height: banksH, maxWidth: "none" }}
+        />
+      </span>
+      <span className="gk-abutment-face" data-abutment-face="right" style={face(rightX)}>
+        <img
+          alt=""
+          src={art("banks.png")}
+          style={{ position: "absolute", left: banksLeft - rightX, top: banksTop - faceTop, width: banksW, height: banksH, maxWidth: "none" }}
+        />
+      </span>
     </>
   );
 }
@@ -535,9 +586,19 @@ export function CrossingPicture({ frame }: { frame: CrossingFrame }) {
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
       <Fireworks t={frame.celebrate} />
-      {frame.pieces.map((pose) => (
-        <img key={pose.id} className="gk-piece" alt="" src={art(spriteFor(pose))} style={poseStyle(pose)} />
-      ))}
+      {[...frame.pieces]
+        .sort((left, right) => Number(left.kind === "plank") - Number(right.kind === "plank"))
+        .map((pose) => (
+          <img
+            key={pose.id}
+            className="gk-piece"
+            alt=""
+            data-piece={pose.id}
+            data-kind={pose.kind}
+            src={art(spriteFor(pose))}
+            style={poseStyle(pose)}
+          />
+        ))}
       {frame.splashes
         .filter((splash) => frame.t - splash.at <= 0.6)
         .map((splash) => {

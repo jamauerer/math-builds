@@ -131,6 +131,9 @@ describe("physics 2", () => {
     expect(folded.ok).toBe(false);
     expect(folded.cause?.kind).toBe("joint");
     expect(folded.frames.some((frame) => frame.goatY < 0)).toBe(true);
+    expect(folded.frames[0].pieces.filter((piece) => piece.kind === "plank")).toHaveLength(8);
+    expect(folded.bodies.filter((body) => body.id.startsWith("plank-")).length).toBe(8);
+    expect(folded.bodies.some((body) => body.id.startsWith("plank-") && body.y < 0)).toBe(true);
 
     const open = { ...truss() };
     for (const slot of queenPost.slots) {
@@ -141,6 +144,74 @@ describe("physics 2", () => {
     const dropped = simulateCrossing(open);
     expect(dropped.cause?.kind).toBe("planks");
     expect(dropped.goatX).toBeLessThan(1);
+  });
+
+  it("draws eight plank sprites in Test before the goat starts", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const drops = Object.fromEntries(
+      Object.entries({ "bottom-a": 4, "bottom-b": 4, ...planks() }).map(([id, value]) => [id, String(value)]),
+    );
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="drive"
+          seek={-1}
+          level={4}
+          guideMode="off"
+          drops={drops}
+          kitProfile={{ ...profile, built: true }}
+        />,
+      );
+    });
+    const plankImgs = [...container.querySelectorAll('[data-kind="plank"], [data-piece^="plank-"]')] as HTMLImageElement[];
+    expect(plankImgs.length).toBeGreaterThanOrEqual(8);
+    expect(plankImgs.every((img) => (img.getAttribute("src") ?? "").includes("plank-side.png"))).toBe(true);
+    root.unmount();
+    container.remove();
+  });
+
+  it("sets abutments 0.3 m inside the bank with bank stone over the lower half", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          guideMode="off"
+          kitProfile={{ ...profile, built: true }}
+        />,
+      );
+    });
+    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
+    const right = container.querySelector('[data-piece="abutment-right"]') as HTMLElement;
+    const faceLeft = container.querySelector('[data-abutment-face="left"]') as HTMLElement;
+    const faceRight = container.querySelector('[data-abutment-face="right"]') as HTMLElement;
+    expect(left).toBeTruthy();
+    expect(right).toBeTruthy();
+    expect(faceLeft).toBeTruthy();
+    expect(faceRight).toBeTruthy();
+    const inset = 0.3 * queenPost.pxPerMetre;
+    const width = parseFloat(left.style.width);
+    expect(parseFloat(left.style.left)).toBeCloseTo(queenPost.scene.originX - inset - width, 0);
+    expect(parseFloat(right.style.left)).toBeCloseTo(queenPost.scene.originX + 8 * queenPost.pxPerMetre + inset, 0);
+    expect(parseFloat(faceLeft.style.top)).toBeGreaterThan(parseFloat(left.style.top));
+    expect(parseFloat(faceLeft.style.height)).toBeGreaterThan(parseFloat(left.style.height) * 0.4);
+    root.unmount();
+    container.remove();
   });
 
   it("sags under a heavier goat without bolts and holds when the bolts are in", () => {

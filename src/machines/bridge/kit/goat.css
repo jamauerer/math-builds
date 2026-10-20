@@ -1451,6 +1451,7 @@
   width: 1158px;
   height: 386px;
   pointer-events: none;
+  z-index: 0;
 }
 
 .gk-piece {
@@ -1458,6 +1459,17 @@
   object-fit: fill;
   pointer-events: none;
   user-select: none;
+}
+
+.gk-abutment {
+  z-index: 1;
+}
+
+.gk-abutment-face {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .gk-hit {

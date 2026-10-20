@@ -151,35 +151,74 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
   };
 }
 
-function plankPoses(pieces: Piece[], lengths: Record<string, number>): PiecePose[] {
-  const poses: PiecePose[] = [];
+type PlankRide = { plank: Piece; beamId: string; along: number };
+
+/** Plank deck boards as bodies that ride their beam (fall with a fold) without stiffening the truss. */
+function addPlankBodies(world: World, pieces: Piece[], lengths: Record<string, number>): PlankRide[] {
+  const rides: PlankRide[] = [];
+  const thick = 0.08;
   for (const slot of queenPost.slots) {
     if (slot.kind !== "plank" || lengths[slot.id] == null) {
       continue;
     }
-    const typed = lengths[slot.id];
-    const mid = plankStart(slot) + typed / 2;
-    const beam = pieces.find((piece) => piece.kind === "beam" && piece.id.startsWith("bottom") && mid >= Math.min(piece.ax, piece.bx) - 0.05 && mid <= Math.max(piece.ax, piece.bx) + 0.05);
-    if (!beam) {
-      poses.push({ id: slot.id, x: mid, y: 0.12, angle: 0, length: typed, kind: "plank", broken: null });
-      continue;
-    }
-    const pos = beam.body.getPosition();
-    const angle = beam.body.getAngle();
-    const cosine = Math.cos(angle);
-    const sine = Math.sin(angle);
-    const along = (mid - pos.x) * cosine + (0 - pos.y) * sine;
-    poses.push({
+    const typed = Math.max(0.25, lengths[slot.id]);
+    const start = plankStart(slot);
+    const mid = start + typed / 2;
+    const beam = pieces.find(
+      (piece) =>
+        piece.kind === "beam" &&
+        piece.id.startsWith("bottom") &&
+        mid >= Math.min(piece.ax, piece.bx) - 0.05 &&
+        mid <= Math.max(piece.ax, piece.bx) + 0.05,
+    );
+    const beamTop = beam ? beam.body.getPosition().y + beam.thick / 2 : 0.12;
+    // Kinematic so planks ride the beam for drawing/fold without loading the truss joints.
+    const body = world.createKinematicBody({
+      position: new Vec2(mid, beamTop + thick / 2),
+      angle: beam?.body.getAngle() ?? 0,
+      allowSleep: false,
+    });
+    body.createFixture(new BoxShape(typed / 2, thick / 2), {
+      density: 0,
+      friction: 0.9,
+      isSensor: true,
+      filterCategoryBits: 0x0002,
+      filterMaskBits: 0x0000,
+    });
+    const plank: Piece = {
       id: slot.id,
-      x: pos.x + along * cosine,
-      y: pos.y + along * sine + beam.thick / 2,
-      angle,
+      body,
+      half: typed / 2,
+      thick,
       length: typed,
       kind: "plank",
+      ax: start,
+      ay: 0,
+      bx: start + typed,
+      by: 0,
       broken: null,
-    });
+    };
+    pieces.push(plank);
+    if (beam) {
+      const along = mid - (beam.ax + beam.bx) / 2;
+      rides.push({ plank, beamId: beam.id, along });
+    }
   }
-  return poses;
+  return rides;
+}
+
+function syncPlankRides(rides: PlankRide[], pieces: Piece[]) {
+  for (const ride of rides) {
+    const beam = pieces.find((piece) => piece.id === ride.beamId);
+    if (!beam) {
+      continue;
+    }
+    const local = new Vec2(ride.along, beam.thick / 2 + ride.plank.thick / 2 + 0.1);
+    const world = beam.body.getWorldPoint(local);
+    ride.plank.body.setTransform(world, beam.body.getAngle());
+    ride.plank.body.setLinearVelocity(beam.body.getLinearVelocity());
+    ride.plank.body.setAngularVelocity(beam.body.getAngularVelocity());
+  }
 }
 
 function jobFor(slotId: string): string {
@@ -317,6 +356,9 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
   }
 
+  // After structural joints: planks ride beams so they draw and fold without joining the truss.
+  const plankRides = addPlankBodies(world, pieces, lengths);
+
   const trial = roundTrial(lengths);
   const heavy = massKg >= 80;
   const bolted = lengths.bolts != null;
@@ -327,6 +369,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       piece.body.setStatic();
     }
   }
+  syncPlankRides(plankRides, pieces);
   let released = trial !== "fold";
 
   const goat = world.createKinematicBody({ position: new Vec2(-1.1, 0.55), allowSleep: false });
@@ -381,21 +424,18 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       goatY: feetY,
       mode,
       walkFrame: cycle,
-      pieces: [
-        ...pieces.map((piece) => {
-          const pos = piece.body.getPosition();
-          return {
-            id: piece.id,
-            x: pos.x,
-            y: pos.y,
-            angle: piece.body.getAngle(),
-            length: piece.length,
-            kind: piece.kind,
-            broken: piece.broken,
-          };
-        }),
-        ...plankPoses(pieces, lengths),
-      ],
+      pieces: pieces.map((piece) => {
+        const pos = piece.body.getPosition();
+        return {
+          id: piece.id,
+          x: pos.x,
+          y: pos.y,
+          angle: piece.body.getAngle(),
+          length: piece.length,
+          kind: piece.kind,
+          broken: piece.broken,
+        };
+      }),
       splashes: splashes.map((mark) => ({ ...mark })),
       celebrate,
       follower: heavy ? { x: followX, y: followY, mode: followMode } : null,
@@ -513,8 +553,12 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
 
     world.step(TIME_STEP);
+    syncPlankRides(plankRides, pieces);
 
     for (const piece of pieces) {
+      if (piece.kind === "plank") {
+        continue;
+      }
       const pos = piece.body.getPosition();
       if (pos.y < waterY && !soaked.has(piece.id)) {
         soaked.add(piece.id);
@@ -533,6 +577,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         piece.body.setAngularVelocity(0);
       }
     }
+    // Keep riding planks in the water splash list when their beam is soaked.
+    syncPlankRides(plankRides, pieces);
 
     if (goatDynamic && !climbing) {
       const pos = goat.getPosition();

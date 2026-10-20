@@ -405,9 +405,18 @@ export function knownLine(): string {
 export const BEAM_THICK_PX = 22;
 export const PLANK_THICK_PX = 16;
 
-/** CSS top of the abutment (meets the beam bottom). Sunk so plank tops sit on the deck line. */
+/** CSS top of the abutment (deck minus beam minus plank thickness). Sunk so plank tops sit on the deck line. */
 export function abutmentTopPx(): number {
   return queenPost.scene.deckY + PLANK_THICK_PX + BEAM_THICK_PX;
+}
+
+/** CSS left of each abutment: outer edge 0.3 m inside the bank face at 0 m / 8 m. */
+export function abutmentLeftPx(side: "left" | "right", width = 110): number {
+  const inset = 0.3 * queenPost.pxPerMetre;
+  if (side === "left") {
+    return queenPost.scene.originX - inset - width;
+  }
+  return queenPost.scene.originX + 8 * queenPost.pxPerMetre + inset;
 }
 
 /** Dotted-slot label: where the piece runs, never how long it is. */
