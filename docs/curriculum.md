@@ -34,32 +34,57 @@ The three arithmetic strands (adding, multiplying, dividing) are the spine. No o
 | 3 | counting.3.round-10 | Round to the nearest 10 | "Round 47 to the nearest 10" | whole | tape measure with 40 and 50 marked | measuring the gap | counting.2.place-value | 6 |
 | 4 | counting.4.round-100 | Round to the nearest 100 or 1000 | "Round 2,348 to the nearest 100" | whole | number line with 2300 and 2400 |  | counting.3.round-10 | 6 |
 | 4 | counting.4.even-odd | Even and odd | "Is 37 even or odd?" | choice | bolts paired up with one left over |  | counting.2.skip-2-5-10 | 6 |
-| 5 | counting.5.factors | Factors and multiples | "List the factors of 12" or "Is 24 a multiple of 6?" | choice | 12 bolts arranged as 1x12, 2x6, 3x4 |  | multiplying.4.tables-10 | 8 |
+| 5 | counting.5.factors | Factors and multiples | "List the factors of 12" or "Is 24 a multiple of 6?" | choice | 12 bolts arranged as 1x12, 2x6, 3x4 |  | multiplying.4.m7 | 8 |
 | 5 | counting.5.primes | Prime or not | "Is 17 prime?" | choice | bolts that only make one row |  | counting.5.factors | 8 |
 | 6 | counting.6.negatives | Negative numbers on a line | "Which is colder, -3 or -7?" | choice | thermometer and number line through zero |  | counting.3.to-1000 | 8 |
 | 7 | counting.7.integers-add | Add and subtract integers | "-3 + 8 = ?" and "4 - 9 = ?" | whole | number line jumps left and right |  | counting.6.negatives | 10 |
 | 8 | counting.8.integers-multiply | Multiply and divide integers | "-3 x 4 = ?" and "-12 / -3 = ?" | whole | sign rule table |  | counting.7.integers-add | 10 |
-| 9 | counting.9.exponents | Powers and roots | "2^5 = ?" and "sqrt(81) = ?" | whole | squares of dots: 1, 4, 9, 16 | brace at level 9 | multiplying.5.multi-digit | 10 |
+| 9 | counting.9.exponents | Powers and roots | "2^5 = ?" and "sqrt(81) = ?" | whole | squares of dots: 1, 4, 9, 16 | brace at level 9 | multiplying.5.m12 | 10 |
 | 10 | counting.10.scientific | Scientific notation | "Write 4,500 as a x 10^n" | expression | place value sliding |  | counting.9.exponents | 18 |
 
 Counting hands over to algebra at level 10.
 
 ## Adding (and subtracting)
 
+Ladder steps from docs/arithmetic-ladder.md. Adding is A1-A18. Subtracting is S1-S15, same strand.
+
 | Level | Skill id | Skill | Notation | Answer | Learn picture | Kit use | Prereq | Time |
 |---|---|---|---|---|---|---|---|---|
-| 1 | adding.1.to-5 | Combine two piles | Drag both piles into one box | drag | two groups of bolts pushed together | | counting.1.to-10 | 6 |
-| 2 | adding.2.to-20 | Add within 20 | "8 + 7 = ?" | whole | make a ten: 8 + 2, then 5 more | top beam word problem (posts at 2 and 6) | adding.1.to-5 | 3 |
-| 2 | adding.2.subtract-20 | Subtract within 20 | "15 - 9 = ?" | whole | count back on the tape, or count up from 9 |  | adding.2.to-20 | 3 |
-| 2 | adding.2.missing | Missing number | "6 + ? = 13" | whole | balance scale with bolts |  | adding.2.to-20 | 3 |
-| 3 | adding.3.to-100 | Add within 100 | "47 + 36 = ?" | whole | tens and ones added separately |  | adding.2.to-20, counting.2.place-value | 6 |
-| 3 | adding.3.subtract-100 | Subtract within 100 | "82 - 47 = ?" | whole | borrowing shown with a rod broken into ones |  | adding.3.to-100 | 6 |
-| 3 | adding.3.three-numbers | Add three numbers | "4 + 9 + 6 = ?" | whole | pairs that make 10 found first | gussets plus bolts | adding.2.to-20 | 6 |
-| 4 | adding.4.to-1000 | Add and subtract within 1000 | "358 + 467 = ?" and "703 - 258 = ?" | whole | column addition with carries |  | adding.3.to-100 | 12 |
+| 1 | adding.1.a1 | Add within 5 | "2 + 3 = ?" | whole | dots joined | | counting.1.to-10 | 3 |
+| 1 | adding.1.a2 | Add within 10 | "4 + 5 = ?" | whole | dots fade out | | adding.1.a1 | 3 |
+| 1 | adding.1.a3 | Add 1, add 2 | "13 + 2 = ?" | whole | count on | | adding.1.a2 | 3 |
+| 1 | adding.1.a4 | Make 10 | "7 + ? = 10" | whole | ten-frame filled | | adding.1.a2 | 3 |
+| 1 | adding.1.s1 | Take away within 5 | "5 - 2 = ?" | whole | dots crossed out | | adding.1.a1 | 3 |
+| 1 | adding.1.s2 | Take away within 10 | "9 - 4 = ?" | whole | dots fade out | | adding.1.s1 | 3 |
+| 1 | adding.1.s3 | Take 1, take 2 | "15 - 2 = ?" | whole | count back | | adding.1.s2 | 3 |
+| 1 | adding.1.s4 | Subtract from 10 | "10 - 7 = ?" | whole | ten-frame emptied | | adding.1.a4 | 3 |
+| 2 | adding.2.a5 | Add within 20, no crossing 10 | "12 + 5 = ?" | whole | ones stay under 10 | top beam | adding.1.a3 | 3 |
+| 2 | adding.2.a6 | Add within 20, crossing 10 | "8 + 7 = ?" | whole | make ten: 8 + 2 + 5 | | adding.1.a4 | 3 |
+| 2 | adding.2.a7 | Doubles and near doubles | "6 + 7 = ?" | whole | double then one more | | adding.2.a6 | 3 |
+| 2 | adding.2.a8 | Add tens | "30 + 40 = ?" | whole | tens | | adding.2.a5 | 5 |
+| 2 | adding.2.a9 | Two-digit + one-digit, no carry | "34 + 5 = ?" | whole | ones then tens | | adding.2.a5 | 5 |
+| 2 | adding.2.a10 | Two-digit + one-digit, carry | "37 + 6 = ?" | whole | 1 written above the tens | | adding.2.a6 | 5 |
+| 2 | adding.2.a11 | Two-digit + two-digit, no carry | "42 + 35 = ?" | whole | stacked columns | | adding.2.a9 | 20 |
+| 2 | adding.2.a12 | Two-digit + two-digit, carry | "47 + 36 = ?" | whole | 1 written above the tens | | adding.2.a10 | 20 |
+| 2 | adding.2.a13 | Two-digit + two-digit, over 100 | "78 + 65 = ?" | whole | stacked, extra hundred | | adding.2.a12 | 20 |
+| 2 | adding.2.s5 | Within 20, no crossing 10 | "17 - 5 = ?" | whole | ones enough | | adding.1.s3 | 3 |
+| 2 | adding.2.s6 | Within 20, crossing 10 | "14 - 8 = ?" | whole | count back through ten | | adding.2.s5 | 3 |
+| 2 | adding.2.s7 | Subtract tens | "70 - 30 = ?" | whole | tens | | adding.2.s5 | 5 |
+| 2 | adding.2.s8 | Two-digit − one-digit, no borrow | "47 - 3 = ?" | whole | ones enough | | adding.2.s5 | 5 |
+| 2 | adding.2.s9 | Two-digit − one-digit, borrow | "42 - 7 = ?" | whole | tens crossed out, 10 added to ones | | adding.2.s6 | 5 |
+| 2 | adding.2.s10 | Two-digit − two-digit, no borrow | "68 - 25 = ?" | whole | stacked columns | | adding.2.s8 | 20 |
+| 2 | adding.2.s11 | Two-digit − two-digit, borrow | "82 - 47 = ?" | whole | tens crossed out, 10 added to ones | | adding.2.s9 | 20 |
+| 3 | adding.3.a14 | Three numbers | "4 + 9 + 6 = ?" | whole | pair that makes 10 | gussets plus bolts | adding.2.a6 | 5 |
+| 3 | adding.3.a15 | Three-digit + three-digit, no carry | "312 + 465 = ?" | whole | stacked columns | | adding.2.a11 | 20 |
+| 3 | adding.3.a16 | Three-digit + three-digit, carry | "358 + 467 = ?" | whole | carries above columns | | adding.2.a12 | 20 |
+| 3 | adding.3.s12 | Three-digit, borrow once | "524 - 178 = ?" | whole | one borrow | | adding.2.s11 | 20 |
+| 3 | adding.3.s13 | Three-digit, borrow across zero | "503 - 258 = ?" | whole | borrow across zero | | adding.3.s12 | 20 |
+| 4 | adding.4.a17 | Four-digit and up | "4827 + 3596 = ?" | whole | stacked columns | | adding.3.a16 | 20 |
+| 4 | adding.4.s14 | Four-digit and up | "6032 - 2847 = ?" | whole | stacked columns | | adding.3.s13 | 20 |
 | 4 | adding.4.estimate | Estimate a sum | "About how much is 298 + 403?" | choice | rounding both first |  | counting.3.round-10 | 6 |
-| 5 | adding.5.big-numbers | Add and subtract to 1,000,000 | "48,275 + 9,648 = ?" | whole | column method |  | adding.4.to-1000 | 12 |
-| 5 | adding.5.decimals-tenths | Add tenths | "3.4 + 2.8 = ?" | decimal | tape measure in tenths | brace at level 9 uses it | fractions.5.decimals-tenths | 8 |
-| 6 | adding.6.decimals | Add and subtract decimals | "12.75 - 3.9 = ?" | decimal | line up the point |  | adding.5.decimals-tenths | 8 |
+| 5 | adding.5.a18 | Decimals | "3.4 + 2.8 = ?" | decimal | points lined up | | adding.4.a17 | 20 |
+| 5 | adding.5.s15 | Decimals | "7.2 - 3.5 = ?" | decimal | points lined up | | adding.4.s14 | 20 |
+| 6 | adding.6.decimals | Add and subtract decimals | "12.75 - 3.9 = ?" | decimal | line up the point |  | adding.5.a18 | 8 |
 | 6 | adding.6.fractions-like | Add fractions, same denominator | "3/8 + 2/8 = ?" | fraction | planks split in eighths |  | fractions.4.unit | 8 |
 | 7 | adding.7.fractions-unlike | Add fractions, different denominators | "1/2 + 1/3 = ?" | fraction | two planks resplit into sixths |  | adding.6.fractions-like, multiplying.5.lcm | 15 |
 | 7 | adding.7.mixed | Add mixed numbers | "2 1/4 + 1 3/4 = ?" | fraction or whole | whole planks and parts |  | adding.7.fractions-unlike | 15 |
@@ -69,17 +94,25 @@ Adding hands over to algebra at level 9.
 
 ## Multiplying
 
+Starts after A12 and S11 are Fluent. Ladder steps M1 to M13.
+
 | Level | Skill id | Skill | Notation | Answer | Learn picture | Kit use | Prereq | Time |
 |---|---|---|---|---|---|---|---|---|
-| 3 | multiplying.3.equal-groups | Equal groups as repeated adding | "3 x 4 = ?" with 3 rows of 4 shown | whole | 3 rows of 4 bolts | bolts: 2 per gusset | adding.2.to-20 | 3 |
-| 3 | multiplying.3.doubles | Times 2 | "2 x 7 = ?" | whole | pairs |  | multiplying.3.equal-groups | 3 |
-| 4 | multiplying.4.tables-5 | Times tables to 5 | "4 x 5 = ?" | whole | rows of bolts | bolts | multiplying.3.equal-groups | 3 |
-| 4 | multiplying.4.tables-10 | Times tables to 10 | "7 x 8 = ?" | whole | rows of bolts, the 10x10 grid | planks: 8 planks x 1 ft | multiplying.4.tables-5 | 3 |
-| 4 | multiplying.4.by-10-100 | Multiply by 10 and 100 | "34 x 10 = ?" | whole | digits slide left |  | multiplying.4.tables-10 | 6 |
-| 5 | multiplying.5.two-by-one | Two-digit by one-digit | "47 x 6 = ?" | whole | 40 x 6 and 7 x 6 added | beam weight: 12 lb per ft x length | multiplying.4.tables-10 | 12 |
-| 5 | multiplying.5.multi-digit | Multi-digit | "123 x 45 = ?" | whole | area model, four boxes |  | multiplying.5.two-by-one | 12 |
+| 3 | multiplying.3.m1 | Equal groups | "3 × 4 = ?" | whole | rows of dots | bolts: 2 per gusset | adding.2.a12, adding.2.s11 | 3 |
+| 4 | multiplying.4.m2 | × 2, × 10 | "7 × 2 = ?" | whole | pairs | | multiplying.3.m1 | 3 |
+| 4 | multiplying.4.m3 | × 5 | "6 × 5 = ?" | whole | skip count | | multiplying.4.m2 | 3 |
+| 4 | multiplying.4.m4 | × 3, × 4 | "4 × 4 = ?" | whole | rows | | multiplying.4.m3 | 3 |
+| 4 | multiplying.4.m5 | × 6, × 7 | "7 × 6 = ?" | whole | rows | | multiplying.4.m4 | 3 |
+| 4 | multiplying.4.m6 | × 8, × 9 | "8 × 9 = ?" | whole | rows | | multiplying.4.m5 | 3 |
+| 4 | multiplying.4.m7 | All tables mixed | "7 × 8 = ?" | whole | the 10x10 grid | planks | multiplying.4.m6 | 3 |
+| 4 | multiplying.4.m8 | × 10, × 100 | "34 × 10 = ?" | whole | digits slide left | | multiplying.4.m7 | 5 |
+| 4 | multiplying.4.m9 | Two-digit × one-digit | "47 × 6 = ?" | whole | partial products | beam weight | multiplying.4.m7 | 20 |
+| 5 | multiplying.5.m10 | Three-digit × one-digit | "214 × 7 = ?" | whole | stacked | | multiplying.4.m9 | 20 |
+| 5 | multiplying.5.m11 | Two-digit × two-digit | "36 × 24 = ?" | whole | stacked | | multiplying.5.m10 | 20 |
+| 5 | multiplying.5.m12 | Larger | "123 × 45 = ?" | whole | stacked | | multiplying.5.m11 | 20 |
+| 5 | multiplying.5.m13 | Decimals | "2.5 × 4 = ?" | decimal | tenths | | multiplying.4.m9 | 20 |
 | 5 | multiplying.5.lcm | Least common multiple | "LCM of 4 and 6 = ?" | whole | two skip count rows meeting |  | counting.5.factors | 8 |
-| 6 | multiplying.6.decimals | Multiply decimals | "2.5 x 4 = ?" and "1.2 x 0.3 = ?" | decimal | area model with tenths |  | multiplying.5.two-by-one, fractions.5.decimals-tenths | 8 |
+| 6 | multiplying.6.decimals | Multiply decimals | "2.5 x 4 = ?" and "1.2 x 0.3 = ?" | decimal | area model with tenths |  | multiplying.5.m13, fractions.5.decimals-tenths | 8 |
 | 6 | multiplying.6.fractions | Multiply fractions | "2/3 x 3/4 = ?" | fraction | a plank cut two ways |  | fractions.4.unit | 8 |
 | 7 | multiplying.7.mixed | Multiply mixed numbers and fractions by wholes | "1 1/2 x 4 = ?" | whole or fraction | whole planks and halves |  | multiplying.6.fractions | 15 |
 | 8 | multiplying.8.integers | Multiply integers and decimals with signs | "-1.5 x 4 = ?" | decimal | sign rule |  | counting.8.integers-multiply | 10 |
@@ -89,16 +122,22 @@ Multiplying hands over to algebra at level 10.
 
 ## Dividing
 
+Starts after M7 is Practicing. Ladder steps D1 to D10.
+
 | Level | Skill id | Skill | Notation | Answer | Learn picture | Kit use | Prereq | Time |
 |---|---|---|---|---|---|---|---|---|
-| 3 | dividing.3.share | Share equally | "8 / 2 = ?" with 8 bolts in 2 rows | whole | bolts dealt into rows | bottom beams: 8 ft / 2 | multiplying.3.equal-groups | 3 |
-| 4 | dividing.4.facts-5 | Division facts to 5 | "20 / 5 = ?" | whole | rows of bolts, count a row |  | multiplying.4.tables-5 | 3 |
-| 4 | dividing.4.facts-10 | Division facts to 10 | "56 / 8 = ?" | whole | rows of bolts | bottom beams, planks: 8 ft / 8 | multiplying.4.tables-10 | 3 |
-| 4 | dividing.4.fact-families | Fact families | "7 x 6 = 42, so 42 / 6 = ?" | whole | the same rows read both ways |  | dividing.4.facts-10 | 3 |
-| 5 | dividing.5.remainders | Division with remainders | "47 / 5 = ? r ?" | whole, remainder | rows of bolts with leftovers |  | dividing.4.facts-10 | 8 |
-| 5 | dividing.5.by-10-100 | Divide by 10 and 100 | "340 / 10 = ?" | whole | digits slide right |  | multiplying.4.by-10-100 | 8 |
-| 6 | dividing.6.long | Long division | "936 / 4 = ?" | whole | the four steps, one at a time |  | dividing.5.remainders | 12 |
-| 6 | dividing.6.decimals | Divide to a decimal | "7 / 2 = ?" and "4.8 / 4 = ?" | decimal | tape measure in tenths | brace at level 9: 5.66 / 2 | dividing.6.long, fractions.5.decimals-tenths | 8 |
+| 4 | dividing.4.d1 | Share equally | "12 ÷ 3 = ?" | whole | dots dealt into groups | bottom beams | multiplying.3.m1 | 3 |
+| 4 | dividing.4.d2 | ÷ 2, ÷ 5, ÷ 10 | "35 ÷ 5 = ?" | whole | fact family | | dividing.4.d1, multiplying.4.m3 | 3 |
+| 4 | dividing.4.d3 | ÷ 3, ÷ 4 | "24 ÷ 4 = ?" | whole | fact family | | dividing.4.d2, multiplying.4.m4 | 3 |
+| 4 | dividing.4.d4 | ÷ 6 to ÷ 9 | "56 ÷ 8 = ?" | whole | fact family | | dividing.4.d3, multiplying.4.m6 | 3 |
+| 4 | dividing.4.d5 | All facts mixed | "63 ÷ 7 = ?" | whole | fact family | | dividing.4.d4, multiplying.4.m7 | 3 |
+| 4 | dividing.4.d6 | Remainders | "47 ÷ 5 = ? r ?" | whole | leftover | | dividing.4.d5 | 5 |
+| 5 | dividing.5.d7 | Two-digit ÷ one-digit, no remainder | "84 ÷ 4 = ?" | whole | long division one step at a time | | dividing.4.d6 | 45 |
+| 5 | dividing.5.d8 | Three-digit ÷ one-digit | "936 ÷ 4 = ?" | whole | long division | | dividing.5.d7 | 45 |
+| 5 | dividing.5.d9 | ÷ two-digit | "672 ÷ 16 = ?" | whole | long division | | dividing.5.d8 | 45 |
+| 5 | dividing.5.d10 | To a decimal | "7 ÷ 2 = ?" | decimal | long division past the ones | | dividing.5.d7 | 45 |
+| 5 | dividing.5.by-10-100 | Divide by 10 and 100 | "340 / 10 = ?" | whole | digits slide right |  | multiplying.4.m8 | 8 |
+| 6 | dividing.6.decimals | Divide to a decimal | "7 / 2 = ?" and "4.8 / 4 = ?" | decimal | tape measure in tenths | brace at level 9: 5.66 / 2 | dividing.5.d10, fractions.5.decimals-tenths | 8 |
 | 7 | dividing.7.fractions | Divide by a fraction | "3 / (1/2) = ?" and "2/3 / 4 = ?" | whole or fraction | how many halves fit in 3 planks |  | multiplying.6.fractions | 10 |
 | 7 | dividing.7.gcf | Greatest common factor | "GCF of 24 and 36 = ?" | whole | factor rows |  | counting.5.factors | 10 |
 | 8 | dividing.8.integers | Divide integers and decimals with signs | "-15 / 2.5 = ?" | decimal | sign rule |  | counting.8.integers-multiply | 10 |
@@ -114,10 +153,10 @@ Dividing hands over to algebra at level 9.
 | 4 | fractions.4.unit | Unit fractions on a line | "Where is 1/4 on the tape?" | choice | tape measure split in 4 |  | fractions.3.name | 6 |
 | 4 | fractions.4.equivalent | Equivalent fractions | "2/4 = ?/8" | whole | one plank, two cuts |  | fractions.4.unit | 6 |
 | 4 | fractions.4.compare | Compare fractions | "Which is bigger, 2/3 or 3/5?" | choice | two planks side by side |  | fractions.4.equivalent | 6 |
-| 5 | fractions.5.of-a-number | Fraction of a number | "3/4 of 12 = ?" | whole | 12 planks, 9 colored | planks laid | dividing.4.facts-10 | 8 |
+| 5 | fractions.5.of-a-number | Fraction of a number | "3/4 of 12 = ?" | whole | 12 planks, 9 colored | planks laid | dividing.4.d5 | 8 |
 | 5 | fractions.5.decimals-tenths | Tenths and hundredths as decimals | "3/10 = 0.?" | decimal | tape measure in tenths |  | fractions.4.unit | 8 |
 | 5 | fractions.5.simplify | Simplify a fraction | "6/8 = ?" | fraction | regroup the cuts |  | dividing.7.gcf or counting.5.factors | 8 |
-| 6 | fractions.6.to-decimal | Fraction to decimal | "3/4 = 0.?" | decimal | 3/4 of a tape in hundredths |  | dividing.6.decimals | 8 |
+| 6 | fractions.6.to-decimal | Fraction to decimal | "3/4 = 0.?" | decimal | 3/4 of a tape in hundredths |  | dividing.5.d10 | 8 |
 | 6 | fractions.6.improper | Improper and mixed | "7/4 = 1 ?/4" | fraction | one whole plank and 3 quarters |  | fractions.4.unit | 8 |
 | 7 | fractions.7.decimal-compare | Order decimals and fractions | "Order 0.6, 2/3, 0.65" | choice | all on one tape |  | fractions.6.to-decimal | 10 |
 | 8 | fractions.8.repeating | Repeating decimals | "1/3 = 0.?" | decimal | long division that never ends |  | dividing.6.decimals | 10 |
@@ -128,8 +167,8 @@ Fractions hand over to ratios and algebra at level 8.
 
 | Level | Skill id | Skill | Notation | Answer | Learn picture | Kit use | Prereq | Time |
 |---|---|---|---|---|---|---|---|---|
-| 6 | ratios.6.write | Write a ratio | "3 bolts for every 2 planks: 3:2. 9 bolts, how many planks?" | whole | rows of bolts and planks | bolts per gusset | multiplying.4.tables-10 | 8 |
-| 6 | ratios.6.unit-rate | Unit rate | "12 lb for 4 ft, how many lb per ft?" | whole | beam split in 4 | beam weight per ft | dividing.4.facts-10 | 8 |
+| 6 | ratios.6.write | Write a ratio | "3 bolts for every 2 planks: 3:2. 9 bolts, how many planks?" | whole | rows of bolts and planks | bolts per gusset | multiplying.4.m7 | 8 |
+| 6 | ratios.6.unit-rate | Unit rate | "12 lb for 4 ft, how many lb per ft?" | whole | beam split in 4 | beam weight per ft | dividing.4.d5 | 8 |
 | 7 | ratios.7.percent | Percent of a number | "25% of 80 = ?" | whole | 100 bolts, 25 colored | load meter: 40 lb of 180 | fractions.5.of-a-number | 10 |
 | 7 | ratios.7.scale | Scale drawings | "1 cm on the plan = 2 ft. 4 cm = ? ft" | whole | blueprint next to bridge | blueprint | ratios.6.unit-rate | 10 |
 | 7 | ratios.7.proportion | Solve a proportion | "3/4 = x/12" | whole | two equal plank splits | teeter totter counterweights | fractions.4.equivalent | 10 |
@@ -147,13 +186,13 @@ Ratios hand over to algebra and geometry at level 10.
 | 1 | measuring.1.longer | Longer or shorter | Tap the longer beam | choice | two beams | pre-cut pieces | | 5 |
 | 1 | measuring.1.heavier | Heavier or lighter | Tap the heavier pile | choice | two bags on a scale | | | 5 |
 | 2 | measuring.2.units | Measure with a tape | "How long is the beam?" with the tape under it | whole | tape measure, whole units | every length in Assemble | counting.1.to-10 | 5 |
-| 2 | measuring.2.gap | Length between two marks | "Posts at 2 and 6. How far apart?" | whole | two posts on the tape | top beam | adding.2.subtract-20 | 5 |
-| 3 | measuring.3.perimeter | Perimeter | "Sides 3, 4, 3, 4. Perimeter = ?" | whole | railing around a deck | railing: both sides of 8 ft | adding.3.three-numbers | 6 |
-| 3 | measuring.3.weight | Weight in lb or kg | "Which is heavier?" and "40 lb + 40 lb = ?" | whole | goat on a scale | load meter | adding.3.to-100 | 6 |
-| 4 | measuring.4.area | Area of a rectangle | "4 by 6 = ? square ft" | whole | planks laid in a grid | deck area | multiplying.4.tables-10 | 6 |
-| 4 | measuring.4.convert | Convert units | "3 ft = ? in" or "2 m = ? cm" | whole | tape with both scales | US and metric toggle | multiplying.4.by-10-100 | 6 |
+| 2 | measuring.2.gap | Length between two marks | "Posts at 2 and 6. How far apart?" | whole | two posts on the tape | top beam | adding.2.s5 | 5 |
+| 3 | measuring.3.perimeter | Perimeter | "Sides 3, 4, 3, 4. Perimeter = ?" | whole | railing around a deck | railing: both sides of 8 ft | adding.3.a14 | 6 |
+| 3 | measuring.3.weight | Weight in lb or kg | "Which is heavier?" and "40 lb + 40 lb = ?" | whole | goat on a scale | load meter | adding.2.a12 | 6 |
+| 4 | measuring.4.area | Area of a rectangle | "4 by 6 = ? square ft" | whole | planks laid in a grid | deck area | multiplying.4.m7 | 6 |
+| 4 | measuring.4.convert | Convert units | "3 ft = ? in" or "2 m = ? cm" | whole | tape with both scales | US and metric toggle | multiplying.4.m8 | 6 |
 | 5 | measuring.5.decimal-length | Lengths to a tenth | "2.8 ft on the tape" | decimal | tape in tenths | brace 2.83 | fractions.5.decimals-tenths | 8 |
-| 5 | measuring.5.time | Elapsed time | "Started at 2:45, took 35 min, ends at ?" | choice | clock |  | adding.3.to-100 | 8 |
+| 5 | measuring.5.time | Elapsed time | "Started at 2:45, took 35 min, ends at ?" | choice | clock |  | adding.2.a12 | 8 |
 | 6 | measuring.6.volume | Volume of a box | "3 x 4 x 2 = ? cubic ft" | whole | stacked bricks | abutments | measuring.4.area | 8 |
 | 6 | measuring.6.angles | Measure an angle | "What angle is the brace?" | choice | protractor on the truss | braces | geometry.4.angles-names | 8 |
 | 7 | measuring.7.circles | Circumference and area of a circle | "Radius 2, circumference = ?" | decimal | a wheel rolled out on the tape | bicycle, gears | multiplying.6.decimals | 10 |
@@ -187,7 +226,7 @@ Measuring hands over to geometry at level 9.
 
 | Level | Skill id | Skill | Notation | Answer | Learn picture | Kit use | Prereq | Time |
 |---|---|---|---|---|---|---|---|---|
-| 6 | algebra.6.unknown | A letter for a number | "x + 5 = 12, x = ?" | whole | balance scale with bolts | top beam as x | adding.2.missing | 8 |
+| 6 | algebra.6.unknown | A letter for a number | "x + 5 = 12, x = ?" | whole | balance scale with bolts | top beam as x | adding.1.a4 | 8 |
 | 6 | algebra.6.patterns | Continue a pattern | "3, 7, 11, 15, ?" | whole | planks laid in a growing pattern |  | counting.2.skip-2-5-10 | 8 |
 | 7 | algebra.7.one-step | One-step equations | "4x = 28" and "x - 9 = 15" | whole | balance, same move on both sides |  | algebra.6.unknown | 10 |
 | 7 | algebra.7.expressions | Evaluate an expression | "2x + 3 when x = 5" | whole | substitute the bolt count |  | algebra.6.unknown | 10 |

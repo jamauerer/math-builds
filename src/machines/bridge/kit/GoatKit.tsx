@@ -2,20 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { LearnerMap } from "../../../engine/placement";
 import {
-  adaptiveAnswer,
-  adaptiveAsk,
-  beginAdaptive,
   fitLevels,
-  gradeStartLevel,
   learnStartLevels,
   withGradeBias,
   KIT_STRANDS,
   strandLine,
   strandName,
-  type AdaptiveRun,
   type GradeChoice,
   type GradeSystem,
 } from "../../../engine/strand-placement";
+import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk, settleLadder, type LadderPlace } from "../../../ladder/place";
+import { LADDER_VERSION } from "../../../ladder/steps";
+import type { LadderLayout } from "../../../ladder/generate";
 import {
   countryByCode,
   countryFromLocale,
@@ -24,7 +22,7 @@ import {
   flagEmoji,
   gradeSystemLabel,
 } from "../../../locale/countries";
-import { guestKitProfile, profileGradeSystem, type KitProfile } from "../../../storage/progress";
+import { guestKitProfile, needsLadderPlace, profileGradeSystem, type KitProfile } from "../../../storage/progress";
 import {
   formatLength,
   formatWeight,
@@ -54,7 +52,6 @@ import {
   kitQuestionTotal,
   lessonFrame,
   picturedHold,
-  questionForStrand,
   runLength,
   WARMUP_COUNT,
   skillHold,
@@ -160,6 +157,8 @@ export function GoatKit({
   flyGusset: flyGussetId = null,
   skill = null,
   skillSeed = null,
+  seedGrade = null,
+  placeAsked = 0,
   kitProfile = null,
   onKitProfile,
   demo = null,
@@ -192,6 +191,8 @@ export function GoatKit({
   flyGusset?: string | null;
   skill?: string | null;
   skillSeed?: number | null;
+  seedGrade?: GradeChoice | null;
+  placeAsked?: number;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
   demo?: string | null;
@@ -201,6 +202,9 @@ export function GoatKit({
   const savedLevels = strandLevels(level, kitProfile?.levels);
   const [liveLevels, setLiveLevels] = useState<Record<string, number> | null>(savedLevels);
   const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
+  const staleLadder = needsLadderPlace(kitProfile);
+  const impliedGrade: GradeChoice | null =
+    seedGrade ?? kitProfile?.grade ?? (level != null ? level : start === "place" || start === "place2" || start === "profile" ? 3 : 13);
   const [stage, setStage] = useState<Stage>(() => {
     if (demo === "fluent") {
       return "profile";
@@ -209,6 +213,9 @@ export function GoatKit({
       return "earn";
     }
     const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
+    if (staleLadder && !lesson && !skill && (opened === "earn" || opened === "intro" || opened === "where")) {
+      return "place";
+    }
     if (opened === "where" && !hasPlacement) {
       return needsCountry(kitProfile) && !seedCountry ? "live" : "grade";
     }
@@ -238,14 +245,20 @@ export function GoatKit({
     if (!lesson && start !== "faster" && start !== "explain" && start !== "practice" && kitProfile?.session) {
       return kitProfile.session;
     }
-    return openingEarn(savedLevels, start, lesson, kitProfile?.skills);
+    return openingEarn(savedLevels, start, lesson, kitProfile?.skills, impliedGrade, placeAsked);
   });
   const [reveal, setReveal] = useState<EarnState | null>(null);
   const [celebrate, setCelebrate] = useState<string[] | null>(moment === "spin" && piece ? [piece] : null);
   const [pulse, setPulse] = useState<string | null>(moment === "lit" ? piece : null);
   const [roundDance, setRoundDance] = useState(false);
-  const [run, setRun] = useState<AdaptiveRun | null>(() => openingRun(start));
-  const [grade, setGrade] = useState<GradeChoice | null>(kitProfile?.grade ?? (start === "place" || start === "place2" || start === "profile" ? 3 : null));
+  const [run, setRun] = useState<LadderPlace | null>(() => {
+    const opened = start === "place2" ? "place" : start === "faster" ? "earn" : start;
+    if (staleLadder && !lesson && !skill && (opened === "earn" || opened === "intro" || opened === "where")) {
+      return openingPlace("place", impliedGrade, placeAsked);
+    }
+    return openingPlace(start, impliedGrade, placeAsked);
+  });
+  const [grade, setGrade] = useState<GradeChoice | null>(impliedGrade);
   const seeded = seedCountry && countryByCode(seedCountry) ? seedCountry.toUpperCase() : null;
   const [gradeSystem, setGradeSystem] = useState<GradeSystem>(() => {
     if (kitProfile?.gradeSystem) {
@@ -290,6 +303,8 @@ export function GoatKit({
       built: current?.built,
       dunks: current?.dunks,
       placedAt: current?.placedAt,
+      ladderAt: current?.ladderAt,
+      ladderSteps: current?.ladderSteps,
       fastRuns: current?.fastRuns,
       ...patch,
     };
@@ -413,7 +428,7 @@ export function GoatKit({
     setGradeSystem("us");
     setLiveLevels(guest.levels);
     onUnits("us");
-    setEarn(blankEarn(guest.levels, 1, guest.skills, guest.placedAt));
+    setEarn(blankEarn(guest.levels, 1, guest.skills, guest.placedAt, 0, 3));
     setLengths({});
     setPlaced({});
     setGuideStep(0);
@@ -423,7 +438,12 @@ export function GoatKit({
   }
 
   function openEarn() {
-    if (!hasPlacement) {
+    if (staleLadder || !hasPlacement) {
+      if (staleLadder && (grade != null || kitProfile?.grade != null)) {
+        setRun(beginLadderPlace(grade ?? kitProfile?.grade ?? 3));
+        setStage("place");
+        return;
+      }
       setStage(needsCountry(kitProfile) ? "live" : "grade");
       return;
     }
@@ -546,17 +566,17 @@ export function GoatKit({
     if (!run) {
       return;
     }
-    const ask = adaptiveAsk(run);
-    const question = questionForStrand(ask.strandId, ask.level, ask.number);
-    const correct = acceptsAnswer(typed, question.answer, question.truth);
-    const stepped = adaptiveAnswer(run, correct);
+    const asked = ladderPlaceAsk(run, grade ?? 3, run.asked);
+    const correct = acceptsAnswer(typed, asked.answer);
+    const stepped = ladderPlaceAnswer(run, grade ?? 3, correct);
     setTyped("");
     const history = [
       ...(kitProfile?.history ?? []),
-      { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct },
+      { strandId: asked.strandId, level: asked.level, prompt: asked.prompt, correct },
     ].slice(-80);
-    if (stepped.levels) {
-      const levels = learnStartLevels(withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem));
+    if (stepped.done) {
+      const settled = settleLadder(stepped, grade ?? 3);
+      const levels = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
       const placedAt = new Date().toISOString().slice(0, 10);
       writeProfile({
         grade: grade ?? "unsure",
@@ -565,13 +585,20 @@ export function GoatKit({
         skills: skillsFromLevels(levels, placedAt),
         placedAt,
         fastRuns: {},
+        ladderAt: LADDER_VERSION,
+        ladderSteps: {
+          adding: settled.adding,
+          subtracting: settled.subtracting,
+          multiplying: settled.multiplying,
+          dividing: settled.dividing,
+        },
       });
-      setEarn(blankEarn(levels));
+      setEarn(blankEarn(levels, 1, null, "2026-10-19", 0, grade ?? 3));
       setStage("where");
       return;
     }
     writeProfile({ grade: grade ?? "unsure", history });
-    setRun(stepped.run);
+    setRun(stepped);
   }
 
   function askHelp() {
@@ -579,16 +606,16 @@ export function GoatKit({
       submitAnswer(true);
       return;
     }
-    const ask = adaptiveAsk(run);
-    const question = questionForStrand(ask.strandId, ask.level, ask.number);
-    const stepped = adaptiveAnswer(run, false);
+    const asked = ladderPlaceAsk(run, grade ?? 3, run.asked);
+    const stepped = ladderPlaceAnswer(run, grade ?? 3, false);
     setTyped("");
     const history = [
       ...(kitProfile?.history ?? []),
-      { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct: false, help: true },
+      { strandId: asked.strandId, level: asked.level, prompt: asked.prompt, correct: false, help: true },
     ].slice(-80);
-    if (stepped.levels) {
-      const levels = learnStartLevels(withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem));
+    if (stepped.done) {
+      const settled = settleLadder(stepped, grade ?? 3);
+      const levels = learnStartLevels(withGradeBias(settled.levels, grade ?? "unsure", gradeSystem));
       const placedAt = new Date().toISOString().slice(0, 10);
       writeProfile({
         grade: grade ?? "unsure",
@@ -597,13 +624,20 @@ export function GoatKit({
         skills: skillsFromLevels(levels, placedAt),
         placedAt,
         fastRuns: {},
+        ladderAt: LADDER_VERSION,
+        ladderSteps: {
+          adding: settled.adding,
+          subtracting: settled.subtracting,
+          multiplying: settled.multiplying,
+          dividing: settled.dividing,
+        },
       });
-      setEarn(blankEarn(levels));
+      setEarn(blankEarn(levels, 1, null, "2026-10-19", 0, grade ?? 3));
       setStage("where");
       return;
     }
     writeProfile({ grade: grade ?? "unsure", history });
-    setRun(stepped.run);
+    setRun(stepped);
   }
 
   function placeGusset(slotId: string) {
@@ -924,7 +958,7 @@ export function GoatKit({
           onChoose={(choice) => {
             setGrade(choice);
             writeProfile({ grade: choice, gradeSystem });
-            setRun(beginAdaptive(gradeStartLevel(choice)));
+            setRun(beginLadderPlace(choice));
             setTyped("");
             setStage("place");
           }}
@@ -936,10 +970,12 @@ export function GoatKit({
           onUnits={onUnits}
           onProfile={() => setStage("profile")}
           run={run}
+          grade={grade ?? 3}
           typed={typed}
           setTyped={setTyped}
           onCheck={submitPlace}
           onHelp={askHelp}
+          note={staleLadder ? "We made the questions better. A quick check first." : null}
         />
       ) : stage === "where" ? (
         <WhereView
@@ -948,6 +984,7 @@ export function GoatKit({
           onUnits={onUnits}
           gradeSystem={gradeSystem}
           levels={Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {})}
+          steps={kitProfile?.ladderSteps}
           onProfile={() => setStage("profile")}
           onStart={() => setStage(kitProfile?.seenIntro ? "earn" : "intro")}
         />
@@ -1484,6 +1521,8 @@ function EarnView({
             <span className="gk-qstrand">{strandName(question.strandId)}</span>
             {earn.phase === "warmup" && dueReview ? <span data-review="due">Review</span> : null}
           </div>
+          <div className="gk-work">
+            <div className="gk-card-main">
           <SpokenPrompt text={earnPrompt(question)} country={country} parent={question.level <= 2} />
           {question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
             <OperandMarks draw={question.fact.draw} />
@@ -1508,6 +1547,13 @@ function EarnView({
             onCommit={(attempt) => onCheck(attempt)}
             onHelp={onHelp}
           />
+            </div>
+            <ScratchPad
+              resetKey={`${earn.phase}:${earnPrompt(question)}:${earn.runGot}`}
+              layout={question.layout}
+              marks={new URLSearchParams(window.location.search).get("marks") === "borrow" ? "borrow" : new URLSearchParams(window.location.search).get("marks") === "carry" ? "carry" : undefined}
+            />
+          </div>
         </div>
         <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
         <RoundMark round={earn.round} />
@@ -1759,7 +1805,7 @@ function AnswerPad({
   typed,
   answer,
   truth,
-  level,
+  level: _level,
   resetKey,
   unit,
   keys,
@@ -1789,6 +1835,7 @@ function AnswerPad({
   onCommit: (attempt?: string) => void;
   onHelp: () => void;
 }) {
+  void _level;
   const [flash, setFlash] = useState<"" | "right" | "wrong">("");
   const [held, setHeld] = useState<string | null>(null);
   const moving = useRef(false);
@@ -1936,7 +1983,6 @@ function AnswerPad({
             );
           })}
         </div>
-        <ScratchPad level={level} resetKey={resetKey} />
         <button className="gk-idk" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -1973,7 +2019,6 @@ function AnswerPad({
           </button>
         ))}
       </div>
-      <ScratchPad level={level} resetKey={resetKey} />
       <button className="gk-idk" type="button" onClick={onHelp}>
         I don't know
       </button>
@@ -2090,18 +2135,27 @@ function teeterThumb(): string {
   return `<div class="gk-teeter-thumb" data-teeter="sprites"><img src="${goat}" alt="" /><img src="${elephant}" alt="" /></div>`;
 }
 
-function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
-  const [open, setOpen] = useState(level >= 5);
+function ScratchPad({
+  resetKey,
+  layout,
+  marks,
+}: {
+  level?: number;
+  resetKey: string;
+  layout?: LadderLayout;
+  marks?: "carry" | "borrow";
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
+  const tool = useRef<"pencil" | "eraser">("pencil");
+  const [mode, setMode] = useState<"pencil" | "eraser">("pencil");
   useEffect(() => {
-    setOpen(level >= 5);
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (canvas && context) {
       context.clearRect(0, 0, canvas.width, canvas.height);
     }
-  }, [resetKey, level]);
+  }, [resetKey]);
   function point(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -2122,8 +2176,9 @@ function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
     drawing.current = true;
     event.currentTarget.setPointerCapture(event.pointerId);
     const at = point(event);
+    context.globalCompositeOperation = tool.current === "eraser" ? "destination-out" : "source-over";
     context.strokeStyle = "#22201c";
-    context.lineWidth = 2;
+    context.lineWidth = tool.current === "eraser" ? 12 : 2;
     context.lineCap = "round";
     context.beginPath();
     context.moveTo(at.x, at.y);
@@ -2147,19 +2202,13 @@ function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
       context.clearRect(0, 0, canvas.width, canvas.height);
     }
   }
-  if (!open) {
-    return (
-      <button className="gk-scratch-open" type="button" onClick={() => setOpen(true)}>
-        Work it out
-      </button>
-    );
-  }
   return (
-    <div className="gk-scratch">
+    <div className="gk-scratch" data-sketch="on">
+      {layout ? <StackLayout layout={layout} marks={marks} /> : null}
       <canvas
         ref={canvasRef}
-        width={560}
-        height={72}
+        width={640}
+        height={280}
         aria-label="Work it out"
         onPointerDown={start}
         onPointerMove={move}
@@ -2170,17 +2219,80 @@ function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
           drawing.current = false;
         }}
       />
-      <button
-        type="button"
-        onClick={() => {
-          clear();
-          if (level <= 4) {
-            setOpen(false);
-          }
-        }}
-      >
-        Clear
-      </button>
+      <div className="gk-scratch-tools">
+        <button
+          type="button"
+          className={mode === "pencil" ? "is-on" : undefined}
+          onClick={() => {
+            tool.current = "pencil";
+            setMode("pencil");
+          }}
+        >
+          Pencil
+        </button>
+        <button
+          type="button"
+          className={mode === "eraser" ? "is-on" : undefined}
+          onClick={() => {
+            tool.current = "eraser";
+            setMode("eraser");
+          }}
+        >
+          Eraser
+        </button>
+        <button type="button" onClick={clear}>
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StackLayout({ layout, marks }: { layout: LadderLayout; marks?: "carry" | "borrow" }) {
+  if (layout.kind === "long-division") {
+    return (
+      <div className="gk-longdiv" aria-hidden="true">
+        <span className="gk-longdiv-quot" />
+        <div className="gk-longdiv-row">
+          <span className="gk-longdiv-div">{layout.bottom}</span>
+          <span className="gk-longdiv-bracket">
+            <i />
+            <b>{layout.top}</b>
+          </span>
+        </div>
+      </div>
+    );
+  }
+  const top = layout.top.replace(/,/g, "");
+  const bottom = layout.bottom.replace(/,/g, "");
+  const width = Math.max(top.length, bottom.length);
+  const topPad = top.padStart(width, " ");
+  const botPad = bottom.padStart(width, " ");
+  return (
+    <div className="gk-stack" data-op={layout.op} aria-hidden="true">
+      <div className="gk-stack-row gk-stack-carry">
+        {Array.from({ length: width }, (_, index) => (
+          <span key={`c-${index}`} className="gk-stack-cell">
+            {marks === "carry" && index === width - 2 ? "1" : ""}
+          </span>
+        ))}
+      </div>
+      <div className="gk-stack-row">
+        {Array.from(topPad).map((char, index) => (
+          <span key={`t-${index}`} className="gk-stack-cell">
+            {marks === "borrow" && index === width - 1 && char !== " " ? `${10 + Number(char)}` : marks === "borrow" && index === width - 2 ? <s>{char === " " ? "" : char}</s> : char === " " ? "" : char}
+          </span>
+        ))}
+      </div>
+      <div className="gk-stack-row">
+        <span className="gk-stack-op">{layout.op}</span>
+        {Array.from(botPad).map((char, index) => (
+          <span key={`b-${index}`} className="gk-stack-cell">
+            {char === " " ? "" : char}
+          </span>
+        ))}
+      </div>
+      <div className="gk-stack-line" />
     </div>
   );
 }
@@ -3150,7 +3262,14 @@ function strandLevels(level: number | null, saved: Record<string, number> | unde
   return null;
 }
 
-function openingEarn(levels: Record<string, number> | null, start: Open, lesson: string | null, saved: SkillBook | null | undefined): EarnState {
+function openingEarn(
+  levels: Record<string, number> | null,
+  start: Open,
+  lesson: string | null,
+  saved: SkillBook | null | undefined,
+  grade: GradeChoice | null = 13,
+  asked = 0,
+): EarnState {
   if (lesson === "last") {
     return roundEndHold(levels, 0);
   }
@@ -3163,31 +3282,47 @@ function openingEarn(levels: Record<string, number> | null, start: Open, lesson:
     return lessonFrame(lesson, levels);
   }
   if (lesson === "step") {
-    const base = blankEarn(levels, 1, saved);
+    const base = blankEarn(levels, 1, saved, "2026-10-19", 0, grade);
     return answerEarn(base, base.current.answer, levels ?? {}).state;
   }
   if (start === "faster") {
     return finishedEarn("12 s faster than last time");
   }
-  const base = blankEarn(levels, 1, saved);
+  const base = blankEarn(levels, 1, saved, "2026-10-19", 0, grade);
   if (start === "explain") {
     return answerEarn(base, "nope", levels ?? {}).state;
   }
   if (start === "practice") {
     return startPractice(answerEarn(base, "nope", levels ?? {}).state);
   }
-  return base;
+  let state = base;
+  for (let index = 1; index < asked && state.phase !== "done"; index += 1) {
+    if (state.phase === "learn") {
+      state = startGuided(state, levels ?? {});
+      continue;
+    }
+    const answer = state.current?.answer;
+    if (!answer) {
+      break;
+    }
+    state = answerEarn(state, answer, levels ?? {}).state;
+  }
+  return state;
 }
 
-function openingRun(start: Open): AdaptiveRun | null {
+function openingPlace(start: Open, grade: GradeChoice | null, asked = 0): LadderPlace | null {
   if (start !== "place" && start !== "place2") {
     return null;
   }
-  const run = beginAdaptive(gradeStartLevel(3));
+  let begun = beginLadderPlace(grade ?? 3);
   if (start === "place2") {
-    return adaptiveAnswer(run, true).run;
+    begun = ladderPlaceAnswer(begun, grade ?? 3, true);
   }
-  return run;
+  const extra = Math.max(0, asked - (start === "place2" ? 2 : 1));
+  for (let index = 0; index < extra; index += 1) {
+    begun = ladderPlaceAnswer(begun, grade ?? 3, index % 3 !== 0);
+  }
+  return begun;
 }
 
 function screenProfile(
@@ -3361,24 +3496,27 @@ function PlaceView({
   onUnits,
   onProfile,
   run,
+  grade,
   typed,
   setTyped,
   onCheck,
   onHelp,
+  note,
 }: {
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   onProfile: () => void;
-  run: AdaptiveRun;
+  run: LadderPlace;
+  grade: GradeChoice;
   typed: string;
   setTyped: (value: string) => void;
   onCheck: () => void;
   onHelp: () => void;
+  note: string | null;
 }) {
-  const ask = adaptiveAsk(run);
-  const question = questionForStrand(ask.strandId, ask.level, ask.number);
-  const keys = keysFor(question.answer, question.truth);
+  const question = ladderPlaceAsk(run, grade, run.asked);
+  const keys = keysFor(question.answer);
   return (
     <>
       <header className="gk-header">
@@ -3387,40 +3525,41 @@ function PlaceView({
         </button>
         <div>
           <div className="gk-title">A few questions</div>
-          <div className="gk-sub">{strandName(ask.strandId)}</div>
+          <div className="gk-sub">{question.stepId ?? "Adding"}</div>
         </div>
         <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
       </header>
       <div className="gk-body">
         <div className="gk-earn">
-          <div className="gk-card">
-            <div className="gk-kicker gk-kicker-stack">
-              <span>QUESTION {ask.number}</span>
-              <span className="gk-qstrand">{strandName(ask.strandId)}</span>
-            </div>
-            <div className="gk-bar thin">
-              <i style={{ width: `${((ask.number - 1) / 12) * 100}%` }} />
-            </div>
-            <h2 className="gk-prompt">{earnPrompt(question)}</h2>
-            <EarnSketch question={question} />
-            <p className="gk-hint">{earnHint(question)}</p>
-            <div className="gk-answer">
-              <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
-              <span className="gk-unit">{earnMeasure(question) === "length" ? lengthAbbrev() : ""}</span>
-              <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
-                Check
+          {note ? <p className="gk-note">{note}</p> : null}
+          <div className="gk-work">
+            <div className="gk-card">
+              <div className="gk-kicker gk-kicker-stack">
+                <span>QUESTION {run.asked + 1}</span>
+                <span className="gk-qstrand">{question.stepId}</span>
+              </div>
+              <div className="gk-bar thin">
+                <i style={{ width: `${(run.asked / 12) * 100}%` }} />
+              </div>
+              <h2 className="gk-prompt">{question.prompt}</h2>
+              <div className="gk-answer">
+                <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
+                <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
+                  Check
+                </button>
+              </div>
+              <div className="gk-keys">
+                {keys.map((key) => (
+                  <button key={key} type="button" onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : `${typed}${key}`)}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+              <button className="gk-idk" type="button" onClick={onHelp}>
+                I don't know
               </button>
             </div>
-            <div className="gk-keys">
-              {keys.map((key) => (
-                <button key={key} type="button" onClick={() => setTyped(key === "←" ? typed.slice(0, -1) : `${typed}${key}`)}>
-                  {key}
-                </button>
-              ))}
-            </div>
-            <button className="gk-idk" type="button" onClick={onHelp}>
-              I don't know
-            </button>
+            <ScratchPad level={1} resetKey={`${run.asked}:${question.prompt}`} layout={question.item?.layout} />
           </div>
         </div>
       </div>
@@ -3434,6 +3573,7 @@ function WhereView({
   onUnits,
   gradeSystem,
   levels,
+  steps,
   onProfile,
   onStart,
 }: {
@@ -3442,6 +3582,7 @@ function WhereView({
   onUnits: (units: UnitSystem) => void;
   gradeSystem: GradeSystem;
   levels: Record<string, number>;
+  steps?: { adding: string; subtracting: string; multiplying?: string; dividing?: string };
   onProfile: () => void;
   onStart: () => void;
 }) {
@@ -3465,9 +3606,18 @@ function WhereView({
               Using {gradeSystemLabel(gradeSystem)}.
             </p>
             <ul className="gk-where">
-              {KIT_STRANDS.map((id) => (
-                <li key={id}>{strandLine(id, levels[id] ?? 1)}</li>
-              ))}
+              {steps?.adding ? (
+                <>
+                  <li>Adding {steps.adding}</li>
+                  <li>Subtracting {steps.subtracting}</li>
+                  {steps.multiplying ? <li>Multiplying {steps.multiplying}</li> : null}
+                  {steps.dividing ? <li>Dividing {steps.dividing}</li> : null}
+                </>
+              ) : (
+                KIT_STRANDS.map((id) => (
+                  <li key={id}>{strandLine(id, levels[id] ?? 1)}</li>
+                ))
+              )}
             </ul>
             <button className="gk-check" type="button" data-action="primary" onClick={onStart}>
               Start

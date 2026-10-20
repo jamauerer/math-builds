@@ -1,4 +1,5 @@
 import { fitLevels, KIT_STRANDS } from "../../../engine/strand-placement";
+import { ladderStep } from "../../../ladder/steps";
 import { CURRICULUM_SKILLS } from "../../../skills";
 
 export type SkillStateName = "new" | "learning" | "practicing" | "fluent" | "mastered";
@@ -77,7 +78,7 @@ export const KIT_SKILLS: KitSkill[] = CURRICULUM_SKILLS.map((skill) => ({
 }));
 
 export function timeTargetFor(skillId: string): number {
-  return KIT_SKILLS.find((skill) => skill.id === skillId)?.timeTarget ?? 8;
+  return ladderStep(skillId)?.timeTarget ?? KIT_SKILLS.find((skill) => skill.id === skillId)?.timeTarget ?? 8;
 }
 
 export function dayDiff(from: string, to: string): number {
@@ -508,13 +509,13 @@ export function demoFluentBook(day = "2026-10-20"): SkillBook {
 }
 
 export function demoReviewBook(_day = "2026-10-20"): SkillBook {
-  let book = withState(skillsFromLevels(allLevelMap(4), "2026-10-13"), "adding.2.to-20", "practicing");
+  let book = withState(skillsFromLevels(allLevelMap(4), "2026-10-13"), "adding.2.a6", "practicing");
   book = {
     ...book,
     skills: {
       ...book.skills,
-      "adding.2.to-20": {
-        ...book.skills["adding.2.to-20"],
+      "adding.2.a6": {
+        ...book.skills["adding.2.a6"],
         lastReview: "2026-10-19",
         reviewInterval: 1,
         warmUp: true,

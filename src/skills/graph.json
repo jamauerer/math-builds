@@ -165,7 +165,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "multiplying.4.tables-10"
+        "multiplying.4.m7"
       ]
     },
     {
@@ -235,7 +235,7 @@
       "kitUse": "brace at level 9",
       "timeTarget": 10,
       "prereqs": [
-        "multiplying.5.multi-digit"
+        "multiplying.5.m12"
       ]
     },
     {
@@ -253,116 +253,437 @@
       ]
     },
     {
-      "id": "adding.1.to-5",
+      "id": "adding.1.a1",
       "strand": "adding",
       "level": 1,
-      "name": "Combine two piles",
-      "notation": "Drag both piles into one box",
-      "answer": "drag",
-      "learnPicture": "two groups of bolts pushed together",
+      "name": "Add within 5",
+      "notation": "\"2 + 3 = ?\"",
+      "answer": "whole",
+      "learnPicture": "dots joined",
       "kitUse": "",
-      "timeTarget": 6,
+      "timeTarget": 3,
       "prereqs": [
         "counting.1.to-10"
       ]
     },
     {
-      "id": "adding.2.to-20",
+      "id": "adding.1.a2",
+      "strand": "adding",
+      "level": 1,
+      "name": "Add within 10",
+      "notation": "\"4 + 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "dots fade out",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a1"
+      ]
+    },
+    {
+      "id": "adding.1.a3",
+      "strand": "adding",
+      "level": 1,
+      "name": "Add 1, add 2",
+      "notation": "\"13 + 2 = ?\"",
+      "answer": "whole",
+      "learnPicture": "count on",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a2"
+      ]
+    },
+    {
+      "id": "adding.1.a4",
+      "strand": "adding",
+      "level": 1,
+      "name": "Make 10",
+      "notation": "\"7 + ? = 10\"",
+      "answer": "whole",
+      "learnPicture": "ten-frame filled",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a2"
+      ]
+    },
+    {
+      "id": "adding.1.s1",
+      "strand": "adding",
+      "level": 1,
+      "name": "Take away within 5",
+      "notation": "\"5 - 2 = ?\"",
+      "answer": "whole",
+      "learnPicture": "dots crossed out",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a1"
+      ]
+    },
+    {
+      "id": "adding.1.s2",
+      "strand": "adding",
+      "level": 1,
+      "name": "Take away within 10",
+      "notation": "\"9 - 4 = ?\"",
+      "answer": "whole",
+      "learnPicture": "dots fade out",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.s1"
+      ]
+    },
+    {
+      "id": "adding.1.s3",
+      "strand": "adding",
+      "level": 1,
+      "name": "Take 1, take 2",
+      "notation": "\"15 - 2 = ?\"",
+      "answer": "whole",
+      "learnPicture": "count back",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.s2"
+      ]
+    },
+    {
+      "id": "adding.1.s4",
+      "strand": "adding",
+      "level": 1,
+      "name": "Subtract from 10",
+      "notation": "\"10 - 7 = ?\"",
+      "answer": "whole",
+      "learnPicture": "ten-frame emptied",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a4"
+      ]
+    },
+    {
+      "id": "adding.2.a5",
       "strand": "adding",
       "level": 2,
-      "name": "Add within 20",
+      "name": "Add within 20, no crossing 10",
+      "notation": "\"12 + 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "ones stay under 10",
+      "kitUse": "top beam",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.a3"
+      ]
+    },
+    {
+      "id": "adding.2.a6",
+      "strand": "adding",
+      "level": 2,
+      "name": "Add within 20, crossing 10",
       "notation": "\"8 + 7 = ?\"",
       "answer": "whole",
-      "learnPicture": "make a ten: 8 + 2, then 5 more",
-      "kitUse": "top beam word problem (posts at 2 and 6)",
-      "timeTarget": 3,
-      "prereqs": [
-        "adding.1.to-5"
-      ]
-    },
-    {
-      "id": "adding.2.subtract-20",
-      "strand": "adding",
-      "level": 2,
-      "name": "Subtract within 20",
-      "notation": "\"15 - 9 = ?\"",
-      "answer": "whole",
-      "learnPicture": "count back on the tape, or count up from 9",
+      "learnPicture": "make ten: 8 + 2 + 5",
       "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "adding.2.to-20"
+        "adding.1.a4"
       ]
     },
     {
-      "id": "adding.2.missing",
+      "id": "adding.2.a7",
       "strand": "adding",
       "level": 2,
-      "name": "Missing number",
-      "notation": "\"6 + ? = 13\"",
+      "name": "Doubles and near doubles",
+      "notation": "\"6 + 7 = ?\"",
       "answer": "whole",
-      "learnPicture": "balance scale with bolts",
+      "learnPicture": "double then one more",
       "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "adding.2.to-20"
+        "adding.2.a6"
       ]
     },
     {
-      "id": "adding.3.to-100",
+      "id": "adding.2.a8",
       "strand": "adding",
-      "level": 3,
-      "name": "Add within 100",
+      "level": 2,
+      "name": "Add tens",
+      "notation": "\"30 + 40 = ?\"",
+      "answer": "whole",
+      "learnPicture": "tens",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.a5"
+      ]
+    },
+    {
+      "id": "adding.2.a9",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit + one-digit, no carry",
+      "notation": "\"34 + 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "ones then tens",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.a5"
+      ]
+    },
+    {
+      "id": "adding.2.a10",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit + one-digit, carry",
+      "notation": "\"37 + 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "1 written above the tens",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.a6"
+      ]
+    },
+    {
+      "id": "adding.2.a11",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit + two-digit, no carry",
+      "notation": "\"42 + 35 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked columns",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.a9"
+      ]
+    },
+    {
+      "id": "adding.2.a12",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit + two-digit, carry",
       "notation": "\"47 + 36 = ?\"",
       "answer": "whole",
-      "learnPicture": "tens and ones added separately",
+      "learnPicture": "1 written above the tens",
       "kitUse": "",
-      "timeTarget": 6,
+      "timeTarget": 20,
       "prereqs": [
-        "adding.2.to-20",
-        "counting.2.place-value"
+        "adding.2.a10"
       ]
     },
     {
-      "id": "adding.3.subtract-100",
+      "id": "adding.2.a13",
       "strand": "adding",
-      "level": 3,
-      "name": "Subtract within 100",
+      "level": 2,
+      "name": "Two-digit + two-digit, over 100",
+      "notation": "\"78 + 65 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked, extra hundred",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.a12"
+      ]
+    },
+    {
+      "id": "adding.2.s5",
+      "strand": "adding",
+      "level": 2,
+      "name": "Within 20, no crossing 10",
+      "notation": "\"17 - 5 = ?\"",
+      "answer": "whole",
+      "learnPicture": "ones enough",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.1.s3"
+      ]
+    },
+    {
+      "id": "adding.2.s6",
+      "strand": "adding",
+      "level": 2,
+      "name": "Within 20, crossing 10",
+      "notation": "\"14 - 8 = ?\"",
+      "answer": "whole",
+      "learnPicture": "count back through ten",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "adding.2.s5"
+      ]
+    },
+    {
+      "id": "adding.2.s7",
+      "strand": "adding",
+      "level": 2,
+      "name": "Subtract tens",
+      "notation": "\"70 - 30 = ?\"",
+      "answer": "whole",
+      "learnPicture": "tens",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.s5"
+      ]
+    },
+    {
+      "id": "adding.2.s8",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit − one-digit, no borrow",
+      "notation": "\"47 - 3 = ?\"",
+      "answer": "whole",
+      "learnPicture": "ones enough",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.s5"
+      ]
+    },
+    {
+      "id": "adding.2.s9",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit − one-digit, borrow",
+      "notation": "\"42 - 7 = ?\"",
+      "answer": "whole",
+      "learnPicture": "tens crossed out, 10 added to ones",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "adding.2.s6"
+      ]
+    },
+    {
+      "id": "adding.2.s10",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit − two-digit, no borrow",
+      "notation": "\"68 - 25 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked columns",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.s8"
+      ]
+    },
+    {
+      "id": "adding.2.s11",
+      "strand": "adding",
+      "level": 2,
+      "name": "Two-digit − two-digit, borrow",
       "notation": "\"82 - 47 = ?\"",
       "answer": "whole",
-      "learnPicture": "borrowing shown with a rod broken into ones",
+      "learnPicture": "tens crossed out, 10 added to ones",
       "kitUse": "",
-      "timeTarget": 6,
+      "timeTarget": 20,
       "prereqs": [
-        "adding.3.to-100"
+        "adding.2.s9"
       ]
     },
     {
-      "id": "adding.3.three-numbers",
+      "id": "adding.3.a14",
       "strand": "adding",
       "level": 3,
-      "name": "Add three numbers",
+      "name": "Three numbers",
       "notation": "\"4 + 9 + 6 = ?\"",
       "answer": "whole",
-      "learnPicture": "pairs that make 10 found first",
+      "learnPicture": "pair that makes 10",
       "kitUse": "gussets plus bolts",
-      "timeTarget": 6,
+      "timeTarget": 5,
       "prereqs": [
-        "adding.2.to-20"
+        "adding.2.a6"
       ]
     },
     {
-      "id": "adding.4.to-1000",
+      "id": "adding.3.a15",
+      "strand": "adding",
+      "level": 3,
+      "name": "Three-digit + three-digit, no carry",
+      "notation": "\"312 + 465 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked columns",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.a11"
+      ]
+    },
+    {
+      "id": "adding.3.a16",
+      "strand": "adding",
+      "level": 3,
+      "name": "Three-digit + three-digit, carry",
+      "notation": "\"358 + 467 = ?\"",
+      "answer": "whole",
+      "learnPicture": "carries above columns",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.a12"
+      ]
+    },
+    {
+      "id": "adding.3.s12",
+      "strand": "adding",
+      "level": 3,
+      "name": "Three-digit, borrow once",
+      "notation": "\"524 - 178 = ?\"",
+      "answer": "whole",
+      "learnPicture": "one borrow",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.2.s11"
+      ]
+    },
+    {
+      "id": "adding.3.s13",
+      "strand": "adding",
+      "level": 3,
+      "name": "Three-digit, borrow across zero",
+      "notation": "\"503 - 258 = ?\"",
+      "answer": "whole",
+      "learnPicture": "borrow across zero",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.3.s12"
+      ]
+    },
+    {
+      "id": "adding.4.a17",
       "strand": "adding",
       "level": 4,
-      "name": "Add and subtract within 1000",
-      "notation": "\"358 + 467 = ?\" and \"703 - 258 = ?\"",
+      "name": "Four-digit and up",
+      "notation": "\"4827 + 3596 = ?\"",
       "answer": "whole",
-      "learnPicture": "column addition with carries",
+      "learnPicture": "stacked columns",
       "kitUse": "",
-      "timeTarget": 12,
+      "timeTarget": 20,
       "prereqs": [
-        "adding.3.to-100"
+        "adding.3.a16"
+      ]
+    },
+    {
+      "id": "adding.4.s14",
+      "strand": "adding",
+      "level": 4,
+      "name": "Four-digit and up",
+      "notation": "\"6032 - 2847 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked columns",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "adding.3.s13"
       ]
     },
     {
@@ -380,31 +701,31 @@
       ]
     },
     {
-      "id": "adding.5.big-numbers",
+      "id": "adding.5.a18",
       "strand": "adding",
       "level": 5,
-      "name": "Add and subtract to 1,000,000",
-      "notation": "\"48,275 + 9,648 = ?\"",
-      "answer": "whole",
-      "learnPicture": "column method",
+      "name": "Decimals",
+      "notation": "\"3.4 + 2.8 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "points lined up",
       "kitUse": "",
-      "timeTarget": 12,
+      "timeTarget": 20,
       "prereqs": [
-        "adding.4.to-1000"
+        "adding.4.a17"
       ]
     },
     {
-      "id": "adding.5.decimals-tenths",
+      "id": "adding.5.s15",
       "strand": "adding",
       "level": 5,
-      "name": "Add tenths",
-      "notation": "\"3.4 + 2.8 = ?\"",
+      "name": "Decimals",
+      "notation": "\"7.2 - 3.5 = ?\"",
       "answer": "decimal",
-      "learnPicture": "tape measure in tenths",
-      "kitUse": "brace at level 9 uses it",
-      "timeTarget": 8,
+      "learnPicture": "points lined up",
+      "kitUse": "",
+      "timeTarget": 20,
       "prereqs": [
-        "fractions.5.decimals-tenths"
+        "adding.4.s14"
       ]
     },
     {
@@ -418,7 +739,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "adding.5.decimals-tenths"
+        "adding.5.a18"
       ]
     },
     {
@@ -480,101 +801,186 @@
       ]
     },
     {
-      "id": "multiplying.3.equal-groups",
+      "id": "multiplying.3.m1",
       "strand": "multiplying",
       "level": 3,
-      "name": "Equal groups as repeated adding",
-      "notation": "\"3 x 4 = ?\" with 3 rows of 4 shown",
+      "name": "Equal groups",
+      "notation": "\"3 × 4 = ?\"",
       "answer": "whole",
-      "learnPicture": "3 rows of 4 bolts",
+      "learnPicture": "rows of dots",
       "kitUse": "bolts: 2 per gusset",
       "timeTarget": 3,
       "prereqs": [
-        "adding.2.to-20"
+        "adding.2.a12",
+        "adding.2.s11"
       ]
     },
     {
-      "id": "multiplying.3.doubles",
+      "id": "multiplying.4.m2",
       "strand": "multiplying",
-      "level": 3,
-      "name": "Times 2",
-      "notation": "\"2 x 7 = ?\"",
+      "level": 4,
+      "name": "× 2, × 10",
+      "notation": "\"7 × 2 = ?\"",
       "answer": "whole",
       "learnPicture": "pairs",
       "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "multiplying.3.equal-groups"
+        "multiplying.3.m1"
       ]
     },
     {
-      "id": "multiplying.4.tables-5",
+      "id": "multiplying.4.m3",
       "strand": "multiplying",
       "level": 4,
-      "name": "Times tables to 5",
-      "notation": "\"4 x 5 = ?\"",
+      "name": "× 5",
+      "notation": "\"6 × 5 = ?\"",
       "answer": "whole",
-      "learnPicture": "rows of bolts",
-      "kitUse": "bolts",
+      "learnPicture": "skip count",
+      "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "multiplying.3.equal-groups"
+        "multiplying.4.m2"
       ]
     },
     {
-      "id": "multiplying.4.tables-10",
+      "id": "multiplying.4.m4",
       "strand": "multiplying",
       "level": 4,
-      "name": "Times tables to 10",
-      "notation": "\"7 x 8 = ?\"",
+      "name": "× 3, × 4",
+      "notation": "\"4 × 4 = ?\"",
       "answer": "whole",
-      "learnPicture": "rows of bolts, the 10x10 grid",
-      "kitUse": "planks: 8 planks x 1 ft",
+      "learnPicture": "rows",
+      "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "multiplying.4.tables-5"
+        "multiplying.4.m3"
       ]
     },
     {
-      "id": "multiplying.4.by-10-100",
+      "id": "multiplying.4.m5",
       "strand": "multiplying",
       "level": 4,
-      "name": "Multiply by 10 and 100",
-      "notation": "\"34 x 10 = ?\"",
+      "name": "× 6, × 7",
+      "notation": "\"7 × 6 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "multiplying.4.m4"
+      ]
+    },
+    {
+      "id": "multiplying.4.m6",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "× 8, × 9",
+      "notation": "\"8 × 9 = ?\"",
+      "answer": "whole",
+      "learnPicture": "rows",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "multiplying.4.m5"
+      ]
+    },
+    {
+      "id": "multiplying.4.m7",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "All tables mixed",
+      "notation": "\"7 × 8 = ?\"",
+      "answer": "whole",
+      "learnPicture": "the 10x10 grid",
+      "kitUse": "planks",
+      "timeTarget": 3,
+      "prereqs": [
+        "multiplying.4.m6"
+      ]
+    },
+    {
+      "id": "multiplying.4.m8",
+      "strand": "multiplying",
+      "level": 4,
+      "name": "× 10, × 100",
+      "notation": "\"34 × 10 = ?\"",
       "answer": "whole",
       "learnPicture": "digits slide left",
       "kitUse": "",
-      "timeTarget": 6,
+      "timeTarget": 5,
       "prereqs": [
-        "multiplying.4.tables-10"
+        "multiplying.4.m7"
       ]
     },
     {
-      "id": "multiplying.5.two-by-one",
+      "id": "multiplying.4.m9",
       "strand": "multiplying",
-      "level": 5,
-      "name": "Two-digit by one-digit",
-      "notation": "\"47 x 6 = ?\"",
+      "level": 4,
+      "name": "Two-digit × one-digit",
+      "notation": "\"47 × 6 = ?\"",
       "answer": "whole",
-      "learnPicture": "40 x 6 and 7 x 6 added",
-      "kitUse": "beam weight: 12 lb per ft x length",
-      "timeTarget": 12,
+      "learnPicture": "partial products",
+      "kitUse": "beam weight",
+      "timeTarget": 20,
       "prereqs": [
-        "multiplying.4.tables-10"
+        "multiplying.4.m7"
       ]
     },
     {
-      "id": "multiplying.5.multi-digit",
+      "id": "multiplying.5.m10",
       "strand": "multiplying",
       "level": 5,
-      "name": "Multi-digit",
-      "notation": "\"123 x 45 = ?\"",
+      "name": "Three-digit × one-digit",
+      "notation": "\"214 × 7 = ?\"",
       "answer": "whole",
-      "learnPicture": "area model, four boxes",
+      "learnPicture": "stacked",
       "kitUse": "",
-      "timeTarget": 12,
+      "timeTarget": 20,
       "prereqs": [
-        "multiplying.5.two-by-one"
+        "multiplying.4.m9"
+      ]
+    },
+    {
+      "id": "multiplying.5.m11",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Two-digit × two-digit",
+      "notation": "\"36 × 24 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "multiplying.5.m10"
+      ]
+    },
+    {
+      "id": "multiplying.5.m12",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Larger",
+      "notation": "\"123 × 45 = ?\"",
+      "answer": "whole",
+      "learnPicture": "stacked",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "multiplying.5.m11"
+      ]
+    },
+    {
+      "id": "multiplying.5.m13",
+      "strand": "multiplying",
+      "level": 5,
+      "name": "Decimals",
+      "notation": "\"2.5 × 4 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "tenths",
+      "kitUse": "",
+      "timeTarget": 20,
+      "prereqs": [
+        "multiplying.4.m9"
       ]
     },
     {
@@ -602,7 +1008,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "multiplying.5.two-by-one",
+        "multiplying.5.m13",
         "fractions.5.decimals-tenths"
       ]
     },
@@ -663,73 +1069,147 @@
       ]
     },
     {
-      "id": "dividing.3.share",
+      "id": "dividing.4.d1",
       "strand": "dividing",
-      "level": 3,
+      "level": 4,
       "name": "Share equally",
-      "notation": "\"8 / 2 = ?\" with 8 bolts in 2 rows",
+      "notation": "\"12 ÷ 3 = ?\"",
       "answer": "whole",
-      "learnPicture": "bolts dealt into rows",
-      "kitUse": "bottom beams: 8 ft / 2",
+      "learnPicture": "dots dealt into groups",
+      "kitUse": "bottom beams",
       "timeTarget": 3,
       "prereqs": [
-        "multiplying.3.equal-groups"
+        "multiplying.3.m1"
       ]
     },
     {
-      "id": "dividing.4.facts-5",
+      "id": "dividing.4.d2",
       "strand": "dividing",
       "level": 4,
-      "name": "Division facts to 5",
-      "notation": "\"20 / 5 = ?\"",
+      "name": "÷ 2, ÷ 5, ÷ 10",
+      "notation": "\"35 ÷ 5 = ?\"",
       "answer": "whole",
-      "learnPicture": "rows of bolts, count a row",
+      "learnPicture": "fact family",
       "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "multiplying.4.tables-5"
+        "dividing.4.d1",
+        "multiplying.4.m3"
       ]
     },
     {
-      "id": "dividing.4.facts-10",
+      "id": "dividing.4.d3",
       "strand": "dividing",
       "level": 4,
-      "name": "Division facts to 10",
-      "notation": "\"56 / 8 = ?\"",
+      "name": "÷ 3, ÷ 4",
+      "notation": "\"24 ÷ 4 = ?\"",
       "answer": "whole",
-      "learnPicture": "rows of bolts",
-      "kitUse": "bottom beams, planks: 8 ft / 8",
-      "timeTarget": 3,
-      "prereqs": [
-        "multiplying.4.tables-10"
-      ]
-    },
-    {
-      "id": "dividing.4.fact-families",
-      "strand": "dividing",
-      "level": 4,
-      "name": "Fact families",
-      "notation": "\"7 x 6 = 42, so 42 / 6 = ?\"",
-      "answer": "whole",
-      "learnPicture": "the same rows read both ways",
+      "learnPicture": "fact family",
       "kitUse": "",
       "timeTarget": 3,
       "prereqs": [
-        "dividing.4.facts-10"
+        "dividing.4.d2",
+        "multiplying.4.m4"
       ]
     },
     {
-      "id": "dividing.5.remainders",
+      "id": "dividing.4.d4",
+      "strand": "dividing",
+      "level": 4,
+      "name": "÷ 6 to ÷ 9",
+      "notation": "\"56 ÷ 8 = ?\"",
+      "answer": "whole",
+      "learnPicture": "fact family",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "dividing.4.d3",
+        "multiplying.4.m6"
+      ]
+    },
+    {
+      "id": "dividing.4.d5",
+      "strand": "dividing",
+      "level": 4,
+      "name": "All facts mixed",
+      "notation": "\"63 ÷ 7 = ?\"",
+      "answer": "whole",
+      "learnPicture": "fact family",
+      "kitUse": "",
+      "timeTarget": 3,
+      "prereqs": [
+        "dividing.4.d4",
+        "multiplying.4.m7"
+      ]
+    },
+    {
+      "id": "dividing.4.d6",
+      "strand": "dividing",
+      "level": 4,
+      "name": "Remainders",
+      "notation": "\"47 ÷ 5 = ? r ?\"",
+      "answer": "whole",
+      "learnPicture": "leftover",
+      "kitUse": "",
+      "timeTarget": 5,
+      "prereqs": [
+        "dividing.4.d5"
+      ]
+    },
+    {
+      "id": "dividing.5.d7",
       "strand": "dividing",
       "level": 5,
-      "name": "Division with remainders",
-      "notation": "\"47 / 5 = ? r ?\"",
-      "answer": "whole, remainder",
-      "learnPicture": "rows of bolts with leftovers",
+      "name": "Two-digit ÷ one-digit, no remainder",
+      "notation": "\"84 ÷ 4 = ?\"",
+      "answer": "whole",
+      "learnPicture": "long division one step at a time",
       "kitUse": "",
-      "timeTarget": 8,
+      "timeTarget": 45,
       "prereqs": [
-        "dividing.4.facts-10"
+        "dividing.4.d6"
+      ]
+    },
+    {
+      "id": "dividing.5.d8",
+      "strand": "dividing",
+      "level": 5,
+      "name": "Three-digit ÷ one-digit",
+      "notation": "\"936 ÷ 4 = ?\"",
+      "answer": "whole",
+      "learnPicture": "long division",
+      "kitUse": "",
+      "timeTarget": 45,
+      "prereqs": [
+        "dividing.5.d7"
+      ]
+    },
+    {
+      "id": "dividing.5.d9",
+      "strand": "dividing",
+      "level": 5,
+      "name": "÷ two-digit",
+      "notation": "\"672 ÷ 16 = ?\"",
+      "answer": "whole",
+      "learnPicture": "long division",
+      "kitUse": "",
+      "timeTarget": 45,
+      "prereqs": [
+        "dividing.5.d8"
+      ]
+    },
+    {
+      "id": "dividing.5.d10",
+      "strand": "dividing",
+      "level": 5,
+      "name": "To a decimal",
+      "notation": "\"7 ÷ 2 = ?\"",
+      "answer": "decimal",
+      "learnPicture": "long division past the ones",
+      "kitUse": "",
+      "timeTarget": 45,
+      "prereqs": [
+        "dividing.5.d7"
       ]
     },
     {
@@ -743,21 +1223,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "multiplying.4.by-10-100"
-      ]
-    },
-    {
-      "id": "dividing.6.long",
-      "strand": "dividing",
-      "level": 6,
-      "name": "Long division",
-      "notation": "\"936 / 4 = ?\"",
-      "answer": "whole",
-      "learnPicture": "the four steps, one at a time",
-      "kitUse": "",
-      "timeTarget": 12,
-      "prereqs": [
-        "dividing.5.remainders"
+        "multiplying.4.m8"
       ]
     },
     {
@@ -771,7 +1237,7 @@
       "kitUse": "brace at level 9: 5.66 / 2",
       "timeTarget": 8,
       "prereqs": [
-        "dividing.6.long",
+        "dividing.5.d10",
         "fractions.5.decimals-tenths"
       ]
     },
@@ -898,7 +1364,7 @@
       "kitUse": "planks laid",
       "timeTarget": 8,
       "prereqs": [
-        "dividing.4.facts-10"
+        "dividing.4.d5"
       ]
     },
     {
@@ -940,7 +1406,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "dividing.6.decimals"
+        "dividing.5.d10"
       ]
     },
     {
@@ -996,7 +1462,7 @@
       "kitUse": "bolts per gusset",
       "timeTarget": 8,
       "prereqs": [
-        "multiplying.4.tables-10"
+        "multiplying.4.m7"
       ]
     },
     {
@@ -1010,7 +1476,7 @@
       "kitUse": "beam weight per ft",
       "timeTarget": 8,
       "prereqs": [
-        "dividing.4.facts-10"
+        "dividing.4.d5"
       ]
     },
     {
@@ -1161,7 +1627,7 @@
       "kitUse": "top beam",
       "timeTarget": 5,
       "prereqs": [
-        "adding.2.subtract-20"
+        "adding.2.s5"
       ]
     },
     {
@@ -1175,7 +1641,7 @@
       "kitUse": "railing: both sides of 8 ft",
       "timeTarget": 6,
       "prereqs": [
-        "adding.3.three-numbers"
+        "adding.3.a14"
       ]
     },
     {
@@ -1189,7 +1655,7 @@
       "kitUse": "load meter",
       "timeTarget": 6,
       "prereqs": [
-        "adding.3.to-100"
+        "adding.2.a12"
       ]
     },
     {
@@ -1203,7 +1669,7 @@
       "kitUse": "deck area",
       "timeTarget": 6,
       "prereqs": [
-        "multiplying.4.tables-10"
+        "multiplying.4.m7"
       ]
     },
     {
@@ -1217,7 +1683,7 @@
       "kitUse": "US and metric toggle",
       "timeTarget": 6,
       "prereqs": [
-        "multiplying.4.by-10-100"
+        "multiplying.4.m8"
       ]
     },
     {
@@ -1245,7 +1711,7 @@
       "kitUse": "",
       "timeTarget": 8,
       "prereqs": [
-        "adding.3.to-100"
+        "adding.2.a12"
       ]
     },
     {
@@ -1552,7 +2018,7 @@
       "kitUse": "top beam as x",
       "timeTarget": 8,
       "prereqs": [
-        "adding.2.missing"
+        "adding.1.a4"
       ]
     },
     {

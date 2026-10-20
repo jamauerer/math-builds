@@ -43,7 +43,7 @@ describe("question cards", () => {
     container.remove();
   });
 
-  it("opens scratch at level 7 and keeps it behind a button at level 2", async () => {
+  it("opens scratch at level 7 and keeps it on at level 2", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -65,9 +65,8 @@ describe("question cards", () => {
         <GoatKit map={createLearnerMap(skills)} marks={0} onMarks={() => undefined} units="us" onUnits={() => undefined} start="earn" lesson="mixed" level={2} kitProfile={{ ...profile, levels: Object.fromEntries(KIT_STRANDS.map((id) => [id, 2])) }} />,
       );
     });
-    expect(low.querySelector("canvas")).toBeNull();
-    expect(low.textContent).toContain("Work it out");
-    expect(low.querySelector(".gk-dots")).toBeTruthy();
+    expect(low.querySelector('canvas[aria-label="Work it out"]')).toBeTruthy();
+    expect(low.querySelector(".gk-keys")).toBeTruthy();
     lowRoot.unmount();
     low.remove();
   });

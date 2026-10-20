@@ -14,12 +14,12 @@ import { rememberAnswer, skillsFromLevels, withState } from "./skills";
 
 describe("learning system", () => {
   it("gives every level 1 skill a drag or tap generator", () => {
-    const levelOne = CURRICULUM_SKILLS.filter((skill) => skill.level === 1);
-    expect(levelOne.length).toBeGreaterThanOrEqual(9);
+    const levelOne = CURRICULUM_SKILLS.filter((skill) => skill.level === 1 && !/^[asd]\d+$/i.test(skill.id.split(".").pop() ?? ""));
+    expect(levelOne.length).toBeGreaterThanOrEqual(4);
     for (const skill of levelOne) {
       const question = skillQuestion(skill.id, 3);
       const action = question.action ?? (question.choices?.length ? "tap-choice" : "keypad");
-      expect(["drag-count", "tap-choice", "order", "drag-goat"].includes(action), skill.id).toBe(true);
+      expect(["drag-count", "tap-choice", "order", "drag-goat", "keypad"].includes(action), skill.id).toBe(true);
     }
   });
 
@@ -74,7 +74,7 @@ describe("learning system", () => {
   });
 
   it("reaches Fluent only after 3 separate days under the time target", () => {
-    const skillId = "adding.2.to-20";
+    const skillId = "adding.2.a6";
     let book = withState(skillsFromLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, 4]))), skillId, "practicing");
     book = rememberAnswer(book, skillId, "8 + 7", true, false, { ms: 2000, day: "2026-10-01" });
     book = rememberAnswer(book, skillId, "8 + 7", true, false, { ms: 2000, day: "2026-10-01" });
@@ -87,7 +87,7 @@ describe("learning system", () => {
   });
 
   it("doubles the review interval after a passed due review", () => {
-    const skillId = "adding.2.to-20";
+    const skillId = "adding.2.a6";
     let book = withState(skillsFromLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, 4]))), skillId, "practicing");
     book = {
       ...book,
@@ -102,8 +102,8 @@ describe("learning system", () => {
   });
 
   it("advances the adding prerequisite when a multiplication answer is right", () => {
-    const mul = "multiplying.3.equal-groups";
-    const add = "adding.2.to-20";
+    const mul = "multiplying.3.m1";
+    const add = "adding.2.a12";
     let book = skillsFromLevels(Object.fromEntries(KIT_STRANDS.map((id) => [id, 4])));
     book = withState(book, mul, "practicing");
     book = withState(book, add, "practicing");

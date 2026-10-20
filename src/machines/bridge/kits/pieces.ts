@@ -99,12 +99,12 @@ function brace(level: number): PieceQuestion {
 function bottom(level: number): PieceQuestion {
   const slots = ["bottom-a", "bottom-b"];
   if (level <= 4) {
-    return { prompt: `The gap is ${formatLength(8)}. Two beams of the same length lie end to end to cross it. How long is each beam?`, answer: "4", used: [8], slots, skillId: "dividing.3.share" };
+    return { prompt: `The gap is ${formatLength(8)}. Two beams of the same length lie end to end to cross it. How long is each beam?`, answer: "4", used: [8], slots, skillId: "dividing.4.d1" };
   }
   if (level <= 8) {
-    return { prompt: `The gap is ${formatLength(12)}. It is shared by 3 beams of the same length. How long is each beam?`, answer: "4", used: [12, 3], slots, skillId: "dividing.4.facts-5" };
+    return { prompt: `The gap is ${formatLength(12)}. It is shared by 3 beams of the same length. How long is each beam?`, answer: "4", used: [12, 3], slots, skillId: "dividing.4.d2" };
   }
-  return { prompt: `${formatLength(18)} is shared by 3 beams of the same length. How long is each beam?`, answer: "6", used: [18, 3], slots, skillId: "dividing.6.long" };
+  return { prompt: `${formatLength(18)} is shared by 3 beams of the same length. How long is each beam?`, answer: "6", used: [18, 3], slots, skillId: "dividing.5.d7" };
 }
 
 function posts(level: number): PieceQuestion {
@@ -140,19 +140,19 @@ function top(level: number): PieceQuestion {
     };
   }
   if (level <= 8) {
-    return { prompt: `One piece is ${formatLength(12)} and the other is ${formatLength(9)}. How long are they together?`, answer: "21", used: [12, 9], slots, skillId: "adding.3.to-100" };
+    return { prompt: `One piece is ${formatLength(12)} and the other is ${formatLength(9)}. How long are they together?`, answer: "21", used: [12, 9], slots, skillId: "adding.2.a12" };
   }
-  return { prompt: `One piece is ${formatLength(24)} and the other is ${formatLength(18)}. How long are they together?`, answer: "42", used: [24, 18], slots, skillId: "adding.4.to-1000" };
+  return { prompt: `One piece is ${formatLength(24)} and the other is ${formatLength(18)}. How long are they together?`, answer: "42", used: [24, 18], slots, skillId: "adding.3.a16" };
 }
 
 function bolts(level: number): PieceQuestion {
   if (level <= 4) {
-    return { prompt: "Each plate takes 2 bolts, and there are 5 plates. How many bolts is that?", answer: "10", used: [2, 5], slots: GUSSETS, skillId: "multiplying.3.equal-groups" };
+    return { prompt: "Each plate takes 2 bolts, and there are 5 plates. How many bolts is that?", answer: "10", used: [2, 5], slots: GUSSETS, skillId: "multiplying.3.m1" };
   }
   if (level <= 8) {
-    return { prompt: "4 lots of 6 bolts. How many bolts is that?", answer: "24", used: [4, 6], slots: GUSSETS, skillId: "multiplying.4.tables-5" };
+    return { prompt: "4 lots of 6 bolts. How many bolts is that?", answer: "24", used: [4, 6], slots: GUSSETS, skillId: "multiplying.4.m4" };
   }
-  return { prompt: "8 lots of 7 bolts. How many bolts is that?", answer: "56", used: [8, 7], slots: GUSSETS, skillId: "multiplying.5.two-by-one" };
+  return { prompt: "8 lots of 7 bolts. How many bolts is that?", answer: "56", used: [8, 7], slots: GUSSETS, skillId: "multiplying.4.m7" };
 }
 
 function railing(level: number): PieceQuestion {
@@ -173,13 +173,13 @@ function planks(level: number): PieceQuestion {
       answer: "8",
       used: [1, 4],
       slots: PLANKS,
-      skillId: "dividing.3.share",
+      skillId: "dividing.4.d1",
     };
   }
   if (level <= 8) {
-    return { prompt: `Each plank is ${formatLength(2)}. The path is ${formatLength(10)}. How many planks cover the path?`, answer: "5", used: [2, 10], slots: PLANKS, skillId: "dividing.4.facts-5" };
+    return { prompt: `Each plank is ${formatLength(2)}. The path is ${formatLength(10)}. How many planks cover the path?`, answer: "5", used: [2, 10], slots: PLANKS, skillId: "dividing.4.d2" };
   }
-  return { prompt: `Each plank is ${formatLength(3)}. The path is ${formatLength(15)}. How many planks cover the path?`, answer: "5", used: [3, 15], slots: PLANKS, skillId: "dividing.6.long" };
+  return { prompt: `Each plank is ${formatLength(3)}. The path is ${formatLength(15)}. How many planks cover the path?`, answer: "5", used: [3, 15], slots: PLANKS, skillId: "dividing.5.d7" };
 }
 
 /** Word problems for strands that are not a kit piece. */

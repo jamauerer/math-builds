@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
 import type { KitProfile } from "../../../storage/progress";
+import { LADDER_VERSION } from "../../../ladder/steps";
 import { readFileSync } from "node:fs";
 import { GoatKit } from "./GoatKit";
 
@@ -18,6 +19,8 @@ const placed: KitProfile = {
   history: [],
   notes: [],
   kitVersion: 2,
+  placedAt: "2026-10-19",
+  ladderAt: LADDER_VERSION,
 };
 
 const screens = [

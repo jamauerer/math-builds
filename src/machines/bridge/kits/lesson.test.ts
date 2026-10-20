@@ -60,7 +60,9 @@ describe("lesson structure", () => {
   });
 
   it("puts a skill missed on the word problem into the next warm-up", () => {
-    let state = openRun(levels, "bottom", 4);
+    let book = skillsFromLevels(levels);
+    book = withState(book, currentSkill(book, "dividing", levels.dividing ?? 4).id, "practicing");
+    let state = openRun(levels, "bottom", 4, book);
     while (state.phase === "plain") {
       state = answerEarn(state, state.current.answer, levels).state;
     }

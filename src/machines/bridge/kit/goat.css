@@ -751,6 +751,28 @@
   overflow: visible;
 }
 
+.gk-work {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.gk-card-main {
+  flex: 1 1 48%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .gk-work {
+    flex-direction: column;
+  }
+}
+
 .gk-card.is-fading {
   opacity: 0.15;
   transition: opacity 0.4s ease;
@@ -1122,18 +1144,28 @@
 
 .gk-scratch {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
-  flex: none;
+  flex: 1 1 48%;
+  min-width: 240px;
+  min-height: 200px;
 }
 
 .gk-scratch canvas {
-  width: min(100%, 420px);
-  height: 56px;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
   border: 1.5px solid #d9d4cb;
   border-radius: 10px;
   background: #fff;
   touch-action: none;
+  flex: 1 1 auto;
+}
+
+.gk-scratch-tools {
+  display: flex;
+  gap: 6px;
 }
 
 .gk-scratch button {
@@ -1143,6 +1175,88 @@
   border: 1.5px solid #d9d4cb;
   background: #fff;
   font-weight: 700;
+}
+
+.gk-scratch button.is-on {
+  background: #efe8dc;
+}
+
+.gk-stack {
+  display: grid;
+  gap: 2px;
+  justify-content: end;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  line-height: 1.1;
+  padding: 4px 8px 0;
+}
+
+.gk-stack-row {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 8px;
+  justify-content: end;
+  position: relative;
+}
+
+.gk-stack-carry {
+  min-height: 22px;
+  color: #b3452b;
+}
+
+.gk-stack-cell {
+  width: 18px;
+  text-align: center;
+}
+
+.gk-stack-cell s {
+  text-decoration: line-through;
+  color: #b3452b;
+}
+
+.gk-stack-op {
+  position: absolute;
+  left: -22px;
+}
+
+.gk-stack-line {
+  height: 2px;
+  background: #22201c;
+  margin-top: 2px;
+}
+
+.gk-longdiv {
+  padding: 8px 12px 0;
+  font-size: 22px;
+}
+
+.gk-longdiv-quot {
+  display: block;
+  min-height: 22px;
+  margin-left: 36px;
+}
+
+.gk-longdiv-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.gk-longdiv-bracket {
+  position: relative;
+  padding: 2px 0 0 8px;
+  border-top: 2px solid #22201c;
+}
+
+.gk-longdiv-bracket i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: -2px;
+  width: 8px;
+  border-left: 2px solid #22201c;
+  border-bottom: 2px solid #22201c;
+  border-radius: 0 0 0 10px;
 }
 
 .gk-keys {

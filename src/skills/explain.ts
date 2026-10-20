@@ -1,5 +1,7 @@
 import type { PlainDraw } from "../pictures/parts";
 import type { ExplainPicture, ExplainStep } from "../machines/bridge/kits/explain";
+import { explainStep } from "../ladder/learn";
+import { ladderStep } from "../ladder/steps";
 import { curriculumSkill, type CurriculumSkill, type LearnPictureKind } from "./index";
 
 /** Pictures that render as the generic bolt/dot pile template. Fractions and geometry never use these. */
@@ -27,6 +29,16 @@ export function skillExplain(
   answer: string,
   draw?: PlainDraw,
 ): { steps: ExplainStep[]; why: string } {
+  const step = ladderStep(skillId);
+  if (step) {
+    const card = explainStep(skillId);
+    const pictures: ExplainPicture[] = step.dots ? ["count", "rows", "pile"] : ["symbol", "tape-marks", "grid"];
+    const lines = [prompt, card.lines[0] ?? step.name, `That comes to ${answer}.`];
+    return {
+      steps: lines.map((text, index) => ({ text, picture: pictures[index] ?? "symbol" })),
+      why: card.lines.join(" "),
+    };
+  }
   const skill = curriculumSkill(skillId);
   if (!skill) {
     return {
@@ -306,6 +318,13 @@ function pickPicture(cycle: ExplainPicture[], avoid: ExplainPicture | null | und
 
 /** True when every explanation step uses the skill's Learn picture family (never dots for fractions/geometry). */
 export function explanationMatchesLearn(skillId: string, steps: ExplainPicture[]): boolean {
+  const step = ladderStep(skillId);
+  if (step) {
+    if (!step.dots) {
+      return steps.every((pic) => !DOT_PICTURES.has(pic));
+    }
+    return steps.every((pic) => DOT_PICTURES.has(pic) || pic === "count" || pic === "rows" || pic === "pile");
+  }
   const skill = curriculumSkill(skillId);
   if (!skill) {
     return false;

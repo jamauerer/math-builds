@@ -8,6 +8,7 @@ import { setUnitSystem } from "../../../units";
 import { answerEarn, openRun } from "../kits/earn";
 import { queenPost } from "../kits/kit";
 import { GoatKit } from "./GoatKit";
+import { LADDER_VERSION } from "../../../ladder/steps";
 import { blankKitProfile, type KitProfile } from "../../../storage/progress";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -17,6 +18,8 @@ const placedProfile: KitProfile = {
   levels: { dividing: 4, measuring: 4, adding: 4, multiplying: 4, fractions: 4, ratios: 4, geometry: 4, algebra: 4, counting: 4 },
   history: [],
   notes: [],
+  placedAt: "2026-10-19",
+  ladderAt: LADDER_VERSION,
 };
 
 const stages = ["pick", "earn", "assemble", "drive", "wreck"] as const;

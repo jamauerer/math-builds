@@ -9,11 +9,15 @@ import { labelAt, slice } from "../../../pictures/layout";
 import { pictureAgrees } from "../../../pictures/check";
 import { pictureMask } from "../../../pictures/pick";
 import type { Picture, PlainDraw } from "../../../pictures/parts";
-import { fitLevels, KIT_STRANDS, strandName } from "../../../engine/strand-placement";
+import { fitLevels, KIT_STRANDS, strandName, type GradeChoice } from "../../../engine/strand-placement";
 import { workedExample, type ExplainStep } from "./explain";
 import { queenPost, type KitGroup } from "./kit";
 import { pieceQuestion, strandWord } from "./pieces";
 import { tapeOnPosts } from "../../../pictures/tape";
+import type { LadderLayout } from "../../../ladder/generate";
+import { questionAboveCap, serveQuestion, type ServedKind } from "../../../ladder/serve";
+import { DOT_STEPS, ladderStep, strandAllowed } from "../../../ladder/steps";
+import { wordAllowed, wordPrompt } from "../../../ladder/word";
 import {
   beginSession,
   clearWarmFlag,
@@ -78,6 +82,8 @@ export type EarnQuestion = {
   choices?: ChoiceOption[];
   action?: ActionKind;
   sizes?: number[];
+  stepId?: string;
+  layout?: LadderLayout;
 };
 
 export type EarnState = {
@@ -103,6 +109,7 @@ export type EarnState = {
   short: boolean;
   runMisses: number;
   runFast: boolean;
+  grade: GradeChoice | null;
 };
 
 export const WARMUP_COUNT = 3;
@@ -325,9 +332,22 @@ export function earnPicture(question: EarnQuestion): EarnPicture | null {
   if (question.picture) {
     picture = question.picture;
   } else if (question.word) {
-    picture = wordPicture(question);
+    const step = question.skillId ? ladderStep(question.skillId) : undefined;
+    if (step && !step.dots) {
+      picture = null;
+    } else {
+      picture = wordPicture(question);
+    }
   } else if (question.fact.kind !== "plain") {
     picture = factPicture(question.fact);
+  }
+  if (picture && question.word && !pictureAgrees(earnPrompt(question), question.answer, picture)) {
+    console.warn("Picture failed the picture check", {
+      prompt: earnPrompt(question),
+      answer: question.answer,
+      skillId: question.skillId,
+    });
+    picture = null;
   }
   if (!picture || !wantsTape(question)) {
     return picture;
@@ -462,15 +482,48 @@ export function speedLine(totalMs: number, previousMs: number | null): string | 
   return null;
 }
 
-function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion {
+function wordFor(group: KitGroup, level: number, skillId: string | undefined, grade: GradeChoice | null, seed: number, book?: SkillBook): EarnQuestion {
+  const id = skillId ?? currentSkill(book ?? skillsFromLevels(null), group.strand, level).id;
+  if (book && !wordAllowed(book.skills[id]?.state)) {
+    return fromServed(group.id, serveQuestion({ grade, skillId: id, seed, kind: "run" }), false);
+  }
+  if (ladderStep(id)) {
+    const served = serveQuestion({ grade, skillId: id, seed, kind: "word" });
+    if (served.item) {
+      const sentence = wordPrompt(served.item);
+      return {
+        ...fromServed(group.id, served, false),
+        word: sentence,
+        fact: { kind: "plain", prompt: sentence, steps: served.item.steps, why: served.item.why, draw: served.item.draw },
+      };
+    }
+  }
   const piece = pieceQuestion(group.id, level);
-  const id = piece.skillId ?? skillId;
-  const skill = id ? curriculumSkill(id) : undefined;
+  const guarded = serveQuestion({
+    grade,
+    skillId: piece.skillId ?? id,
+    seed,
+    kind: "word",
+    prompt: piece.prompt,
+    answer: piece.answer,
+    strandId: group.strand,
+  });
+  if (guarded.item) {
+    const sentence = wordPrompt(guarded.item);
+    return {
+      ...fromServed(group.id, guarded, false),
+      word: sentence,
+      fact: { kind: "plain", prompt: sentence, steps: guarded.item.steps, why: guarded.item.why, draw: guarded.item.draw },
+    };
+  }
+  if (guarded.skillId !== (piece.skillId ?? id)) {
+    return fromServed(group.id, guarded, false);
+  }
   return {
     groupId: group.id,
-    strandId: skill?.strandId ?? group.strand,
+    strandId: group.strand,
     level,
-    skillId: id,
+    skillId: piece.skillId ?? id,
     answer: piece.answer,
     word: piece.prompt,
     fact: { kind: "piece", prompt: piece.prompt, answer: piece.answer, used: piece.used, slots: piece.slots },
@@ -487,9 +540,56 @@ export function kitQuestionTotal(round = 0, short = false): number {
   return roundQuestionTotal(round, short);
 }
 
-function slotQuestion(groupId: string, slot: { skillId: string; strandId: string; level: number; mixed?: boolean }, seed: number, hint: boolean): EarnQuestion {
+function fromServed(groupId: string, served: ReturnType<typeof serveQuestion>, hint: boolean, mixed = false): EarnQuestion {
+  const item = served.item;
+  const skill = item
+    ? {
+        prompt: served.prompt,
+        answer: served.answer,
+        steps: item.steps,
+        why: item.why,
+        draw: item.draw ?? { op: "add" as const, a: item.operands[0] ?? 1, b: item.operands[1] ?? 0 },
+      }
+    : skillQuestion(served.skillId, 1);
+  return {
+    groupId,
+    strandId: served.strandId,
+    level: served.level,
+    answer: served.answer,
+    skillId: served.skillId,
+    stepId: served.stepId,
+    mixed,
+    hint: hint ? skillHint(skill) : undefined,
+    layout: item?.layout,
+    fact: { kind: "plain", prompt: served.prompt, steps: skill.steps, why: skill.why, draw: skill.draw },
+  };
+}
+
+function slotQuestion(
+  groupId: string,
+  slot: { skillId: string; strandId: string; level: number; mixed?: boolean },
+  seed: number,
+  hint: boolean,
+  grade: GradeChoice | null = 13,
+  kind: ServedKind = "run",
+): EarnQuestion {
+  if (ladderStep(slot.skillId)) {
+    return fromServed(groupId, serveQuestion({ grade, skillId: slot.skillId, seed, kind }), hint, slot.mixed === true);
+  }
   if (curriculumSkill(slot.skillId)) {
     const fromSkill = skillQuestion(slot.skillId, seed);
+    const served = serveQuestion({
+      grade,
+      skillId: slot.skillId,
+      seed,
+      kind,
+      prompt: fromSkill.prompt,
+      answer: fromSkill.answer,
+      strandId: slot.strandId,
+    });
+    if (served.skillId !== slot.skillId || served.item) {
+      return fromServed(groupId, served, hint, slot.mixed === true);
+    }
     return {
       groupId,
       strandId: slot.strandId,
@@ -506,6 +606,18 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     };
   }
   const fromSkill = plainQuestion(slot.strandId, slot.level, seed);
+  const served = serveQuestion({
+    grade,
+    skillId: slot.skillId,
+    seed,
+    kind,
+    prompt: fromSkill.prompt,
+    answer: fromSkill.answer,
+    strandId: slot.strandId,
+  });
+  if (served.skillId !== slot.skillId || served.item) {
+    return fromServed(groupId, served, hint, slot.mixed === true);
+  }
   return {
     groupId,
     strandId: slot.strandId,
@@ -525,6 +637,8 @@ type GuardContext = {
   levels: Record<string, number>;
   book: SkillBook;
   groupId: string;
+  grade?: GradeChoice | null;
+  kind?: ServedKind;
 };
 
 function contextFor(
@@ -533,15 +647,21 @@ function contextFor(
   allowed: string[],
   groupId: string,
   levels?: Record<string, number> | null,
+  grade: GradeChoice | null = 13,
+  kind: ServedKind = "run",
 ): GuardContext {
   const known = levels && Object.keys(levels).length > 0 ? levels : strandLevelsFrom(book);
-  return { book, pieceStrand, allowed, groupId, levels: known };
+  return { book, pieceStrand, allowed, groupId, levels: known, grade, kind };
 }
 
 /** One door for every served question. A miss logs the whole context and a legal question goes out instead. */
 export function guardQuestion(question: EarnQuestion, context: GuardContext, seed: number, hint: boolean): EarnQuestion {
   const learner = context.levels[question.strandId] ?? 1;
-  const strandOk = Boolean(question.word) || context.allowed.includes(question.strandId);
+  const remapped =
+    Boolean(question.skillId) &&
+    !questionAboveCap(question.skillId ?? "", context.grade) &&
+    !strandAllowed(context.pieceStrand, context.grade);
+  const strandOk = Boolean(question.word) || context.allowed.includes(question.strandId) || remapped;
   const levelOk = question.level <= learner + 1 && question.level >= learner - 2;
   if (strandOk && levelOk) {
     return question;
@@ -561,7 +681,7 @@ export function guardQuestion(question: EarnQuestion, context: GuardContext, see
     learner,
     replacement: { strand, level, skillId: skill.id },
   });
-  return slotQuestion(context.groupId, { skillId: skill.id, strandId: strand, level, mixed: false }, seed, hint);
+  return slotQuestion(context.groupId, { skillId: skill.id, strandId: strand, level, mixed: false }, seed, hint, context.grade, context.kind);
 }
 
 function takePlan(
@@ -577,10 +697,10 @@ function takePlan(
   let cursor = seed;
   const prompts = new Set(seen);
   for (const slot of slots) {
-    let question = slotQuestion(groupId, slot, cursor, hint);
+    let question = slotQuestion(groupId, slot, cursor, hint, context.grade, context.kind);
     while ((prompts.has(earnPrompt(question)) || banned.has(numberSignature(question)) || outOfRange(question)) && cursor < seed + 120) {
       cursor += 1;
-      question = slotQuestion(groupId, slot, cursor, hint);
+      question = slotQuestion(groupId, slot, cursor, hint, context.grade, context.kind);
     }
     question = guardQuestion(question, context, cursor, hint);
     prompts.add(earnPrompt(question));
@@ -592,6 +712,13 @@ function takePlan(
 }
 
 function picturedStrand(question: EarnQuestion): boolean {
+  if (question.word) {
+    return false;
+  }
+  const step = question.skillId ? ladderStep(question.skillId) : undefined;
+  if (step) {
+    return DOT_STEPS.has(step.id);
+  }
   if (question.fact.kind !== "plain") {
     return false;
   }
@@ -604,7 +731,7 @@ function picturedStrand(question: EarnQuestion): boolean {
   if (question.strandId === "geometry") {
     return true;
   }
-  return question.strandId === "counting" && question.level <= 2;
+  return false;
 }
 
 function withPicture(question: EarnQuestion): EarnQuestion {
@@ -616,6 +743,11 @@ function withPicture(question: EarnQuestion): EarnQuestion {
     return question;
   }
   if (!pictureAgrees(question.fact.prompt, question.answer, drawn.picture)) {
+    console.warn("Picture failed the picture check", {
+      prompt: question.fact.prompt,
+      answer: question.answer,
+      skillId: question.skillId,
+    });
     return question;
   }
   return { ...question, picture: drawn.picture };
@@ -714,8 +846,8 @@ export function learnState(state: EarnState, groupIndex: number, levels: Record<
     return null;
   }
   const example = guardQuestion(
-    slotQuestion(group.id, { skillId: skill.id, strandId: skill.strandId, level: skill.level }, state.seed, false),
-    contextFor(state.book, group.strand, [group.strand], group.id, levels),
+    slotQuestion(group.id, { skillId: skill.id, strandId: skill.strandId, level: skill.level }, state.seed, false, state.grade, "learn"),
+    contextFor(state.book, group.strand, [group.strand], group.id, levels, state.grade, "learn"),
     state.seed,
     false,
   );
@@ -735,7 +867,7 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   const group = groupAt(groupIndex);
   const level = workingLevel(state.book, group.strand, levels[group.strand] ?? 1);
   const slots = runPlan(state.book, group.strand, level, runLength(group.id, state.short), state.seed);
-  const plan = takePlan(group.id, slots, state.seed, state.seen, false, contextFor(state.book, group.strand, [group.strand], group.id, levels));
+  const plan = takePlan(group.id, slots, state.seed, state.seen, false, contextFor(state.book, group.strand, [group.strand], group.id, levels, state.grade, "run"));
   const seenPrompt = new Set<string>();
   const questions = [plan.current, ...plan.upcoming].map((question, index) => {
     const mask = pictureMask(plan.upcoming.length + 1, state.seed + groupIndex);
@@ -764,7 +896,14 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
   };
 }
 
-export function blankEarn(levels: Record<string, number> | null, seed = 1, saved: SkillBook | null = null, day = "2026-10-19", round = 0): EarnState {
+export function blankEarn(
+  levels: Record<string, number> | null,
+  seed = 1,
+  saved: SkillBook | null = null,
+  day = "2026-10-19",
+  round = 0,
+  grade: GradeChoice | null = 13,
+): EarnState {
   const book = beginSession(saved ?? skillsFromLevels(levels));
   const earned = book.earned.slice();
   const short = roundsAreShort(book, levels);
@@ -772,7 +911,14 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
   const group = groupAt(index < 0 ? 0 : index);
   const slots = warmUpPlan(book, WARMUP_COUNT, group.strand, levels, day);
   const allowed = [...new Set(slots.map((slot) => slot.strandId))];
-  const plan = takePlan(group.id, slots, seed, [], false, contextFor(book, group.strand, allowed.length > 0 ? allowed : [group.strand], group.id, levels));
+  const plan = takePlan(
+    group.id,
+    slots,
+    seed,
+    [],
+    false,
+    contextFor(book, group.strand, allowed.length > 0 ? allowed : [group.strand], group.id, levels, grade, "warmup"),
+  );
   let cleared = book;
   for (const slot of slots) {
     cleared = clearWarmFlag(cleared, slot.skillId);
@@ -800,12 +946,13 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
     short,
     runMisses: 0,
     runFast: true,
+    grade,
   };
 }
 
 /** A practice run for one piece, used when the lesson is already past the warm-up. */
-export function openRun(levels: Record<string, number> | null, groupId: string, seed = 1): EarnState {
-  const base = blankEarn(levels, seed);
+export function openRun(levels: Record<string, number> | null, groupId: string, seed = 1, saved: SkillBook | null = null): EarnState {
+  const base = blankEarn(levels, seed, saved);
   const index = Math.max(0, queenPost.groups.findIndex((group) => group.id === groupId));
   const group = groupAt(index);
   const level = workingLevel(base.book, group.strand, levels?.[group.strand] ?? 1);
@@ -847,7 +994,7 @@ export function earnAtWord(levels: Record<string, number> | null, groupId: strin
     runGot: runLength(group.id, base.short),
     phase: "word",
     returnPhase: "word",
-    current: wordFor(group, level, skill.id),
+    current: wordFor(group, level, skill.id, base.grade, 1),
     upcoming: [],
   };
 }
@@ -892,7 +1039,7 @@ export function startGuided(state: EarnState, levels?: Record<string, number>): 
     state.seed,
     state.seen,
     true,
-    contextFor(state.book, group.strand, [state.current.strandId], group.id, levels),
+    contextFor(state.book, group.strand, [state.current.strandId], group.id, levels, state.grade, "learn"),
   );
   return {
     ...state,
@@ -970,7 +1117,7 @@ export function startPractice(state: EarnState, levels?: Record<string, number>)
     state.seed + 1,
     state.seen,
     false,
-    contextFor(state.book, group.strand, [state.current.strandId], group.id, levels),
+    contextFor(state.book, group.strand, [state.current.strandId], group.id, levels, state.grade, "practice"),
     banned,
   );
   return {
@@ -1057,7 +1204,7 @@ function continuePiece(state: EarnState, level: number): EarnState {
       ...state,
       phase: "word",
       returnPhase: "word",
-      current: { ...wordFor(group, level, skill.id), strandId: strand, level },
+      current: { ...wordFor(group, level, skill.id, state.grade, state.seed, state.book), strandId: strand, level },
       upcoming: [],
       roundsFailed: 0,
       streak: 0,
@@ -1071,7 +1218,14 @@ function continuePiece(state: EarnState, level: number): EarnState {
     level,
     mixed: false,
   }));
-  const plan = takePlan(group.id, slots, state.seed + 3, state.seen, phase === "guided", contextFor(state.book, group.strand, [strand], group.id));
+  const plan = takePlan(
+    group.id,
+    slots,
+    state.seed + 3,
+    state.seen,
+    phase === "guided",
+    contextFor(state.book, group.strand, [strand], group.id, undefined, state.grade, phase === "guided" ? "learn" : phase === "warmup" ? "warmup" : "run"),
+  );
   return {
     ...state,
     phase,
@@ -1089,7 +1243,14 @@ function resume(state: EarnState, levels: Record<string, number>): EarnState {
   const level = state.current.level;
   if (state.returnPhase === "word") {
     const skill = currentSkill(state.book, group.strand, workingLevel(state.book, group.strand, levels[group.strand] ?? level));
-    return { ...state, phase: "word", returnPhase: "word", current: wordFor(group, level, skill.id), roundsFailed: 0, streak: 0 };
+    return {
+      ...state,
+      phase: "word",
+      returnPhase: "word",
+      current: wordFor(group, level, skill.id, state.grade, state.seed, state.book),
+      roundsFailed: 0,
+      streak: 0,
+    };
   }
   const phase = state.returnPhase === "warmup" ? "warmup" : state.returnPhase === "guided" ? "guided" : "plain";
   const fresh = slotQuestion(
@@ -1097,6 +1258,8 @@ function resume(state: EarnState, levels: Record<string, number>): EarnState {
     { skillId: state.current.skillId ?? currentSkill(state.book, group.strand, level).id, strandId: state.current.strandId, level, mixed: state.current.mixed },
     state.seed,
     phase === "guided",
+    state.grade,
+    phase === "guided" ? "learn" : phase === "warmup" ? "warmup" : "run",
   );
   return { ...state, phase, current: fresh, seed: state.seed + 1, roundsFailed: 0, streak: 0 };
 }
@@ -1128,7 +1291,7 @@ export function roundEndHold(levels: Record<string, number> | null, round = 0): 
     earned: groups.slice(0, -1),
     phase: "word",
     returnPhase: "word",
-    current: wordFor(group, level, skill.id),
+    current: wordFor(group, level, skill.id, state.grade, 1, state.book),
     upcoming: [],
     runGot: runLength(group.id, state.short),
     steps: Math.max(0, total - 1),
@@ -1279,6 +1442,8 @@ export function answerEarn(
       { skillId: current.skillId ?? "", strandId: current.strandId, level: current.level },
       counted.seed,
       true,
+      state.grade,
+      "learn",
     );
     return { correct: true, levels, note: null, marksDelta: 1, state: { ...counted, streak, current: extra, upcoming: [] } };
   }
@@ -1304,7 +1469,16 @@ export function answerEarn(
   const group = groupAt(state.groupIndex);
   const level = workingLevel(book, group.strand, levels[group.strand] ?? current.level);
   const skill = currentSkill(book, group.strand, level);
-  const word = guardQuestion(wordFor(group, level, skill.id), contextFor(book, group.strand, [group.strand], group.id, levels), state.seed, false);
+  const allowWord = !state.short && wordAllowed(book.skills[skill.id]?.state);
+  if (!allowWord) {
+    return { correct: true, levels, note: null, marksDelta: 1, state: afterPiece(counted, levels, group.id) };
+  }
+  const word = guardQuestion(
+    wordFor(group, level, skill.id, state.grade, state.seed, book),
+    contextFor(book, group.strand, [group.strand], group.id, levels, state.grade, "word"),
+    state.seed,
+    false,
+  );
   return {
     correct: true,
     levels,
@@ -1357,6 +1531,8 @@ export function skillHold(skillId: string, seed = 3): EarnState {
     answer: item.answer,
     truth: item.truth,
     skillId,
+    stepId: item.stepId,
+    layout: item.layout,
     choices: item.choices,
     action: item.action,
     sizes: item.sizes,

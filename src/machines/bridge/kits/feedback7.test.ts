@@ -91,8 +91,8 @@ describe("feedback 7", () => {
     }
   });
 
-  it("explains the top beam word problem with the tape and two posts", () => {
-    const word = earnAtWord({ adding: 4, measuring: 4 }, "top");
+  it("explains the posts gap word problem with the tape and two posts", () => {
+    const word = earnAtWord({ adding: 4, measuring: 4 }, "posts");
     expect(word.current.skillId).toBe("measuring.2.gap");
     expect(word.current.strandId).toBe("measuring");
     const explained = explainQuestion(word.current);
@@ -102,11 +102,11 @@ describe("feedback 7", () => {
     expect(fromSkill.steps[0].picture).toBe("tape");
   });
 
-  it("reads Dividing on the plank 8 divide 1 word problem", () => {
-    const word = earnAtWord({ fractions: 4, dividing: 3 }, "planks");
-    expect(word.current.skillId).toBe("dividing.3.share");
+  it("reads Dividing on a share-equally word problem", () => {
+    const word = earnAtWord({ fractions: 4, dividing: 4 }, "planks");
+    expect(word.current.skillId).toBe("dividing.4.d1");
     expect(word.current.strandId).toBe("dividing");
-    expect(earnPrompt(word.current)).toMatch(/plank/i);
+    expect(earnPrompt(word.current)).toMatch(/share|group|plank/i);
   });
 
   it("counts firework sprites while the rockets and burst play", () => {

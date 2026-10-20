@@ -9,6 +9,7 @@ import {
 import { blankKitProfile, blankWorkshop, browserProgressStore, type SavedProgress } from "./storage/progress";
 import { blankSequence } from "./sequence/logic";
 import { GoatKit } from "./machines/bridge/kit/GoatKit";
+import { SamplerPage } from "./sampler/SamplerPage";
 import { defaultUnitSystem, setUnitSystem, type UnitSystem } from "./units";
 import { PracticeQuiz } from "./ui/PlacementQuiz";
 import { Workshop } from "./workshop/Workshop";
@@ -135,6 +136,10 @@ export function App() {
     save({ ...progress, map, toppedOut });
   }
 
+  if (window.location.pathname.replace(/\/$/, "").endsWith("/sampler")) {
+    return <SamplerPage />;
+  }
+
   return (
     <div className="app">
       {screen.name === "workshop" ? (
@@ -173,6 +178,8 @@ export function App() {
           flyGusset={new URLSearchParams(window.location.search).get("fly")}
           skill={new URLSearchParams(window.location.search).get("skill")}
           skillSeed={kitLevel(new URLSearchParams(window.location.search).get("seed"))}
+          seedGrade={kitLevel(new URLSearchParams(window.location.search).get("grade"))}
+          placeAsked={kitLevel(new URLSearchParams(window.location.search).get("q")) ?? 0}
           demo={new URLSearchParams(window.location.search).get("demo")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {

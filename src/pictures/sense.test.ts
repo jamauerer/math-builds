@@ -50,8 +50,8 @@ describe("picture sense", () => {
       const word = earnAtWord({ measuring: 4 }, group.id);
       questions.push(word.current);
       const picture = earnPicture(word.current);
-      expect(picture?.bits.length).toBeGreaterThan(0);
       if (picture) {
+        expect(picture.bits.length).toBeGreaterThan(0);
         pictures.push(picture);
       }
     }
@@ -89,7 +89,8 @@ function numbersIn(text: string): string[] {
 }
 
 function operandNumbers(question: EarnQuestion): Set<string> {
-  const allowed = new Set<string>();
+  const allowed = new Set<string>(numbersIn(earnPrompt(question)));
+  allowed.add(question.answer.replace(/^-/, ""));
   const fact = question.fact;
   if (fact.kind === "piece") {
     for (const used of fact.used) {

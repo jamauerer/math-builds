@@ -13,6 +13,7 @@ import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
 import { fitLevels, gradeStartLevels, strandName, type GradeChoice, type GradeSystem } from "../engine/strand-placement";
+import { LADDER_VERSION } from "../ladder/steps";
 import { countryByCode, defaultsForCountry } from "../locale/countries";
 import type { EarnState } from "../machines/bridge/kits/earn";
 import { queenPost } from "../machines/bridge/kits/kit";
@@ -43,6 +44,8 @@ export type KitProfile = {
   kitVersion?: number;
   placedAt?: string;
   fastRuns?: Record<string, number>;
+  ladderAt?: number;
+  ladderSteps?: { adding: string; subtracting: string; multiplying?: string; dividing?: string };
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -192,6 +195,14 @@ export function blankKitProfile(): KitProfile {
   return { grade: null, levels: {}, history: [], notes: [], kitVersion: queenPost.version };
 }
 
+export function needsLadderPlace(profile: KitProfile | null | undefined): boolean {
+  if (!profile) {
+    return false;
+  }
+  const placed = Boolean(profile.placedAt) || Object.keys(profile.levels).length > 0;
+  return placed && profile.ladderAt !== LADDER_VERSION;
+}
+
 /** Grade 3 guest with placement skipped, for the public Try it path. */
 export function guestKitProfile(day = new Date().toISOString().slice(0, 10)): KitProfile {
   const levels = gradeStartLevels(3, "us");
@@ -207,6 +218,7 @@ export function guestKitProfile(day = new Date().toISOString().slice(0, 10)): Ki
     placedAt: day,
     fastRuns: {},
     kitVersion: queenPost.version,
+    ladderAt: LADDER_VERSION,
   };
 }
 
@@ -270,6 +282,20 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     built: migrated.built,
     dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
     placedAt: typeof record.placedAt === "string" ? record.placedAt : undefined,
+    ladderAt: typeof record.ladderAt === "number" ? record.ladderAt : undefined,
+    ladderSteps:
+      record.ladderSteps && typeof record.ladderSteps === "object"
+        ? {
+            adding: String((record.ladderSteps as { adding?: unknown }).adding ?? ""),
+            subtracting: String((record.ladderSteps as { subtracting?: unknown }).subtracting ?? ""),
+            multiplying: (record.ladderSteps as { multiplying?: unknown }).multiplying
+              ? String((record.ladderSteps as { multiplying?: unknown }).multiplying)
+              : undefined,
+            dividing: (record.ladderSteps as { dividing?: unknown }).dividing
+              ? String((record.ladderSteps as { dividing?: unknown }).dividing)
+              : undefined,
+          }
+        : undefined,
     fastRuns:
       record.fastRuns && typeof record.fastRuns === "object"
         ? Object.fromEntries(Object.entries(record.fastRuns).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
@@ -337,6 +363,7 @@ function sanitizeSession(raw: unknown): EarnState | undefined {
     earned: record.earned.filter((item) => typeof item === "string"),
     round: typeof record.round === "number" && record.round >= 0 ? record.round : 0,
     short: record.short === true,
+    grade: record.grade === "unsure" || typeof record.grade === "number" ? record.grade : 13,
   };
 }
 

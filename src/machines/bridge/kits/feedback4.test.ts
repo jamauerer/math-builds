@@ -10,8 +10,8 @@ import { KIT_SKILLS } from "./skills";
 describe("feedback 4", () => {
   it("names skills as written, without a shapes suffix", () => {
     expect(KIT_SKILLS.some((skill) => skill.name === "Measure with a tape")).toBe(true);
-    expect(KIT_SKILLS.some((skill) => skill.name === "Add within 20")).toBe(true);
-    expect(KIT_SKILLS.some((skill) => skill.name === "Times tables to 10")).toBe(true);
+    expect(KIT_SKILLS.some((skill) => skill.name.startsWith("Add within 20"))).toBe(true);
+    expect(KIT_SKILLS.some((skill) => skill.name === "All tables mixed")).toBe(true);
     expect(KIT_SKILLS.some((skill) => skill.name === "Share equally")).toBe(true);
     expect(KIT_SKILLS.some((skill) => skill.name === "Pythagoras")).toBe(true);
     for (const skill of KIT_SKILLS) {

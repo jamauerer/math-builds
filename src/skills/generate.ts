@@ -1,4 +1,7 @@
 import { createRng, intBetween, pick, shuffle, type Rng } from "../engine/rng";
+import { generateSkill, type LadderLayout } from "../ladder/generate";
+import { learnCard } from "../ladder/learn";
+import { ladderStep } from "../ladder/steps";
 import type { PlainDraw } from "../pictures/parts";
 import { curriculumSkill, type CurriculumSkill } from "./index";
 
@@ -21,10 +24,24 @@ export type SkillItem = {
   choices?: ChoiceOption[];
   action?: ActionKind;
   sizes?: number[];
+  stepId?: string;
+  layout?: LadderLayout;
 };
 
 /** One plain question in the curriculum notation form for this skill. */
 export function skillQuestion(skillId: string, seed: number): SkillItem {
+  const generated = generateSkill(skillId, seed);
+  if (generated) {
+    return {
+      prompt: generated.prompt,
+      answer: generated.answer,
+      steps: generated.steps,
+      why: generated.why,
+      draw: generated.draw ?? { op: "add", a: generated.operands[0] ?? 1, b: generated.operands[1] ?? 0 },
+      stepId: generated.stepId,
+      layout: generated.layout,
+    };
+  }
   const skill = curriculumSkill(skillId);
   if (!skill) {
     throw new Error(`Unknown skill ${skillId}`);
@@ -678,11 +695,21 @@ export function isFormChoice(answer: string): boolean {
 }
 
 export function skillLearnLine(skillId: string, seed = 1): { title: string; line: string; kind: string; draw: PlainDraw } {
+  const step = ladderStep(skillId);
+  const example = skillQuestion(skillId, seed);
+  if (step) {
+    const card = learnCard(step, seed);
+    return {
+      title: card.title,
+      line: card.lines.join(" "),
+      kind: card.dots ? "dots" : "none",
+      draw: example.draw,
+    };
+  }
   const skill = curriculumSkill(skillId);
   if (!skill) {
     throw new Error(`Unknown skill ${skillId}`);
   }
-  const example = skillQuestion(skillId, seed);
   return {
     title: skill.name,
     line: example.prompt.includes("?") ? example.prompt.replace("?", example.answer) : `${example.prompt} = ${example.answer}`,
