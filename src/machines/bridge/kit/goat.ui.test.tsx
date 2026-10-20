@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
@@ -8,7 +8,7 @@ import { setUnitSystem } from "../../../units";
 import { answerEarn, openRun } from "../kits/earn";
 import { queenPost } from "../kits/kit";
 import { GoatKit } from "./GoatKit";
-import type { KitProfile } from "../../../storage/progress";
+import { blankKitProfile, type KitProfile } from "../../../storage/progress";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -36,9 +36,9 @@ describe("goat bridge screens", () => {
       );
     });
     const sources = [...container.querySelectorAll("img")].map((img) => img.getAttribute("src") ?? "");
-    expect(sources.some((src) => src.includes("/art/"))).toBe(true);
+    expect(sources.some((src) => src.includes("art/"))).toBe(true);
     if (stage === "assemble" || stage === "drive" || stage === "wreck") {
-      expect(sources).toContain("/art/banks.png");
+      expect(sources.some((src) => src.endsWith("art/banks.png"))).toBe(true);
     }
     if (stage === "wreck") {
       expect(container.textContent).toContain("short by 1 m");
@@ -94,6 +94,46 @@ describe("goat bridge screens", () => {
       card?.click();
     });
     expect(container.textContent).toContain("What grade are you in");
+    root.unmount();
+    container.remove();
+  });
+
+  it("Try it writes a grade 3 guest and opens earn without placement", async () => {
+    let saved: KitProfile | undefined;
+    function Harness() {
+      const [profile, setProfile] = useState(blankKitProfile());
+      return (
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="pick"
+          kitProfile={profile}
+          onKitProfile={(next) => {
+            saved = next;
+            setProfile(next);
+          }}
+        />
+      );
+    }
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<Harness />);
+    });
+    const tryIt = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Try it"));
+    expect(tryIt).toBeTruthy();
+    await act(async () => {
+      tryIt?.click();
+    });
+    expect(saved?.grade).toBe(3);
+    expect(saved?.placedAt).toBeTruthy();
+    expect(Object.keys(saved?.levels ?? {}).length).toBeGreaterThan(0);
+    expect(container.textContent).not.toContain("What grade are you in");
+    expect(container.textContent).toContain("The goat waits on the bank.");
     root.unmount();
     container.remove();
   });

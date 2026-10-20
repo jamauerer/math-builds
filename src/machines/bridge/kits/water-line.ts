@@ -113,7 +113,6 @@ export function blueDominates(pixel: { r: number; g: number; b: number; a: numbe
 
 /** First scene row in the gap's center column where the painted water is blue. Metres below the deck. */
 export function measuredWaterY(): number {
-  const image = banksImage();
   const sceneX = BANKS_LAYOUT.originX + BANKS_LAYOUT.gapCenterM * BANKS_LAYOUT.pxPerMetre;
   for (let row = 0; row < BANKS_LAYOUT.height; row += 1) {
     const sceneY = BANKS_LAYOUT.top + row;

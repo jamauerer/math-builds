@@ -67,8 +67,9 @@ describe("loop exit", () => {
     expect(dropped.state.upcoming.every((question) => question.level === 3)).toBe(true);
     const skillId = start.current.skillId ?? "";
     expect(dropped.state.book.skills[skillId]?.struggling).toBe(true);
-    if (dropped.state.current.fact.kind === "plain" && dropped.state.current.fact.draw.op === "div") {
-      expect(dropped.state.current.fact.draw.b).toBeLessThanOrEqual(5);
+    const draw = dropped.state.current.fact.kind === "plain" ? dropped.state.current.fact.draw : undefined;
+    if (draw?.op === "div") {
+      expect(draw.b).toBeLessThanOrEqual(5);
     }
   });
 

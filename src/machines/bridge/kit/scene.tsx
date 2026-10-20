@@ -17,10 +17,9 @@ import {
 } from "../kits/kit";
 import type { CrossingFrame, GoatMode, PiecePose } from "../kits/simulate";
 
-const ART = "/art";
-
 export function art(file: string): string {
-  return `${ART}/${file}`;
+  const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+  return `${base}art/${file}`;
 }
 
 export function memberStyle(slot: KitSlot, typed: number): CSSProperties {

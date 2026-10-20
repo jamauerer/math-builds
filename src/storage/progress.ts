@@ -12,11 +12,11 @@ import type { MasteryRecord } from "../curriculum/mastery";
 import type { Problem, Skill } from "../engine/types";
 import { blankSequence, type CodexPage, type SequenceSave } from "../sequence/logic";
 import { defaultUnitSystem, type UnitSystem } from "../units";
-import { fitLevels, strandName, type GradeChoice, type GradeSystem } from "../engine/strand-placement";
+import { fitLevels, gradeStartLevels, strandName, type GradeChoice, type GradeSystem } from "../engine/strand-placement";
 import { countryByCode, defaultsForCountry } from "../locale/countries";
 import type { EarnState } from "../machines/bridge/kits/earn";
 import { queenPost } from "../machines/bridge/kits/kit";
-import { sanitizeBook, type SkillBook } from "../machines/bridge/kits/skills";
+import { sanitizeBook, skillsFromLevels, type SkillBook } from "../machines/bridge/kits/skills";
 
 export type KitAttempt = {
   strandId: string;
@@ -190,6 +190,24 @@ export function sanitizeProgress(skills: readonly Skill[], raw: unknown): SavedP
 
 export function blankKitProfile(): KitProfile {
   return { grade: null, levels: {}, history: [], notes: [], kitVersion: queenPost.version };
+}
+
+/** Grade 3 guest with placement skipped, for the public Try it path. */
+export function guestKitProfile(day = new Date().toISOString().slice(0, 10)): KitProfile {
+  const levels = gradeStartLevels(3, "us");
+  return {
+    grade: 3,
+    country: "US",
+    gradeSystem: "us",
+    levels,
+    history: [],
+    notes: [],
+    seenIntro: true,
+    skills: skillsFromLevels(levels, day),
+    placedAt: day,
+    fastRuns: {},
+    kitVersion: queenPost.version,
+  };
 }
 
 export function profileGradeSystem(profile: KitProfile | null | undefined): GradeSystem {

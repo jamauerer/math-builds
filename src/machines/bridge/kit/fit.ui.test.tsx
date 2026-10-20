@@ -38,7 +38,7 @@ function actionBox(action: HTMLElement, viewportHeight: number): { top: number; 
   let top = 0;
   let node: HTMLElement | null = action;
   while (node && node !== document.body) {
-    const parent = node.parentElement;
+    const parent: HTMLElement | null = node.parentElement;
     if (!parent) {
       break;
     }

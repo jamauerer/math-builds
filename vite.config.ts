@@ -17,6 +17,7 @@ function banksWater() {
 }
 
 export default defineConfig({
+  base: "./",
   plugins: [banksWater(), react()],
   server: {
     watch: {

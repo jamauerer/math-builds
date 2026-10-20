@@ -1877,6 +1877,11 @@
   letter-spacing: -0.8px;
 }
 
+.gk-try {
+  align-self: flex-start;
+  margin: 10px 0 4px;
+}
+
 .gk-strands {
   display: flex;
   flex-wrap: wrap;

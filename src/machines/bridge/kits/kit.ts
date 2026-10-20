@@ -287,7 +287,7 @@ export function stareLine(lengths: Record<string, number>, cause: WreckCause | n
   return pool[hash]?.line ?? pool[0].line;
 }
 
-export const queenPost = raw as QueenPostKit;
+export const queenPost = raw as unknown as QueenPostKit;
 
 /** Highest round whose structural pieces are all present in this build. */
 export function testedRound(lengths: Record<string, number>): number {

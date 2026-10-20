@@ -24,7 +24,7 @@ import {
   flagEmoji,
   gradeSystemLabel,
 } from "../../../locale/countries";
-import { profileGradeSystem, type KitProfile } from "../../../storage/progress";
+import { guestKitProfile, profileGradeSystem, type KitProfile } from "../../../storage/progress";
 import {
   formatLength,
   formatWeight,
@@ -266,30 +266,35 @@ export function GoatKit({
     }
   }, [kitProfile?.gradeSystem, seeded]);
   const [typed, setTyped] = useState("");
+  const profileRef = useRef(kitProfile);
+  profileRef.current = kitProfile;
 
   function writeProfile(patch: Partial<KitProfile>) {
     if (!onKitProfile) {
       return;
     }
-    onKitProfile({
-      grade: kitProfile?.grade ?? grade,
-      country: kitProfile?.country ?? seeded ?? undefined,
-      gradeSystem: kitProfile?.gradeSystem ?? gradeSystem,
+    const current = profileRef.current;
+    const next = {
+      grade: current?.grade ?? grade,
+      country: current?.country ?? seeded ?? undefined,
+      gradeSystem: current?.gradeSystem ?? gradeSystem,
       kitVersion: queenPost.version,
-      levels: kitProfile?.levels ?? {},
-      history: kitProfile?.history ?? [],
-      notes: kitProfile?.notes ?? [],
-      lastRunMs: kitProfile?.lastRunMs,
-      skills: kitProfile?.skills,
-      seenIntro: kitProfile?.seenIntro,
-      session: kitProfile?.session,
-      build: kitProfile?.build,
-      built: kitProfile?.built,
-      dunks: kitProfile?.dunks,
-      placedAt: kitProfile?.placedAt,
-      fastRuns: kitProfile?.fastRuns,
+      levels: current?.levels ?? {},
+      history: current?.history ?? [],
+      notes: current?.notes ?? [],
+      lastRunMs: current?.lastRunMs,
+      skills: current?.skills,
+      seenIntro: current?.seenIntro,
+      session: current?.session,
+      build: current?.build,
+      built: current?.built,
+      dunks: current?.dunks,
+      placedAt: current?.placedAt,
+      fastRuns: current?.fastRuns,
       ...patch,
-    });
+    };
+    profileRef.current = next;
+    onKitProfile(next);
   }
 
   function applyCountry(code: string, nextStage: Stage = "grade") {
@@ -384,12 +389,8 @@ export function GoatKit({
     setPlaced({});
     setGuideStep(0);
     setResult(null);
-    onKitProfile?.({
-      grade: kitProfile?.grade ?? grade,
-      kitVersion: queenPost.version,
+    writeProfile({
       levels: Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {}),
-      history: kitProfile?.history ?? [],
-      notes: kitProfile?.notes ?? [],
       lastRunMs: kitProfile?.lastRunMs,
       skills: next.book,
       seenIntro: true,
@@ -398,6 +399,27 @@ export function GoatKit({
       built: false,
     });
     return next;
+  }
+
+  function startGuest() {
+    const guest = guestKitProfile();
+    writeProfile({
+      ...guest,
+      session: undefined,
+      build: { lengths: {}, placed: {} },
+      built: false,
+    });
+    setGrade(3);
+    setGradeSystem("us");
+    setLiveLevels(guest.levels);
+    onUnits("us");
+    setEarn(blankEarn(guest.levels, 1, guest.skills, guest.placedAt));
+    setLengths({});
+    setPlaced({});
+    setGuideStep(0);
+    setResult(null);
+    setReveal(null);
+    setStage("earn");
   }
 
   function openEarn() {
@@ -425,12 +447,8 @@ export function GoatKit({
     if (!onKitProfile || lesson || word || moment || Object.keys(drops).length > 0) {
       return;
     }
-    onKitProfile({
-      grade: kitProfile?.grade ?? grade,
-      kitVersion: queenPost.version,
+    writeProfile({
       levels: Object.keys(kitProfile?.levels ?? {}).length > 0 ? (kitProfile?.levels ?? {}) : (savedLevels ?? {}),
-      history: kitProfile?.history ?? [],
-      notes: kitProfile?.notes ?? [],
       lastRunMs: next.phase === "done" ? next.timesMs.reduce((sum, time) => sum + time, 0) : kitProfile?.lastRunMs,
       skills: next.book,
       seenIntro,
@@ -468,17 +486,12 @@ export function GoatKit({
       { strandId: question.strandId, level: question.level, prompt: earnPrompt(question), correct: help ? false : correct, help: help || undefined },
     ].slice(-80);
     const notes = note ? [...(kitProfile?.notes ?? []), note] : (kitProfile?.notes ?? []);
-    onKitProfile({
-      grade: kitProfile?.grade ?? grade,
-      kitVersion: queenPost.version,
+    writeProfile({
       levels,
       history,
       notes,
       lastRunMs,
       skills: skills ?? kitProfile?.skills,
-      seenIntro: kitProfile?.seenIntro,
-      session: kitProfile?.session,
-      build: kitProfile?.build,
     });
   }
 
@@ -890,6 +903,7 @@ export function GoatKit({
           onUnits={onUnits}
           onProfile={() => setStage(needsCountry(kitProfile) ? "live" : needsGrade(kitProfile) ? "grade" : "profile")}
           onOpen={openEarn}
+          onTry={startGuest}
         />
       ) : stage === "live" ? (
         <LivePick
@@ -1211,12 +1225,14 @@ function Pick({
   onUnits,
   onProfile,
   onOpen,
+  onTry,
 }: {
   marks: number;
   units: UnitSystem;
   onUnits: (units: UnitSystem) => void;
   onProfile: () => void;
   onOpen: () => void;
+  onTry: () => void;
 }) {
   return (
     <>
@@ -1233,6 +1249,9 @@ function Pick({
       <div className="gk-pick">
         <h1>What will you build?</h1>
         <p className="gk-sub">Pick one. Earn the pieces, give each one a number, build it, send the goat.</p>
+        <button className="gk-check gk-try" type="button" onClick={onTry}>
+          Try it
+        </button>
         <div className="gk-strands">
           <span className="gk-strand" style={{ background: "#E8F3EA", color: "#1F6B3A" }}>
             Measuring: strong
@@ -2063,8 +2082,8 @@ function ShapeChoice({ sides }: { sides: number }) {
 }
 
 function teeterThumb(): string {
-  const goat = "/art/teeter-totter/goat-trot-1.png";
-  const elephant = "/art/teeter-totter/elephant-sit-1.png";
+  const goat = art("teeter-totter/goat-trot-1.png");
+  const elephant = art("teeter-totter/elephant-sit-1.png");
   if (!goat || !elephant) {
     return teeter;
   }

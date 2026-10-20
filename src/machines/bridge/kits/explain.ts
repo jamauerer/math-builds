@@ -43,6 +43,9 @@ const FALLBACK: ExplainPicture[] = ["symbol", "tape-marks", "grid", "beam", "tri
 export function workedExample(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
   const fact = question.fact;
   if (fact.kind === "plain") {
+    if (!fact.draw) {
+      return { steps: fromNumbers(numbersOf(fact, question), question.answer), why: fact.why };
+    }
     return { steps: fromDraw(fact.draw, fact.prompt, question.answer), why: fact.why };
   }
   if (fact.kind === "brace-hyp") {
