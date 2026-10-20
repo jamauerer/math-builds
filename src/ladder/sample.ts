@@ -1,16 +1,15 @@
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk, settleLadder } from "./place";
 import { serveQuestion } from "./serve";
-import { validateStep } from "./generate";
+import { hasBareZero, questionKey, validateStep, zeroStepAllowed } from "./generate";
 import {
   beginSession,
   bookCeiling,
   bookCurrentStep,
   closeTallies,
+  familyRoundPlan,
   markLearning,
   rememberAnswer,
-  runPlan,
   skillsFromLevels,
-  warmUpPlan,
 } from "../machines/bridge/kits/skills";
 import { ladderStep } from "./steps";
 
@@ -51,7 +50,7 @@ export function playLearner(
   grade: number,
   seed = 1,
   rounds = 5,
-  correctAt: (asked: number) => boolean = () => true,
+  correctAt: (asked: number, phase: "placement" | "round") => boolean = () => true,
 ): { placement: SampleLine[]; rounds: PlayedRound[]; lines: SampleLine[] } {
   const lines: SampleLine[] = [];
   let place = beginLadderPlace(grade);
@@ -66,7 +65,7 @@ export function playLearner(
       round: 0,
       current: question.stepId ?? "?",
     });
-    place = ladderPlaceAnswer(place, grade, correctAt(lines.length - 1));
+    place = ladderPlaceAnswer(place, grade, correctAt(lines.length - 1, "placement"));
   }
   const settled = settleLadder(place, grade);
   const starts = {
@@ -77,37 +76,53 @@ export function playLearner(
   };
   let book = skillsFromLevels(settled.levels, "2026-10-20", starts);
   const played: PlayedRound[] = [];
+  let prevKeys = new Set<string>();
   for (let index = 1; index <= rounds; index += 1) {
     const day = `2026-10-${19 + index}`;
     book = beginSession(book);
     const start = snapshot(book, grade);
-    const warmup = warmUpPlan(book, 3, "adding", settled.levels, day, grade);
-    const rest = runPlan(book, "adding", settled.levels.adding ?? 1, 10, seed + index * 19, grade);
-    const slots = [
-      ...warmup.map((slot) => ({ ...slot, phase: "warmup" as const })),
-      ...rest.map((slot) => ({ ...slot, phase: "plain" as const })),
-    ];
+    const slots = familyRoundPlan(book, grade, seed + index * 19, day);
     const collected: SampleLine[] = [];
-    const seen = new Set<string>();
+    const thisKeys = new Set<string>();
+    const banned = new Set([...prevKeys]);
+    let zeroUsed = false;
     const ceiling = bookCeiling(book, grade);
     for (const slot of slots) {
+      const baseSeed = seed + index * 50 + collected.length * 17;
       let question = serveQuestion({
         grade,
         skillId: slot.skillId,
-        seed: seed + index * 50 + collected.length * 17,
+        seed: baseSeed,
         kind: slot.phase === "warmup" ? "warmup" : "run",
         ceiling,
+        banned,
+        zeroUsed,
       });
-      for (let extra = 1; extra < 24 && (seen.has(question.prompt) || (question.item && question.stepId && !validateStep(ladderStep(question.stepId) ?? ladderStep(slot.skillId)!, question.item))); extra += 1) {
+      for (let extra = 1; extra < 80; extra += 1) {
+        const key = question.item ? questionKey(question.item) : question.prompt;
+        const zero = question.item ? hasBareZero(question.item) : false;
+        const step = question.stepId ? ladderStep(question.stepId) : ladderStep(slot.skillId);
+        const badRange = Boolean(question.item && step && !validateStep(step, question.item));
+        const badZero = zero && (zeroUsed || !zeroStepAllowed(question.stepId));
+        if (!banned.has(key) && !badRange && !badZero) {
+          break;
+        }
         question = serveQuestion({
           grade,
           skillId: slot.skillId,
-          seed: seed + index * 50 + collected.length * 17 + extra * 23,
+          seed: baseSeed + extra * 23,
           kind: slot.phase === "warmup" ? "warmup" : "run",
           ceiling,
+          banned,
+          zeroUsed,
         });
       }
-      seen.add(question.prompt);
+      const key = question.item ? questionKey(question.item) : question.prompt;
+      banned.add(key);
+      thisKeys.add(key);
+      if (question.item && hasBareZero(question.item)) {
+        zeroUsed = true;
+      }
       const stepId = question.stepId ?? question.skillId ?? "?";
       if (book.skills[question.skillId]?.state === "new") {
         book = markLearning(book, question.skillId);
@@ -122,9 +137,10 @@ export function playLearner(
         current: currentLabel(stepId, book, grade),
       });
       const asked = lines.length + collected.length - 1;
-      book = rememberAnswer(book, question.skillId, question.prompt, correctAt(asked), false, { day, mixed: slot.phase === "warmup" });
+      book = rememberAnswer(book, question.skillId, question.prompt, correctAt(asked, "round"), false, { day, mixed: slot.phase === "warmup" });
     }
     book = closeTallies(book, day);
+    prevKeys = thisKeys;
     played.push({
       index,
       lines: collected,

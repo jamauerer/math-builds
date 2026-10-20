@@ -422,15 +422,60 @@ function pickLadderStep(book: SkillBook, op: LadderOp, review: boolean, index: n
 }
 
 function ladderRunSlots(book: SkillBook, ops: LadderOp[], length: number, seed: number, grade?: GradeChoice | null): RunSlot[] {
-  const slots: RunSlot[] = [];
   const reviewCount = Math.round(length * 0.3);
-  for (let index = 0; index < length; index += 1) {
-    const review = index >= length - reviewCount;
-    const op = ops.length > 1 && (index + seed) % 3 === 0 ? (ops[1] ?? ops[0]) : (ops[0] ?? "A");
-    const step = pickLadderStep(book, op, review, index, seed, grade);
-    slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level, mixed: review });
+  const currentCount = length - reviewCount;
+  const slots: RunSlot[] = [];
+  for (let index = 0; index < currentCount; index += 1) {
+    const op = ops[index % ops.length] ?? "A";
+    const step = pickLadderStep(book, op, false, index, seed, grade);
+    slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level, mixed: false });
+  }
+  for (let index = 0; index < reviewCount; index += 1) {
+    const op = ops[index % ops.length] ?? "A";
+    const step = pickLadderStep(book, op, true, index + currentCount, seed, grade);
+    slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level, mixed: true });
   }
   return slots;
+}
+
+export type FamilySlot = RunSlot & { phase: "warmup" | "plain" };
+
+/** Each open family operation gets five current-step asks so 4-of-5 can fire on its own record. */
+export function familyRoundPlan(book: SkillBook, grade?: GradeChoice | null, seed = 1, day = "2026-10-20"): FamilySlot[] {
+  const warmup = warmUpPlan(book, 3, "adding", null, day, grade).map((slot) => ({
+    ...slot,
+    mixed: true,
+    phase: "warmup" as const,
+  }));
+  const ops = (["A", "S"] as const).filter((op) => gradeCap(op, grade) > 0);
+  const currentByOp = ops.map((op) => {
+    const current = bookCurrentStep(book, op, grade);
+    return Array.from({ length: 5 }, () => ({
+      skillId: current.skillId,
+      strandId: opStrand(op),
+      level: current.level,
+      mixed: false,
+      phase: "plain" as const,
+    }));
+  });
+  const current: FamilySlot[] = [];
+  for (let index = 0; index < 5; index += 1) {
+    for (const list of currentByOp) {
+      if (list[index]) {
+        current.push(list[index]);
+      }
+    }
+  }
+  const slots: FamilySlot[] = [...warmup, ...current];
+  if (slots.length < 12 && ops.length > 0) {
+    const pad = 12 - slots.length;
+    for (let index = 0; index < pad; index += 1) {
+      const op = ops[index % ops.length] ?? "A";
+      const step = pickLadderStep(book, op, true, index, seed, grade);
+      slots.push({ skillId: step.skillId, strandId: opStrand(step.op), level: step.level, mixed: true, phase: "plain" });
+    }
+  }
+  return slots.slice(0, 15);
 }
 
 /** Every question in a piece run is that piece's strand, at the learner's working level. Adding mixes in subtracting. */
@@ -652,10 +697,15 @@ export function noteSession(book: SkillBook, skillId: string, day: string, right
 
 export function closeTallies(book: SkillBook, day: string): SkillBook {
   let next = book;
+  const leftover: SkillBook["tally"] = {};
   for (const [skillId, tally] of Object.entries(book.tally)) {
+    if (tally.asked < 5) {
+      leftover[skillId] = tally;
+      continue;
+    }
     next = noteSession(next, skillId, day, tally.right, tally.asked);
   }
-  return { ...next, tally: {} };
+  return { ...next, tally: leftover };
 }
 
 export function strandLevelsFrom(book: SkillBook): Record<string, number> {

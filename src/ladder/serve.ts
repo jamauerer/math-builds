@@ -1,5 +1,5 @@
 import type { SkillItem } from "../skills/generate";
-import { generateStep, validateStep, type LadderItem } from "./generate";
+import { generateStep, hasBareZero, questionKey, validateStep, zeroStepAllowed, type LadderItem } from "./generate";
 import { pickCeilingStep, stepWithinCeiling, type ServeCeiling } from "./current";
 import {
   gradeCap,
@@ -32,24 +32,32 @@ function opOf(skillId: string): LadderOp | null {
   return step?.op ?? null;
 }
 
-function generateValid(step: LadderStep, seed: number): LadderItem {
-  for (let extra = 0; extra < 40; extra += 1) {
-    const item = generateStep(step, seed + extra * 17);
-    if (validateStep(step, item)) {
-      return item;
+function generateValid(step: LadderStep, seed: number, avoidZero = false, banned?: Set<string>): LadderItem {
+  const banZero = avoidZero || !zeroStepAllowed(step.id);
+  for (let extra = 0; extra < 80; extra += 1) {
+    const item = generateStep(step, seed + extra * 17, banZero);
+    if (!validateStep(step, item)) {
+      continue;
     }
+    if (banZero && hasBareZero(item)) {
+      continue;
+    }
+    if (banned?.has(questionKey(item))) {
+      continue;
+    }
+    return item;
   }
-  return generateStep(step, seed);
+  return generateStep(step, seed, banZero);
 }
 
-function replacement(grade: number | "unsure" | null | undefined, seed: number, ceiling?: ServeCeiling): LadderItem {
+function replacement(grade: number | "unsure" | null | undefined, seed: number, ceiling?: ServeCeiling, banned?: Set<string>, zeroUsed = false): LadderItem {
   const ops = (["A", "S", "M", "D"] as const).filter((op) => gradeCap(op, grade) > 0);
   const op = ops[Math.abs(seed) % ops.length] ?? "A";
   const current = pickCeilingStep(op, ceiling, grade);
   const below = stepsForOp(op).filter((step) => step.n < current.n && stepAllowed(step, grade));
   const review = below.length > 0 && Math.abs(seed) % 10 < 3;
   const step = review ? below[Math.abs(seed) % below.length] : current;
-  return generateValid(step, seed + 17);
+  return generateValid(step, seed + 17, zeroUsed, banned);
 }
 
 function toServed(item: LadderItem, kind: ServedKind): ServedQuestion {
@@ -82,9 +90,17 @@ export function questionAboveCap(skillId: string, grade: number | "unsure" | nul
   return false;
 }
 
-function serveStep(step: LadderStep, grade: number | "unsure" | null | undefined, seed: number, kind: ServedKind, ceiling?: ServeCeiling): ServedQuestion {
+function serveStep(
+  step: LadderStep,
+  grade: number | "unsure" | null | undefined,
+  seed: number,
+  kind: ServedKind,
+  ceiling?: ServeCeiling,
+  banned?: Set<string>,
+  zeroUsed = false,
+): ServedQuestion {
   if (!stepAllowed(step, grade) || !stepWithinCeiling(step, ceiling)) {
-    const next = replacement(grade, seed, ceiling);
+    const next = replacement(grade, seed, ceiling, banned, zeroUsed);
     console.error("Served question above the grade cap", {
       wanted: step.id,
       grade: gradeNumber(grade),
@@ -94,14 +110,14 @@ function serveStep(step: LadderStep, grade: number | "unsure" | null | undefined
     });
     return toServed(next, kind);
   }
-  const item = generateValid(step, seed);
-  if (!validateStep(step, item)) {
-    const next = generateValid(step, seed + 41);
-    if (validateStep(step, next)) {
+  const item = generateValid(step, seed, zeroUsed, banned);
+  if (!validateStep(step, item) || (banned?.has(questionKey(item))) || ((zeroUsed || !zeroStepAllowed(step.id)) && hasBareZero(item))) {
+    const next = generateValid(step, seed + 41, zeroUsed, banned);
+    if (validateStep(step, next) && !banned?.has(questionKey(next)) && !((zeroUsed || !zeroStepAllowed(step.id)) && hasBareZero(next))) {
       return toServed(next, kind);
     }
     console.error("Served question outside its step range", { wanted: step.id, prompt: item.prompt });
-    return toServed(replacement(grade, seed + 3, ceiling), kind);
+    return toServed(replacement(grade, seed + 3, ceiling, banned, zeroUsed), kind);
   }
   return toServed(item, kind);
 }
@@ -117,18 +133,20 @@ export function serveQuestion(input: {
   answer?: string;
   strandId?: string;
   ceiling?: ServeCeiling;
+  banned?: Set<string>;
+  zeroUsed?: boolean;
 }): ServedQuestion {
   const grade = input.grade;
   if (input.step) {
-    return serveStep(input.step, grade, input.seed, input.kind, input.ceiling);
+    return serveStep(input.step, grade, input.seed, input.kind, input.ceiling, input.banned, input.zeroUsed === true);
   }
   if (input.skillId) {
     const step = ladderStep(input.skillId);
     if (step) {
-      return serveStep(step, grade, input.seed, input.kind, input.ceiling);
+      return serveStep(step, grade, input.seed, input.kind, input.ceiling, input.banned, input.zeroUsed === true);
     }
     if (!strandAllowed(input.skillId.split(".")[0] ?? "", grade) || questionAboveCap(input.skillId, grade)) {
-      const next = replacement(grade, input.seed, input.ceiling);
+      const next = replacement(grade, input.seed, input.ceiling, input.banned, input.zeroUsed === true);
       console.error("Served question above the grade cap", {
         wanted: input.skillId,
         grade: gradeNumber(grade),
@@ -140,7 +158,7 @@ export function serveQuestion(input: {
   if (input.prompt && input.answer && input.skillId) {
     const strand = input.strandId ?? input.skillId.split(".")[0] ?? "adding";
     if (!strandAllowed(strand, grade)) {
-      const next = replacement(grade, input.seed, input.ceiling);
+      const next = replacement(grade, input.seed, input.ceiling, input.banned, input.zeroUsed === true);
       console.error("Served question above the grade cap", { wanted: input.skillId, strand, grade: gradeNumber(grade), replacement: next.stepId });
       return toServed(next, input.kind);
     }
@@ -153,11 +171,11 @@ export function serveQuestion(input: {
       kind: input.kind,
     };
   }
-  const generated = input.skillId ? generateStep(ladderStep(input.skillId) ?? legalSteps(grade)[0], input.seed) : null;
+  const generated = input.skillId ? generateStep(ladderStep(input.skillId) ?? legalSteps(grade)[0], input.seed, input.zeroUsed === true) : null;
   if (generated && input.skillId && ladderStep(input.skillId)) {
     return toServed(generated, input.kind);
   }
-  return toServed(replacement(grade, input.seed, input.ceiling), input.kind);
+  return toServed(replacement(grade, input.seed, input.ceiling, input.banned, input.zeroUsed === true), input.kind);
 }
 
 export function servedToSkillItem(served: ServedQuestion): SkillItem {

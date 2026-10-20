@@ -69,6 +69,24 @@ function stackOp(step: LadderStep): LadderLayout["op"] {
   return step.op === "A" ? "+" : step.op === "S" ? "−" : step.op === "M" ? "×" : "÷";
 }
 
+export function questionKey(item: { stepId?: string; prompt: string; operands: number[] }): string {
+  const step = item.stepId ? ladderStep(item.stepId) : undefined;
+  const op = step?.op ?? (item.prompt.includes("−") ? "S" : item.prompt.includes("×") ? "M" : item.prompt.includes("÷") ? "D" : "A");
+  const nums = item.operands.filter((n) => Number.isFinite(n));
+  if (op === "A" || op === "M") {
+    return `${op}:${[...nums].sort((a, b) => a - b).join(",")}`;
+  }
+  return `${op}:${nums.join(",")}`;
+}
+
+export function hasBareZero(item: { stepId?: string; operands: number[] }): boolean {
+  return item.operands.some((n) => n === 0);
+}
+
+export function zeroStepAllowed(stepId: string | undefined): boolean {
+  return stepId === "A1" || stepId === "A2" || stepId === "S1" || stepId === "S2";
+}
+
 function wrap(step: LadderStep, parts: Pick<LadderItem, "prompt" | "answer" | "operands" | "layout">, steps: string[], why: string, draw?: PlainDraw): LadderItem {
   let layout = parts.layout;
   if (step.form === "stacked" && !layout && parts.operands.length >= 2) {
@@ -100,36 +118,38 @@ function twoDigit(rng: Rng, min = 10, max = 99): number {
   return intBetween(rng, min, max);
 }
 
-function makeAdd(step: LadderStep, rng: Rng): LadderItem {
+function makeAdd(step: LadderStep, rng: Rng, avoidZero = false): LadderItem {
   if (step.n === 1) {
-    const a = intBetween(rng, 0, 5);
-    const b = intBetween(rng, 0, 5 - a);
+    const min = avoidZero ? 1 : 0;
+    const a = intBetween(rng, min, 4);
+    const b = intBetween(rng, min, Math.max(min, 5 - a));
     return wrap(step, plus(a, b, a + b), [`Count ${a} and ${b}.`], "Join the dots.", { op: "add", a, b });
   }
   if (step.n === 2) {
-    const a = intBetween(rng, 0, 9);
-    const b = intBetween(rng, 0, Math.min(9, 10 - a));
+    const min = avoidZero ? 1 : 0;
+    const a = intBetween(rng, min, 9);
+    const b = intBetween(rng, min, Math.max(min, Math.min(9, 10 - a)));
     return wrap(step, plus(a, b, a + b), [`Count on from ${a}.`], "Dots fade out.", { op: "add", a, b });
   }
   if (step.n === 3) {
-    const a = intBetween(rng, 0, 18);
+    const a = intBetween(rng, 1, 18);
     const b = pick(rng, [1, 2]);
     return wrap(step, plus(a, b, a + b), [`Add ${b}.`], "Count on 1 or 2.", { op: "add", a, b });
   }
   if (step.n === 4) {
-    const a = intBetween(rng, 0, 10);
+    const a = intBetween(rng, 1, 9);
     const b = 10 - a;
     return wrap(step, { prompt: `${a} + ? = 10`, answer: String(b), operands: [a, 10] }, [`What makes 10 with ${a}?`], "Pairs that make 10.", { op: "add", a, b });
   }
   if (step.n === 5) {
     if (rng() < 0.5) {
-      const a = intBetween(rng, 0, 9);
-      const b = intBetween(rng, 0, Math.min(9, 10 - a));
+      const a = intBetween(rng, 1, 9);
+      const b = intBetween(rng, 1, Math.max(1, Math.min(9, 10 - a)));
       return wrap(step, plus(a, b, a + b), [`${a} + ${b} stays within 10.`], "No crossing 10.");
     }
-    const ones = intBetween(rng, 0, 9);
+    const ones = intBetween(rng, 0, 8);
     const a = 10 + ones;
-    const b = intBetween(rng, 0, 9 - ones);
+    const b = intBetween(rng, 1, Math.max(1, 9 - ones));
     return wrap(step, plus(a, b, a + b), [`Ones ${ones} + ${b} do not make a ten.`], "Teen plus ones, no carry.");
   }
   if (step.n === 6) {
@@ -152,7 +172,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
   if (step.n === 9) {
     const ones = intBetween(rng, 0, 8);
     const a = intBetween(rng, 1, 9) * 10 + ones;
-    const b = intBetween(rng, 0, 9 - ones);
+    const b = intBetween(rng, 1, Math.max(1, 9 - ones));
     return wrap(step, plus(a, b, a + b), [`Ones ${ones} + ${b} do not carry.`], "No carry.");
   }
   if (step.n === 10) {
@@ -162,7 +182,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
     const b = intBetween(rng, need, 9);
     const sum = a + b;
     if (sum > 99) {
-      return makeAdd(step, rng);
+      return makeAdd(step, rng, avoidZero);
     }
     return wrap(step, plus(a, b, sum), [`Ones ${ones} + ${b} make a ten.`], "Carry the 1.");
   }
@@ -184,7 +204,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
     const b = bTens * 10 + bOnes;
     const sum = a + b;
     if (sum > 99) {
-      return makeAdd(step, rng);
+      return makeAdd(step, rng, avoidZero);
     }
     return wrap(step, plus(a, b, sum, true), [`Ones make ${aOnes + bOnes}. Write 1 above the tens.`], "Stacked, carry.");
   }
@@ -202,9 +222,9 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
     return wrap(step, plus(a, b, a + b, true), [`${a} + ${b} goes past 100.`], "Stacked, over 100.");
   }
   if (step.n === 14) {
-    const a = intBetween(rng, 0, 9);
-    const b = intBetween(rng, 0, 9);
-    const c = intBetween(rng, 0, 9);
+    const a = intBetween(rng, 1, 9);
+    const b = intBetween(rng, 1, 9);
+    const c = intBetween(rng, 1, 9);
     return wrap(
       step,
       { prompt: `${formatCount(a)} + ${formatCount(b)} + ${formatCount(c)} = ?`, answer: String(a + b + c), operands: [a, b, c] },
@@ -230,7 +250,7 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
     }
     const carries = (onesCarry ? 1 : 0) + (tensCarry ? 1 : 0);
     if (carries < 1 || carries > 2) {
-      return makeAdd(step, rng);
+      return makeAdd(step, rng, avoidZero);
     }
     return wrap(step, plus(a, b, a + b, true), [`Write each carry above the next column.`], "One or two carries.");
   }
@@ -262,15 +282,15 @@ function makeAdd(step: LadderStep, rng: Rng): LadderItem {
   );
 }
 
-function makeSub(step: LadderStep, rng: Rng): LadderItem {
+function makeSub(step: LadderStep, rng: Rng, avoidZero = false): LadderItem {
   if (step.n === 1) {
-    const a = intBetween(rng, 0, 5);
-    const b = intBetween(rng, 0, a);
+    const a = intBetween(rng, avoidZero ? 2 : 0, 5);
+    const b = intBetween(rng, avoidZero ? 1 : 0, Math.max(avoidZero ? 1 : 0, a));
     return wrap(step, minus(a, b, a - b), [`Start with ${a} dots. Cross out ${b}.`], "Dots.", { op: "sub", a, b });
   }
   if (step.n === 2) {
-    const a = intBetween(rng, 0, 10);
-    const b = intBetween(rng, 0, a);
+    const a = intBetween(rng, avoidZero ? 2 : 0, 10);
+    const b = intBetween(rng, avoidZero ? 1 : 0, Math.max(avoidZero ? 1 : 0, a));
     return wrap(step, minus(a, b, a - b), [`Take ${b} from ${a}.`], "Dots fade out.", { op: "sub", a, b });
   }
   if (step.n === 3) {
@@ -279,13 +299,13 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
     return wrap(step, minus(a, b, a - b), [`Count back ${b}.`], "Take 1 or 2.", { op: "sub", a, b });
   }
   if (step.n === 4) {
-    const b = intBetween(rng, 0, 10);
+    const b = intBetween(rng, 1, 9);
     return wrap(step, minus(10, b, 10 - b), [`10 minus ${b}.`], "Subtract from 10.", { op: "sub", a: 10, b });
   }
   if (step.n === 5) {
     const ones = intBetween(rng, 1, 9);
     const a = 10 + ones;
-    const b = intBetween(rng, 0, ones);
+    const b = intBetween(rng, 1, ones);
     return wrap(step, minus(a, b, a - b), [`Ones ${ones} can give ${b}.`], "No crossing 10.");
   }
   if (step.n === 6) {
@@ -302,7 +322,7 @@ function makeSub(step: LadderStep, rng: Rng): LadderItem {
   if (step.n === 8) {
     const ones = intBetween(rng, 1, 9);
     const a = intBetween(rng, 2, 9) * 10 + ones;
-    const b = intBetween(rng, 0, ones);
+    const b = intBetween(rng, 1, ones);
     return wrap(step, minus(a, b, a - b), [`Ones can give ${b}.`], "No borrow.");
   }
   if (step.n === 9) {
@@ -541,13 +561,13 @@ function makeDiv(step: LadderStep, rng: Rng): LadderItem {
   return wrap(step, { ...divide(a, b, shown.replace(/\.0$/, ""), [a, b], true) }, [`Keep dividing past the ones.`], "To a decimal.");
 }
 
-function makeStep(step: LadderStep, seed: number): LadderItem {
+function makeStep(step: LadderStep, seed: number, avoidZero = false): LadderItem {
   const rng = createRng((seed + 1) * 997 + step.n * 131 + salt(step.id));
   if (step.op === "A") {
-    return makeAdd(step, rng);
+    return makeAdd(step, rng, avoidZero);
   }
   if (step.op === "S") {
-    return makeSub(step, rng);
+    return makeSub(step, rng, avoidZero);
   }
   if (step.op === "M") {
     return makeMul(step, rng);
@@ -555,14 +575,15 @@ function makeStep(step: LadderStep, seed: number): LadderItem {
   return makeDiv(step, rng);
 }
 
-export function generateStep(step: LadderStep, seed: number): LadderItem {
+export function generateStep(step: LadderStep, seed: number, avoidZero = false): LadderItem {
+  const banZero = avoidZero || !zeroStepAllowed(step.id);
   for (let extra = 0; extra < 40; extra += 1) {
-    const item = makeStep(step, seed + extra * 19);
-    if (validateStep(step, item)) {
+    const item = makeStep(step, seed + extra * 19, banZero);
+    if (validateStep(step, item) && (!banZero || !hasBareZero(item))) {
       return item;
     }
   }
-  return makeStep(step, seed);
+  return makeStep(step, seed, banZero);
 }
 
 export function generateSkill(skillId: string, seed: number): LadderItem | null {
