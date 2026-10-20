@@ -81,7 +81,7 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(
       "Which has more?",
       String(a),
-      [`${a} is more than ${b}.`],
+      [`Compare the two groups.`],
       why,
       { op: "compare", a, b },
       [picOpt(String(a), { op: "groups", a, b: 1 }), picOpt(String(b), { op: "groups", a: b, b: 1 })],
@@ -94,7 +94,15 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
       rng,
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((value) => value !== n),
     ).slice(0, 3);
-    return choice(`Tap ${n}`, String(n), [`Find ${n}.`], why, { op: "add", a: n, b: 0 }, [n, ...pool].map(numOpt), rng);
+    return choice(
+      `Tap ${n}`,
+      String(n),
+      [`Count the bolts.`],
+      why,
+      { op: "add", a: n, b: 0 },
+      [n, ...pool].map((value) => picOpt(String(value), { op: "groups", a: value, b: 1 })),
+      rng,
+    );
   }
   if (id.includes("to-1000") && skill.answer === "choice") {
     const tens = intBetween(rng, 1, 8);
@@ -106,7 +114,7 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(
       `Tap the bigger number: ${left} or ${right}`,
       String(bigger),
-      [`${bigger} is bigger.`],
+      [`Compare the two numbers.`],
       why,
       { op: "compare", a: left, b: right },
       [numOpt(left), numOpt(right)],
@@ -116,16 +124,16 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
   if (id.includes("even-odd")) {
     const n = intBetween(rng, 10, 40);
     const answer = n % 2 === 0 ? "even" : "odd";
-    return choice(`Is ${n} even or odd?`, answer, [`${n} is ${answer}.`], why, { op: "add", a: n, b: 0 }, [labelOpt("even"), labelOpt("odd")], rng);
+    return choice(`Is ${n} even or odd?`, answer, [`Pair them up.`], why, { op: "add", a: n, b: 0 }, [labelOpt("even"), labelOpt("odd")], rng);
   }
   if (id.includes("factors") && !id.includes("gcf")) {
-    return choice(`Is 24 a multiple of 6?`, "yes", [`24 ÷ 6 = 4.`], why, { op: "mul", a: 6, b: 4 }, [labelOpt("yes"), labelOpt("no")], rng);
+    return choice(`Is 24 a multiple of 6?`, "yes", [`See if it divides evenly.`], why, { op: "mul", a: 6, b: 4 }, [labelOpt("yes"), labelOpt("no")], rng);
   }
   if (id.includes("primes")) {
-    return choice(`Is 17 prime?`, "yes", [`17 has only 1 and itself.`], why, { op: "add", a: 17, b: 0 }, [labelOpt("yes"), labelOpt("no")], rng);
+    return choice(`Is 17 prime?`, "yes", [`Count the factors.`], why, { op: "add", a: 17, b: 0 }, [labelOpt("yes"), labelOpt("no")], rng);
   }
   if (id.includes("negatives")) {
-    return choice(`Which is colder, -3 or -7?`, "-7", [`-7 is farther below zero.`], why, { op: "compare", a: -3, b: -7 }, [numOpt("-3"), numOpt("-7")], rng);
+    return choice(`Which is colder, -3 or -7?`, "-7", [`Compare how far below zero.`], why, { op: "compare", a: -3, b: -7 }, [numOpt("-3"), numOpt("-7")], rng);
   }
   if (id.includes("estimate")) {
     return choice(`About how much is 298 + 403?`, "700", [`Round first.`], why, { op: "add", a: 300, b: 400 }, [numOpt("500"), numOpt("700"), numOpt("900")], rng);
@@ -134,7 +142,7 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(
       "Tap the plank cut in half",
       "half",
-      ["Two equal parts."],
+      ["See if the parts match."],
       why,
       { op: "frac", a: 1, b: 2, c: 2 },
       [
@@ -146,21 +154,21 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     );
   }
   if (id.includes("fractions.4.unit") || (id.includes("unit") && id.includes("fractions"))) {
-    return choice(`Where is 1/4 on the tape?`, "1/4", [`One of four equal parts.`], why, { op: "frac", a: 1, b: 4, c: 4 }, [labelOpt("1/4"), labelOpt("1/2"), labelOpt("3/4")], rng);
+    return choice(`Where is 1/4 on the tape?`, "1/4", [`Find the mark on the tape.`], why, { op: "frac", a: 1, b: 4, c: 4 }, [labelOpt("1/4"), labelOpt("1/2"), labelOpt("3/4")], rng);
   }
   if (id.includes("fractions.4.compare")) {
     return choice(`Which is bigger, 2/3 or 3/5?`, "2/3", [`Compare carefully.`], why, { op: "frac", a: 2, b: 3, c: 5 }, [labelOpt("2/3"), labelOpt("3/5")], rng);
   }
   if (id.includes("decimal-compare")) {
-    return choice(`Order 0.6, 2/3, 0.65`, "2/3", [`2/3 is about 0.67.`], why, { op: "frac", a: 2, b: 3, c: 3 }, [labelOpt("0.6"), labelOpt("2/3"), labelOpt("0.65")], rng);
+    return choice(`Order 0.6, 2/3, 0.65`, "2/3", [`Write them as decimals first.`], why, { op: "frac", a: 2, b: 3, c: 3 }, [labelOpt("0.6"), labelOpt("2/3"), labelOpt("0.65")], rng);
   }
   if (id.includes("longer") && id.includes("measuring")) {
-    const a = intBetween(rng, 4, 8);
-    const b = intBetween(rng, 2, a - 1);
+    const a = intBetween(rng, 6, 9);
+    const b = intBetween(rng, 2, Math.max(2, Math.floor(a / 1.5)));
     return choice(
       "Which beam is longer?",
       String(a),
-      [`${a} is longer than ${b}.`],
+      [`Compare the two beams.`],
       why,
       { op: "compare", a, b },
       [picOpt(String(a), { op: "compare", a, b: 0 }), picOpt(String(b), { op: "compare", a: b, b: 0 })],
@@ -171,10 +179,22 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(`Started at 2:45, took 35 min, ends at ?`, "3:20", [`Add 35 minutes.`], why, { op: "add", a: 45, b: 35 }, [labelOpt("3:20"), labelOpt("3:15"), labelOpt("2:80")], rng);
   }
   if (id.includes("angles") && id.includes("measuring")) {
-    return choice(`What angle is the brace?`, "acute", [`Less than 90.`], why, { op: "angle", a: 45, b: 90 }, [labelOpt("acute"), labelOpt("right"), labelOpt("obtuse")], rng);
+    return choice(`What angle is the brace?`, "acute", [`Compare it to a square corner.`], why, { op: "angle", a: 45, b: 90 }, [labelOpt("acute"), labelOpt("right"), labelOpt("obtuse")], rng);
   }
   if (id.includes("shapes")) {
-    return choice(`Tap the triangle`, "triangle", [`Three sides.`], why, { op: "angle", a: 3, b: 3 }, [labelOpt("triangle"), labelOpt("square"), labelOpt("circle")], rng);
+    return choice(
+      `Tap the triangle`,
+      "triangle",
+      [`Count each side.`],
+      why,
+      { op: "angle", a: 3, b: 3 },
+      [
+        picOpt("triangle", { op: "angle", a: 3, b: 3 }),
+        picOpt("square", { op: "angle", a: 4, b: 4 }),
+        picOpt("circle", { op: "angle", a: 0, b: 0 }),
+      ],
+      rng,
+    );
   }
   if (id.includes("angles-names")) {
     const answer = pick(rng, ["right", "acute", "obtuse"] as const);
@@ -182,7 +202,7 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(
       "Is this angle right, acute or obtuse?",
       answer,
-      [`A ${answer} angle.`],
+      [`Compare it to a square corner.`],
       why,
       { op: "angle", a: deg, b: 90 },
       [labelOpt("right"), labelOpt("acute"), labelOpt("obtuse")],
@@ -196,15 +216,15 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
     return choice(
       "Which is longer, the brace or the post?",
       "brace",
-      ["The brace is the longest side."],
+      ["Compare the pieces."],
       why,
       { op: "hyp", a: 3, b: 2 },
-      [labelOpt("brace"), labelOpt("post"), labelOpt("beam")],
+      [picOpt("brace", { op: "hyp", a: 3, b: 2 }), picOpt("post", { op: "line", a: 2, b: 0 }), picOpt("beam", { op: "compare", a: 4, b: 0 })],
       rng,
     );
   }
   if (id.includes("coordinates")) {
-    return choice(`Which point is (3, 2)?`, "(3, 2)", [`Across 3, up 2.`], why, { op: "add", a: 3, b: 2 }, [labelOpt("(3, 2)"), labelOpt("(2, 3)"), labelOpt("(0, 0)")], rng);
+    return choice(`Which point is (3, 2)?`, "(3, 2)", [`Read across, then up.`], why, { op: "add", a: 3, b: 2 }, [labelOpt("(3, 2)"), labelOpt("(2, 3)"), labelOpt("(0, 0)")], rng);
   }
   if (id.includes("triangles") && skill.answer === "choice") {
     return choice(
@@ -582,6 +602,20 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
 
 export { skillExplain, explanationMatchesLearn } from "./explain";
 export type { ExplainStep } from "../machines/bridge/kits/explain";
+
+const FORM_ANSWERS = new Set(["right", "acute", "obtuse", "even", "odd"]);
+
+/** Method-only hint. Plain questions have none. Choice and word hints never name the answer. */
+export function skillHint(item: SkillItem): string {
+  if (!item.choices?.length) {
+    return "";
+  }
+  return item.steps[0] ?? "Use the method you just learned.";
+}
+
+export function isFormChoice(answer: string): boolean {
+  return FORM_ANSWERS.has(answer.toLowerCase());
+}
 
 export function skillLearnLine(skillId: string, seed = 1): { title: string; line: string; kind: string; draw: PlainDraw } {
   const skill = curriculumSkill(skillId);

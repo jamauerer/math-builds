@@ -156,4 +156,43 @@ describe("learner screens fit a tablet", () => {
     view.unmount();
     container.remove();
   });
+
+  it("keeps Assemble scene at least 60% wide with a one-line strip", async () => {
+    expect(css).toMatch(/\.gk-scene-col[\s\S]*min-width:\s*60%/);
+    expect(css).toMatch(/\.gk-strip > \.gk-say[\s\S]*height:\s*1\.2em/);
+    const container = document.createElement("div");
+    container.style.width = "1440px";
+    container.style.height = "900px";
+    document.body.appendChild(container);
+    const view = createRoot(container);
+    const drops = {
+      "bottom-a": "4",
+      "bottom-b": "4",
+      "plank-1": "1",
+      "plank-2": "1",
+      "plank-3": "1",
+      "plank-4": "1",
+      "plank-5": "1",
+    };
+    await act(async () => {
+      view.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          guideMode="off"
+          drops={drops}
+          kitProfile={{ ...placed, built: true }}
+        />,
+      );
+    });
+    expect(container.querySelectorAll(".gk-say").length).toBe(1);
+    expect(container.querySelectorAll(".gk-work").length).toBe(0);
+    view.unmount();
+    container.remove();
+  });
 });

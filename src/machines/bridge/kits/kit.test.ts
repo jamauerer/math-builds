@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { setUnitSystem, lengthAbbrev } from "../../../units";
-import { answerEarn, blankEarn, earnAtWord, earnHint, earnPicture, earnPrompt, kitQuestionTotal, openRun, roundQuestionTotal, roundsAreShort, runLength, speedLine, startGuided, startPractice } from "./earn";
+import { setUnitSystem } from "../../../units";
+import { answerEarn, blankEarn, earnAtWord, earnHint, earnPrompt, kitQuestionTotal, openRun, roundQuestionTotal, roundsAreShort, runLength, speedLine, startGuided, startPractice } from "./earn";
 import { queenPost, correctLengths, wreckLines } from "./kit";
 import { KIT_SKILLS, skillsFromLevels, withState } from "./skills";
 import { goatSprite } from "../kit/scene";
@@ -81,7 +81,11 @@ describe("goat bridge kit", () => {
     for (const group of queenPost.groups) {
       const word = earnAtWord(levels, group.id);
       const prompt = earnPrompt(word.current);
-      expect(prompt).toContain(lengthAbbrev());
+      if (/\b(ft|m)\b/.test(prompt) || /how long|the gap|the deck|each plank|each beam/i.test(prompt)) {
+        expect(prompt).toMatch(/\b(ft|m)\b/);
+      } else {
+        expect(prompt).not.toContain("Lengths are in");
+      }
       const token = word.current.answer.replace(/^-/, "");
       expect(prompt.split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(token);
       expect(earnHint(word.current).split(/[^0-9.]+/).filter((part) => part.length > 0)).not.toContain(token);

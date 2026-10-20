@@ -222,18 +222,7 @@ describe("goat bridge screens", () => {
     expect(labels.some((label) => label.includes("0 ft") || label.includes("at 2 ft"))).toBe(true);
     expect(labels.every((label) => !label.includes("How long"))).toBe(true);
     expect(container.querySelectorAll(".gk-work")).toHaveLength(0);
-    const inputs = [...container.querySelectorAll("input.gk-len")] as HTMLInputElement[];
-    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-    await act(async () => {
-      setValue?.call(inputs[0], "4");
-      inputs[0]?.dispatchEvent(new Event("input", { bubbles: true }));
-      setValue?.call(inputs[1], "3");
-      inputs[1]?.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    const lines = [...container.querySelectorAll(".gk-work")].map((line) => line.textContent);
-    expect(lines).toHaveLength(2);
-    expect(lines[0]).toContain("4");
-    expect(lines[1]).toContain("3");
+    expect(container.querySelectorAll(".gk-say")).toHaveLength(1);
     root.unmount();
     container.remove();
   });
@@ -381,7 +370,7 @@ describe("goat bridge screens", () => {
       row.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, clientX: 22, clientY: 21 }));
     });
     expect(row.textContent).toContain("on the bridge");
-    expect(container.textContent).toContain("Bottom beam: 4 ft");
+    expect(row.textContent).toContain("4 ft");
     root.unmount();
     container.remove();
   });

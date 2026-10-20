@@ -85,6 +85,12 @@ describe("curriculum graph", () => {
     }
   });
 
+  it("explains word problems with the declared skill", () => {
+    const word = skillExplain("measuring.2.gap", "One post stands at 2 ft and the other stands at 6 ft. How long is the top beam between them?", "4");
+    expect(word.steps[0].picture).toBe("tape");
+    expect(word.steps.map((step) => step.text).join(" ")).toMatch(/tape|post|gap/i);
+  });
+
   it("explains halves with plank pictures and never dots for fractions or geometry", () => {
     const halves = skillExplain("fractions.2.halves", "Tap the plank cut in half", "half");
     expect(halves.steps.map((step) => step.picture).every((pic) => pic.startsWith("plank"))).toBe(true);

@@ -55,6 +55,13 @@ function stepsFor(skill: CurriculumSkill, prompt: string, answer: string, draw?:
   if (id === "fractions.2.halves") {
     return halvesSteps();
   }
+  if (id.includes(".gap") || id === "measuring.2.gap") {
+    return [
+      { text: `Mark the posts at ${a} and ${b} on the tape.`, picture: "tape", a, b },
+      { text: `The tape runs from one post to the other.`, picture: "tape-marks", a, b },
+      { text: `Count the gap. That comes to ${answer}.`, picture: "number-line", a: Number(answer) || Math.abs((b ?? 6) - (a ?? 2)) },
+    ];
+  }
   if (id.includes("pythagoras") || id.includes("distance") || (draw?.op === "hyp" && skill.learnPictureKind === "triangle")) {
     return legSquareSteps(draw?.a ?? a ?? 3, draw?.b ?? b ?? 4);
   }

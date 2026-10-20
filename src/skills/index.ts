@@ -64,11 +64,11 @@ function pictureKind(raw: string): LearnPictureKind {
   if (text.includes("plank")) {
     return "planks";
   }
-  if (text.includes("beam") || text.includes("post") || text.includes("brace") || text.includes("truss")) {
-    return "beams";
-  }
   if (text.includes("tape") || text.includes("ruler") || text.includes("protractor") || text.includes("clock")) {
     return "tape";
+  }
+  if (text.includes("beam") || text.includes("post") || text.includes("brace") || text.includes("truss")) {
+    return "beams";
   }
   if (text.includes("number line") || text.includes("thermometer")) {
     return "number-line";

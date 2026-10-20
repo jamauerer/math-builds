@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
 import { CURRICULUM_SKILLS } from "../../../skills";
-import { skillQuestion } from "../../../skills/generate";
+import { isFormChoice, skillQuestion } from "../../../skills/generate";
 import { GoatKit } from "./GoatKit";
 import type { KitProfile } from "../../../storage/progress";
 
@@ -59,6 +59,47 @@ describe("choice screen", () => {
     },
     30000,
   );
+
+  it("draws picture options for geometry, fractions, counting and measuring", async () => {
+    const pictured = CURRICULUM_SKILLS.filter((skill) => {
+      if (skill.answer !== "choice") {
+        return false;
+      }
+      if (!["geometry", "fractions", "counting", "measuring"].includes(skill.strandId)) {
+        return false;
+      }
+      const sample = skillQuestion(skill.id, 3);
+      return !isFormChoice(sample.answer) && (sample.choices ?? []).every((option) => option.kind === "picture");
+    });
+    expect(pictured.length).toBeGreaterThan(3);
+    for (const skill of pictured) {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const root = createRoot(container);
+      await act(async () => {
+        root.render(
+          <GoatKit
+            map={createLearnerMap(skills)}
+            marks={0}
+            onMarks={() => undefined}
+            units="us"
+            onUnits={() => undefined}
+            start="earn"
+            skill={skill.id}
+            kitProfile={profile}
+          />,
+        );
+      });
+      const options = [...container.querySelectorAll("[data-choice]")];
+      expect(options.length, skill.id).toBeGreaterThanOrEqual(2);
+      for (const option of options) {
+        expect(option.querySelector("img, svg"), skill.id).toBeTruthy();
+        expect(option.querySelector(".gk-choice-label"), skill.id).toBeNull();
+      }
+      root.unmount();
+      container.remove();
+    }
+  });
 
   it("keeps the right option moving across positions for Tap 7", () => {
     const seen = new Set<number>();

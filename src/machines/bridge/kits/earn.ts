@@ -1,7 +1,7 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
-import { skillQuestion, type ChoiceOption } from "../../../skills/generate";
+import { skillHint, skillQuestion, type ChoiceOption } from "../../../skills/generate";
 import { skillExplain } from "../../../skills/explain";
 import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
@@ -242,22 +242,29 @@ function wordPicture(question: EarnQuestion): EarnPicture {
     return factPicture(fact);
   }
   const prompt = question.word ?? fact.prompt;
-  const allowed = new Set(prompt.split(/[^0-9.]+/).filter((part) => part.length > 0));
-  const numbers = fact.used.filter((value) => allowed.has(String(value)));
   const count = Number(question.answer);
   if (question.groupId === "planks" && Number.isFinite(count) && count >= 1 && count <= 8) {
     const ids = ["plank-1", "plank-2", "plank-3", "plank-4", "plank-5", "plank-6", "plank-7", "plank-8"].slice(0, count);
-    const labels = [];
-    if (numbers[0] != null) {
-      labels.push(labelAt(ids[0], formatLength(numbers[0]), -22));
-    }
-    if (numbers[1] != null) {
-      labels.push(labelAt("bottom-a", formatLength(numbers[1])));
-    }
-    return slice(ids, labels);
+    return slice(ids, kitLengthLabels(ids, prompt));
   }
-  const labels = numbers.slice(0, fact.slots.length).map((value, index) => labelAt(fact.slots[index], formatLength(value)));
-  return slice(fact.slots, labels);
+  if (question.strandId === "counting") {
+    return slice(fact.slots);
+  }
+  return slice(fact.slots, kitLengthLabels(fact.slots, prompt));
+}
+
+function kitLengthLabels(slots: string[], prompt: string) {
+  return slots.flatMap((id) => {
+    const slot = queenPost.slots.find((item) => item.id === id);
+    if (slot?.length == null) {
+      return [];
+    }
+    const text = formatLength(slot.length);
+    if (!prompt.includes(text) && !prompt.includes(String(slot.length))) {
+      return [];
+    }
+    return [labelAt(id, text)];
+  });
 }
 
 function factPicture(fact: EarnFact): EarnPicture {
@@ -451,11 +458,13 @@ export function speedLine(totalMs: number, previousMs: number | null): string | 
 
 function wordFor(group: KitGroup, level: number, skillId?: string): EarnQuestion {
   const piece = pieceQuestion(group.id, level);
+  const id = piece.skillId ?? skillId;
+  const skill = id ? curriculumSkill(id) : undefined;
   return {
     groupId: group.id,
-    strandId: group.strand,
+    strandId: skill?.strandId ?? group.strand,
     level,
-    skillId,
+    skillId: id,
     answer: piece.answer,
     word: piece.prompt,
     fact: { kind: "piece", prompt: piece.prompt, answer: piece.answer, used: piece.used, slots: piece.slots },
@@ -482,7 +491,7 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     truth: fromSkill.truth,
     skillId: slot.skillId,
     mixed: slot.mixed === true,
-    hint: hint ? fromSkill.steps[0] : undefined,
+    hint: hint ? skillHint(fromSkill) : undefined,
     choices: "choices" in fromSkill ? fromSkill.choices : undefined,
     fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
   };
@@ -510,8 +519,8 @@ function contextFor(
 /** One door for every served question. A miss logs the whole context and a legal question goes out instead. */
 export function guardQuestion(question: EarnQuestion, context: GuardContext, seed: number, hint: boolean): EarnQuestion {
   const learner = context.levels[question.strandId] ?? 1;
-  const strandOk = context.allowed.includes(question.strandId);
-  const levelOk = question.level <= learner + 1;
+  const strandOk = Boolean(question.word) || context.allowed.includes(question.strandId);
+  const levelOk = question.level <= learner + 1 && question.level >= learner - 2;
   if (strandOk && levelOk) {
     return question;
   }

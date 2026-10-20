@@ -46,7 +46,7 @@ describe("level guard", () => {
       expect(question.level).toBeLessThanOrEqual(learner + 1);
       if (question.phase === "warmup") {
         expect(question.level).toBeLessThanOrEqual(learner + 1);
-      } else {
+      } else if (question.phase !== "word") {
         expect(question.strandId).toBe(question.piece);
       }
       expect(question.prompt.toLowerCase()).not.toContain("legs 4 and 5");

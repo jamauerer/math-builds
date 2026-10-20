@@ -79,7 +79,6 @@ import {
   stareLine,
   testedRound,
   trayNote,
-  typedLine,
 } from "../kits/kit";
 import type { ExplainStep } from "../kits/explain";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
@@ -215,7 +214,8 @@ export function GoatKit({
       return blankEarn(savedLevels, 1, kitProfile?.skills, "2026-10-19", Math.max(0, round - 1));
     }
     if (word && piece) {
-      return earnAtWord(savedLevels, piece);
+      const held = earnAtWord(savedLevels, piece);
+      return start === "explain" ? { ...held, phase: "explain", returnPhase: "explain" } : held;
     }
     if (!lesson && start !== "faster" && start !== "explain" && start !== "practice" && kitProfile?.session) {
       return kitProfile.session;
@@ -292,6 +292,9 @@ export function GoatKit({
     const base = Object.keys(drops).length > 0 ? drops : { ...(kitProfile?.build?.lengths ?? {}), ...faultLengths(start, fault) };
     if (beam) {
       base["bottom-a"] = beam;
+    }
+    if (start === "drive" && Object.keys(base).length === 0) {
+      return filledLengths();
     }
     return base;
   });
@@ -580,6 +583,7 @@ export function GoatKit({
       }
       return next;
     });
+    setLengths((current) => ({ ...current, [slot.id]: "1" }));
     setFocus(slot.id);
   }
 
@@ -716,6 +720,11 @@ export function GoatKit({
 
   function sendGoat(nextMass = mass) {
     const numbers = numericLengths(lengths);
+    for (const slot of gussetSlots()) {
+      if (placed[slot.id] || placed.gussets) {
+        numbers[slot.id] = 1;
+      }
+    }
     if (placed.bolts) {
       numbers.bolts = 1;
     }
@@ -1122,6 +1131,8 @@ function Account({
       setShown(marks);
       return;
     }
+    const delta = Math.max(1, Math.abs(marks - shown));
+    const stepMs = Math.max(16, Math.round(1000 / delta));
     const timer = window.setInterval(() => {
       setShown((current) => {
         if (current === marks) {
@@ -1130,7 +1141,7 @@ function Account({
         }
         return current < marks ? current + 1 : current - 1;
       });
-    }, 70);
+    }, stepMs);
     return () => window.clearInterval(timer);
   }, [marks]);
   return (
@@ -1226,7 +1237,7 @@ function Pick({
               </div>
             </div>
           </button>
-          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Later" thumb={teeter} />
+          <LockedCard title="The Teeter Totter" note="Comparing, multiplying, balance. Later moments and unknown masses." pill="Later" thumb={teeterThumb()} />
           <LockedCard title="The Well Winch" note="Counting teeth, ratios, fractions of a turn. Later torque and clockwork." pill="Not started" thumb={winch} />
           <LockedCard title="The Mountain Ramp" note="Rise over run, angles, how steep a car can climb. Later speed and energy." pill="Not started" thumb={ramp} />
           <LockedCard title="The Bicycle" note="Gear ratios, wheel size, how far one pedal turn takes you." pill="Later" locked thumb={bicycle} />
@@ -1623,7 +1634,7 @@ function AnswerPad({
     return (
       <>
         <div className="gk-choices" data-choices={choices.length} role="group" aria-label="Choices">
-          {choices.map((option) => {
+          {choices.map((option, index) => {
             const lit = held === option.value;
             const cls =
               flash === "right" && lit ? "is-right" : flash === "wrong" && lit ? "is-right" : flash === "wrong" && held !== option.value ? "is-dim" : "";
@@ -1634,6 +1645,7 @@ function AnswerPad({
                 className={`gk-choice ${cls}`}
                 data-choice={option.value}
                 data-kind={option.kind}
+                data-action={index === 0 ? "primary" : undefined}
                 disabled={moving.current}
                 onClick={() => pickChoice(option.value)}
               >
@@ -1732,7 +1744,62 @@ function ChoicePicture({ draw }: { draw: { op: string; a: number; b: number; c?:
       </span>
     );
   }
+  if (draw.op === "hyp") {
+    return (
+      <span className="gk-choice-pic" data-pic="brace">
+        <img src={art("beam-half.png")} alt="" style={{ width: 92, height: 18, transform: "rotate(-35deg)" }} />
+      </span>
+    );
+  }
+  if (draw.op === "line") {
+    return (
+      <span className="gk-choice-pic" data-pic="post">
+        <img src={art("post.png")} alt="" style={{ width: 22, height: 70 }} />
+      </span>
+    );
+  }
+  if (draw.op === "angle") {
+    return <ShapeChoice sides={draw.a} />;
+  }
   return <span className="gk-choice-label">{draw.a}</span>;
+}
+
+function ShapeChoice({ sides }: { sides: number }) {
+  if (sides <= 0) {
+    return (
+      <span className="gk-choice-pic" data-pic="circle">
+        <svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+          <circle cx="36" cy="36" r="24" fill="none" stroke="#8B5A2B" strokeWidth="8" />
+        </svg>
+      </span>
+    );
+  }
+  if (sides === 4) {
+    return (
+      <span className="gk-choice-pic" data-pic="square">
+        <img src={art("plank-side.png")} alt="" style={{ position: "absolute", width: 56, height: 10, top: 14, left: 8 }} />
+        <img src={art("plank-side.png")} alt="" style={{ position: "absolute", width: 56, height: 10, bottom: 14, left: 8 }} />
+        <img src={art("post.png")} alt="" style={{ position: "absolute", width: 10, height: 44, top: 14, left: 8 }} />
+        <img src={art("post.png")} alt="" style={{ position: "absolute", width: 10, height: 44, top: 14, right: 8 }} />
+      </span>
+    );
+  }
+  return (
+    <span className="gk-choice-pic" data-pic="triangle">
+      <img src={art("beam-side.png")} alt="" style={{ position: "absolute", width: 64, height: 10, bottom: 12, left: 4 }} />
+      <img src={art("beam-half.png")} alt="" style={{ position: "absolute", width: 42, height: 10, top: 18, left: 4, transform: "rotate(-52deg)" }} />
+      <img src={art("beam-half.png")} alt="" style={{ position: "absolute", width: 42, height: 10, top: 18, right: 4, transform: "rotate(52deg)" }} />
+    </span>
+  );
+}
+
+function teeterThumb(): string {
+  const goat = "/art/teeter-totter/goat-trot-1.png";
+  const elephant = "/art/teeter-totter/elephant-sit-1.png";
+  if (!goat || !elephant) {
+    return teeter;
+  }
+  return `<div class="gk-teeter-thumb" data-teeter="sprites"><img src="${goat}" alt="" /><img src="${elephant}" alt="" /></div>`;
 }
 
 function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
@@ -2218,11 +2285,6 @@ function AssembleView({
   onGuide: () => void;
 }) {
   const numbers = numericLengths(lengths);
-  const lines = TRAY.flatMap((id) => {
-    const slot = slotById(id);
-    const line = typedLine(slot?.name ?? id, lengths[id] ?? "");
-    return line ? [{ id, line }] : [];
-  });
   const groups = new Set(queenPost.rounds[round]?.groups ?? []);
   const trayRows = [...TRAY, "planks"].filter((id) => groups.has(pieceGroup(id)));
   const guided = Boolean(guide) || guidedReady;
@@ -2280,25 +2342,14 @@ function AssembleView({
           goat={{ src: "goat-idle.png", left: 120, top: 205, width: 149, height: 150 }}
         />
         <div className="gk-strip">
-          {guide ? <p className="gk-say">{guide.say}</p> : null}
-          {guide && fact ? (
-            <p className="gk-say" data-slot-fact={guide.piece}>
-              {fact}
-            </p>
-          ) : null}
-          {!guide && fact && freeTray ? (
-            <p className="gk-say" data-slot-fact={focus ?? ""}>
-              {fact}
-            </p>
-          ) : null}
-          {!guide && !fact ? <p className="gk-known">{knownLine()}</p> : null}
-          {freeTray || (guide && cut)
-            ? lines.map((item) => (
-                <p className="gk-work" key={item.id}>
-                  {item.line}
-                </p>
-              ))
-            : null}
+          {(() => {
+            const line = guide ? [guide.say, fact].filter(Boolean).join(" ") : fact ?? knownLine();
+            return (
+              <p className="gk-say" data-slot-fact={guide?.piece ?? focus ?? ""}>
+                {line}
+              </p>
+            );
+          })()}
           <div className="gk-actions">
             {showSend ? (
               <button className="gk-send" type="button" data-action="primary" onClick={onSend}>
@@ -2517,7 +2568,7 @@ function DriveView({
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
-        <CrossingPicture frame={frame} />
+        <CrossingPicture frame={frame} extras={lengths} />
         <div className="gk-strip">
           <p>
             {madeIt ? "He made it. Not a drop on him." : frame.goatX >= 8 ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
@@ -2613,7 +2664,7 @@ function WreckView({
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
-        {frame ? <CrossingPicture frame={frame} /> : null}
+        {frame ? <CrossingPicture frame={frame} extras={numbers} /> : null}
         <div className="gk-strip">
           <p>{causeText(result.cause)}</p>
           {glaring ? (
@@ -2761,6 +2812,8 @@ function filledLengths(): Record<string, string> {
   for (const slot of queenPost.slots) {
     if (slot.length != null) {
       lengths[slot.id] = String(slot.length);
+    } else if (slot.kind === "gusset" || slot.kind === "bolt") {
+      lengths[slot.id] = "1";
     }
   }
   return lengths;

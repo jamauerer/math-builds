@@ -153,7 +153,8 @@ function dueEvery(skillId: string): number {
 export type WarmSlot = { skillId: string; strandId: string; level: number };
 
 function withinLevel(skill: KitSkill, levels: Record<string, number> | null): boolean {
-  return skill.level <= (levels?.[skill.strandId] ?? 1) + 1;
+  const placed = levels?.[skill.strandId] ?? 1;
+  return skill.level <= placed + 1 && skill.level >= placed - 2;
 }
 
 /** Warm-up slots: missed skills first, then practicing skills that are due, with a mastered skill about 1 in 10. */
@@ -176,10 +177,11 @@ export function warmUpPlan(book: SkillBook, count = 3, pieceStrand = "dividing",
     used.add(skill.id);
     slots.push({ skillId: skill.id, strandId: skill.strandId, level: skill.level });
   }
-  const includeMastered = book.session % 2 === 1 && mastered.length > 0;
+  const recentMastered = [...mastered].sort((left, right) => right.level - left.level);
+  const includeMastered = book.session % 2 === 1 && recentMastered.length > 0;
   const pieceLevel = workingLevel(book, pieceStrand, levels?.[pieceStrand]);
   const piece = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === pieceLevel && legal(skill));
-  let fill = mastered.length > 0 ? mastered : piece;
+  let fill = recentMastered.length > 0 ? recentMastered : piece;
   if (fill.length === 0) {
     fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && legal(skill));
   }
@@ -199,8 +201,8 @@ export function warmUpPlan(book: SkillBook, count = 3, pieceStrand = "dividing",
     used.add(skill.id);
     slots.push({ skillId: skill.id, strandId: skill.strandId, level: skill.level });
   }
-  if (includeMastered && mastered[0] && !slots.some((slot) => slot.skillId === mastered[0].id)) {
-    slots[slots.length - 1] = { skillId: mastered[0].id, strandId: mastered[0].strandId, level: mastered[0].level };
+  if (includeMastered && recentMastered[0] && !slots.some((slot) => slot.skillId === recentMastered[0].id)) {
+    slots[slots.length - 1] = { skillId: recentMastered[0].id, strandId: recentMastered[0].strandId, level: recentMastered[0].level };
   }
   return slots.slice(0, count);
 }

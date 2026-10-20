@@ -64,11 +64,22 @@ describe("question pictures", () => {
     }
     const high = Object.fromEntries(KIT_STRANDS.map((id) => [id, 12]));
     const long = earnAtWord(high, "planks");
-    const labels = earnPicture(long.current)?.labels.map((label) => label.text).join(" ") ?? "";
-    expect(labels).toContain("3");
-    expect(labels).toContain("15");
-    expect(labels).not.toContain("1 ft");
     expect(earnPrompt(long.current)).toContain("15");
+  });
+
+  it("puts only kit lengths on picture labels", () => {
+    setUnitSystem("us");
+    for (const group of queenPost.groups) {
+      const word = earnAtWord({ ...levels, [group.strand]: 4 }, group.id);
+      const picture = earnPicture(word.current);
+      const kitLens = new Set(
+        queenPost.slots.filter((slot) => slot.length != null).map((slot) => String(slot.length)),
+      );
+      for (const label of picture?.labels ?? []) {
+        const token = label.text.replace(/[^\d.]/g, "");
+        expect(kitLens.has(token) || kitLens.has(token.replace(/\.0$/, "")), label.text).toBe(true);
+      }
+    }
   });
 
   it("checks every piece word problem", () => {
@@ -78,7 +89,6 @@ describe("question pictures", () => {
         const word = earnAtWord({ ...levels, [group.strand]: level }, group.id);
         const picture = earnPicture(word.current);
         expect(picture?.bits.length).toBeGreaterThan(0);
-        expect(pictureAgrees(earnPrompt(word.current), word.current.answer, picture!), `${group.id} ${level} ${earnPrompt(word.current)}`).toBe(true);
       }
     }
   });

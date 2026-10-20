@@ -8,6 +8,7 @@ import { queenPost, waterPixel } from "./kit";
 import { simulateCrossing } from "./simulate";
 import { blueDominates, measuredWaterY, pixelAt, BANKS_LAYOUT } from "./water-line";
 import { GoatKit } from "../kit/GoatKit";
+import { CrossingPicture } from "../kit/scene";
 import type { KitProfile } from "../../../storage/progress";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -229,5 +230,31 @@ describe("physics 2", () => {
 
     const openRail = simulateCrossing({ ...truss(), bolts: 1 }, 80);
     expect(openRail.frames.some((frame) => frame.follower?.mode === "fall" || frame.follower?.mode === "swim")).toBe(true);
+  });
+
+  it("seats Test beam sprites on the abutment row at both ends", async () => {
+    const result = simulateCrossing({ "bottom-a": 4, "bottom-b": 4, ...planks() });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<CrossingPicture frame={result.frames[0]} extras={{ "gusset-n4": 1, "gusset-n2": 1 }} />);
+    });
+    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
+    const right = container.querySelector('[data-piece="abutment-right"]') as HTMLElement;
+    const beamA = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
+    const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
+    const abutmentTop = parseFloat(left.style.top);
+    expect(parseFloat(right.style.top)).toBeCloseTo(abutmentTop, 0);
+    for (const beam of [beamA, beamB]) {
+      const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
+      expect(Math.abs(beamBottom - abutmentTop)).toBeLessThanOrEqual(2);
+    }
+    const gusset = container.querySelector('[data-piece="gusset-n4"]') as HTMLElement;
+    const plank = container.querySelector('[data-kind="plank"]') as HTMLElement;
+    expect(gusset).toBeTruthy();
+    expect(parseInt(gusset.style.zIndex || "0", 10)).toBeGreaterThan(parseInt(plank.style.zIndex || "0", 10));
+    root.unmount();
+    container.remove();
   });
 });
