@@ -1479,24 +1479,12 @@
 
 .gk-hit.focus,
 .gk-row.focus {
-  outline: 2px solid #e0661a;
-  outline-offset: 2px;
+  outline: 2px solid rgba(224, 102, 26, 0.55);
+  outline-offset: 3px;
 }
 
-.gk-corner-pulse {
-  animation: gk-corner-pulse 1s ease-in-out infinite;
-}
-
-@keyframes gk-corner-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    r: 8;
-  }
-  50% {
-    opacity: 0.85;
-    r: 12;
-  }
+.gk-slot-hot {
+  filter: drop-shadow(0 0 0.5px rgba(224, 102, 26, 0.35));
 }
 
 .gk-fly-gusset {

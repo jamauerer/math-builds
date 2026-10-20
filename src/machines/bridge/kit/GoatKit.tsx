@@ -563,7 +563,7 @@ export function GoatKit({
 
   function placeGusset(slotId: string) {
     const slot = gussetSlots().find((item) => item.id === slotId);
-    if (!slot || placed[slot.id]) {
+    if (!slot) {
       return;
     }
     if (slot.at) {
@@ -571,6 +571,9 @@ export function GoatKit({
       window.setTimeout(() => setFlyGusset(null), 450);
     }
     setPlaced((current) => {
+      if (current[slot.id]) {
+        return current;
+      }
       const next = { ...current, [slot.id]: true };
       if (gussetSlots().every((item) => item.id === slot.id || next[item.id])) {
         next.gussets = true;
@@ -578,6 +581,17 @@ export function GoatKit({
       return next;
     });
     setFocus(slot.id);
+  }
+
+  function placeAllGussets() {
+    const pending = gussetSlots().filter((slot) => !placed[slot.id]);
+    if (pending.length === 0) {
+      return;
+    }
+    setFocus("gussets");
+    pending.forEach((slot, index) => {
+      window.setTimeout(() => placeGusset(slot.id), index * 90);
+    });
   }
 
   function place(id: string, drop: string | null) {
@@ -655,10 +669,7 @@ export function GoatKit({
       return;
     }
     if (id === "gussets") {
-      const next = nextGusset(placed);
-      if (next) {
-        placeGusset(next.id);
-      }
+      placeAllGussets();
       return;
     }
     setFocus(id);
@@ -729,6 +740,23 @@ export function GoatKit({
       if (add > 0) {
         onMarks(marks + add);
       }
+      // First full crossing unlocks the free tray; guided stays default until then.
+      if (start !== "wreck") {
+        onKitProfile?.({
+          grade: kitProfile?.grade ?? grade,
+          kitVersion: queenPost.version,
+          levels: kitProfile?.levels ?? savedLevels ?? {},
+          history: kitProfile?.history ?? [],
+          notes: kitProfile?.notes ?? [],
+          lastRunMs: kitProfile?.lastRunMs,
+          skills: kitProfile?.skills,
+          seenIntro: kitProfile?.seenIntro,
+          session: kitProfile?.session,
+          build: { lengths, placed },
+          built: true,
+          dunks: kitProfile?.dunks ?? 0,
+        });
+      }
       return;
     }
     if (!badge) {
@@ -737,7 +765,7 @@ export function GoatKit({
     if (start !== "wreck") {
       onKitProfile?.({
         grade: kitProfile?.grade ?? grade,
-      kitVersion: queenPost.version,
+        kitVersion: queenPost.version,
         levels: kitProfile?.levels ?? savedLevels ?? {},
         history: kitProfile?.history ?? [],
         notes: kitProfile?.notes ?? [],
@@ -746,7 +774,7 @@ export function GoatKit({
         seenIntro: kitProfile?.seenIntro,
         session: kitProfile?.session,
         build: { lengths, placed },
-        built: true,
+        built: kitProfile?.built ?? false,
         dunks: (kitProfile?.dunks ?? 0) + 1,
       });
     }
@@ -778,11 +806,23 @@ export function GoatKit({
       return;
     }
     if (guideStep + 1 >= steps.length) {
-      setGuideOn(false);
+      // Stay guided until the first full crossing unlocks the free tray; ready to send.
+      setGuideStep(steps.length);
       return;
     }
     setGuideStep(guideStep + 1);
   }, [placed, guideOn, guideStep, earn.round]);
+
+  useEffect(() => {
+    if (!guideOn) {
+      return;
+    }
+    const steps = queenPost.guide.filter((step) => (queenPost.rounds[earn.round]?.groups ?? []).includes(pieceGroup(step.piece)));
+    const step = steps[guideStep];
+    if (step) {
+      setFocus(step.piece);
+    }
+  }, [guideOn, guideStep, earn.round]);
 
   const shown = result;
   const active = stage === "wreck" ? "drive" : stage === "explain" || stage === "practice" ? "earn" : stage;
@@ -797,7 +837,10 @@ export function GoatKit({
   const measuringLevel = savedLevels?.measuring ?? kitProfile?.levels.measuring ?? 4;
   const cut = !preCut(measuringLevel);
   const roundGuide = queenPost.guide.filter((step) => roundGroups.has(pieceGroup(step.piece)));
-  const guide = guideOn ? (roundGuide[guideStep] ?? null) : null;
+  // Free tray whenever guide is off (after a crossing, or Show me again turned off). Guided is the default until built.
+  const freeTray = !guideOn;
+  const guide = guideOn && guideStep < roundGuide.length ? (roundGuide[guideStep] ?? null) : null;
+  const guidedReady = guideOn && guideStep >= roundGuide.length;
   const unfinished = earn.round < queenPost.rounds.length - 1;
 
   return (
@@ -985,6 +1028,8 @@ export function GoatKit({
               leftNote={trayNote(leftIds)}
               cut={cut}
               guide={guide}
+              freeTray={freeTray}
+              guidedReady={guidedReady}
               focus={focus}
               flyGusset={flyGusset}
               showCheck={showCheck}
@@ -2125,6 +2170,8 @@ function AssembleView({
   leftNote,
   cut,
   guide,
+  freeTray,
+  guidedReady,
   focus,
   flyGusset,
   showCheck,
@@ -2150,6 +2197,8 @@ function AssembleView({
   leftNote: string | null;
   cut: boolean;
   guide: { piece: string; say: string } | null;
+  freeTray: boolean;
+  guidedReady: boolean;
   focus: string | null;
   flyGusset: { id: string; at: string } | null;
   showCheck: boolean;
@@ -2176,6 +2225,7 @@ function AssembleView({
   });
   const groups = new Set(queenPost.rounds[round]?.groups ?? []);
   const trayRows = [...TRAY, "planks"].filter((id) => groups.has(pieceGroup(id)));
+  const guided = Boolean(guide) || guidedReady;
   const rows = guide
     ? trayRows.filter(
         (id) =>
@@ -2184,7 +2234,9 @@ function AssembleView({
           (guide.piece.startsWith("plank") && id === "planks") ||
           (guide.piece === "gussets" && id === "gussets"),
       )
-    : trayRows;
+    : guidedReady
+      ? []
+      : trayRows;
   const rowDone = (id: string) =>
     id === "planks"
       ? plankSlots().every((slot) => placed[slot.id])
@@ -2192,19 +2244,24 @@ function AssembleView({
         ? gussetSlots().every((slot) => placed[slot.id]) || Boolean(placed.gussets)
         : Boolean(placed[id]);
   const canPlace = (id: string) => !rowDone(id);
-  const ordered = [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b)));
-  const pulseId = ordered.find((id) => canPlace(id)) ?? null;
+  const ordered = freeTray ? [...rows].sort((a, b) => Number(rowDone(a)) - Number(rowDone(b))) : rows;
   const laid = plankSlots().filter((slot) => placed[slot.id]).length;
-  const focused = focus ? slotById(focus) ?? (focus === "planks" ? plankSlots()[0] : focus.startsWith("gusset") ? gussetSlots().find((slot) => slot.id === focus) : null) : null;
-  const fact =
-    focus === "planks"
-      ? slotFact(plankSlots()[0], !cut)
-      : focus === "gussets" || focused?.kind === "gusset"
-        ? slotFact(focused ?? gussetSlots()[0], !cut)
-        : focused
-          ? slotFact(focused, !cut)
+  const guideSlot =
+    guide?.piece === "planks"
+      ? plankSlots()[0]
+      : guide?.piece === "gussets"
+        ? gussetSlots()[0]
+        : guide
+          ? slotById(guide.piece)
           : null;
-  const showCorners = groups.has("gussets") && !rowDone("gussets");
+  const focused = focus
+    ? (slotById(focus) ??
+      (focus === "planks" ? plankSlots()[0] : focus.startsWith("gusset") ? gussetSlots().find((slot) => slot.id === focus) : null))
+    : null;
+  const factSlot = guideSlot ?? (focus === "planks" ? plankSlots()[0] : focus === "gussets" || focused?.kind === "gusset" ? (focused ?? gussetSlots()[0]) : focused);
+  const fact = factSlot ? slotFact(factSlot, !cut) : null;
+  const currentRow = guide?.piece === "planks" || guide?.piece?.startsWith("plank") ? "planks" : guide?.piece ?? null;
+  const showSend = freeTray || guidedReady;
   return (
     <div className="gk-body">
       <div className="gk-scene-col">
@@ -2213,10 +2270,10 @@ function AssembleView({
           lengths={numbers}
           drops
           preview={cut}
-          holes={(queenPost.rounds[round]?.groups ?? []).includes("planks")}
-          hot={guide?.piece ?? null}
+          holes={Boolean(guide?.piece === "planks" || (freeTray && groups.has("planks")))}
+          hot={guide?.piece ?? (freeTray ? focus : null)}
           focus={focus}
-          corners={showCorners}
+          guided={guided && !guidedReady}
           flyGusset={flyGusset}
           onFocus={onFocus}
           geometryLevel={geometryLevel}
@@ -2224,28 +2281,38 @@ function AssembleView({
         />
         <div className="gk-strip">
           {guide ? <p className="gk-say">{guide.say}</p> : null}
-          {fact ? (
+          {guide && fact ? (
+            <p className="gk-say" data-slot-fact={guide.piece}>
+              {fact}
+            </p>
+          ) : null}
+          {!guide && fact && freeTray ? (
             <p className="gk-say" data-slot-fact={focus ?? ""}>
               {fact}
             </p>
-          ) : guide ? null : (
-            <p className="gk-known">{knownLine()}</p>
-          )}
-          {lines.map((item) => (
-            <p className="gk-work" key={item.id}>
-              {item.line}
-            </p>
-          ))}
+          ) : null}
+          {!guide && !fact ? <p className="gk-known">{knownLine()}</p> : null}
+          {freeTray || (guide && cut)
+            ? lines.map((item) => (
+                <p className="gk-work" key={item.id}>
+                  {item.line}
+                </p>
+              ))
+            : null}
           <div className="gk-actions">
-            <button className="gk-send" type="button" data-action="primary" onClick={onSend}>
-              Send the goat
-            </button>
-            <span className="gk-caption">{trayLeft === 0 ? "The tray is empty." : `${trayLeft} pieces still in the tray`}</span>
-            {guide ? null : (
+            {showSend ? (
+              <button className="gk-send" type="button" data-action="primary" onClick={onSend}>
+                Send the goat
+              </button>
+            ) : null}
+            {freeTray ? (
+              <span className="gk-caption">{trayLeft === 0 ? "The tray is empty." : `${trayLeft} pieces still in the tray`}</span>
+            ) : null}
+            {freeTray || guidedReady ? (
               <button className="gk-again" type="button" onClick={onGuide}>
                 Show me again
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -2275,16 +2342,23 @@ function AssembleView({
       ) : null}
       <aside className="gk-panel" data-drag={drag ?? ""}>
         <h2>Kit tray</h2>
-        <p className="gk-muted">{guide ? "This piece next." : "Tap a piece to place it, or drag it onto its dotted line."}</p>
+        <p className="gk-muted">
+          {guide ? "This piece next." : guidedReady ? "Ready to send the goat." : "Tap a piece to place it, or drag it onto its dotted line."}
+        </p>
         {ordered.map((id) => {
+          const soft =
+            currentRow === id ||
+            (freeTray && (focus === id || (id === "gussets" && Boolean(focus?.startsWith("gusset"))) || (focus === "planks" && id === "planks")));
           if (id === "planks") {
             return (
               <div
                 key="planks"
-                className={`gk-row ${pulseId === "planks" ? "pulse" : ""} ${focus === "planks" ? "focus" : ""}`}
+                className={`gk-row ${soft ? "focus" : ""}`}
                 onPointerUp={() => {
                   onFocus("planks");
-                  onTap("planks");
+                  if (!guide) {
+                    onTap("planks");
+                  }
                 }}
               >
                 <span className="gk-thumb">
@@ -2313,7 +2387,7 @@ function AssembleView({
                   </label>
                 ) : null}
                 {canPlace("planks") ? (
-                  <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onLay()}>
+                  <button className="gk-place" type="button" data-action="primary" onPointerDown={(event) => event.stopPropagation()} onClick={() => onLay()}>
                     Lay planks
                   </button>
                 ) : null}
@@ -2325,17 +2399,20 @@ function AssembleView({
           const sprite = slot?.sprite ?? group?.sprite ?? "beam-side.png";
           const name = id === "gussets" ? "Gusset plate ×5" : id === "bolts" ? "Bolts ×10" : id === "rails" ? "Railing ×2" : slot?.name;
           const stamp = !cut && slot && slot.length != null && !slot.bonus ? formatLength(slot.length) : null;
-          const rowFocus = focus === id || (id === "gussets" && focus?.startsWith("gusset"));
+          const placeLabel = id === "gussets" ? "Put on the gussets" : "Place";
           return (
             <div
               key={id}
-              className={`gk-row ${placed[id] || (id === "gussets" && rowDone("gussets")) ? "earned" : ""} ${pulseId === id ? "pulse" : ""} ${rowFocus ? "focus" : ""}`}
+              className={`gk-row ${placed[id] || (id === "gussets" && rowDone("gussets")) ? "earned" : ""} ${soft ? "focus" : ""}`}
               draggable={false}
               onPointerDown={(event) => {
                 if (id !== "gussets" && id !== "bolts" && id !== "rails") {
                   onFocus(id);
                 } else if (id === "gussets") {
                   onFocus("gussets");
+                }
+                if (guide) {
+                  return;
                 }
                 if (placed[id] && id !== "gussets") {
                   return;
@@ -2349,6 +2426,9 @@ function AssembleView({
                 event.currentTarget.dataset.y = String(event.clientY);
               }}
               onPointerUp={(event) => {
+                if (guide) {
+                  return;
+                }
                 const startX = Number(event.currentTarget.dataset.x ?? event.clientX);
                 const startY = Number(event.currentTarget.dataset.y ?? event.clientY);
                 const moved = Math.hypot(event.clientX - startX, event.clientY - startY) > 8;
@@ -2386,14 +2466,14 @@ function AssembleView({
                 </label>
               ) : null}
               {canPlace(id) ? (
-                <button className="gk-place" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap(id)}>
-                  Place
+                <button className="gk-place" type="button" data-action="primary" onPointerDown={(event) => event.stopPropagation()} onClick={() => onTap(id)}>
+                  {placeLabel}
                 </button>
               ) : null}
             </div>
           );
         })}
-        {queenPost.rounds[round]?.coming ? (
+        {freeTray && queenPost.rounds[round]?.coming ? (
           <p className="gk-coming">Coming in round {round + 2}: {queenPost.rounds[round]?.coming}</p>
         ) : null}
       </aside>

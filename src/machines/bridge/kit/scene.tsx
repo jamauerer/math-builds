@@ -92,19 +92,29 @@ function slotLabelText(slot: KitSlot, placed: boolean, typed: number | undefined
   return { text: `? ${lengthAbbrev()}`, given: false };
 }
 
-function Blueprint({ missing, hot }: { missing: KitSlot[]; hot?: string | null }) {
+function Blueprint({ missing, hot, guided }: { missing: KitSlot[]; hot?: string | null; guided?: boolean }) {
+  const slots =
+    guided && hot
+      ? missing.filter(
+          (slot) =>
+            slot.id === hot ||
+            (hot === "planks" && slot.kind === "plank") ||
+            (hot.startsWith("plank") && slot.id === hot),
+        )
+      : missing;
   return (
     <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      {missing.map((slot) => {
+      {slots.map((slot) => {
         if (!slot.from || !slot.to || slot.bonus) {
           return null;
         }
         const from = nodePixel(kitNode(slot.from));
         const to = nodePixel(kitNode(slot.to));
-        const on = slot.id === hot;
+        const on = !guided || slot.id === hot;
         return (
           <line
             key={slot.id}
+            className={on ? "gk-slot-hot" : undefined}
             x1={from.x}
             y1={from.y}
             x2={to.x}
@@ -117,10 +127,10 @@ function Blueprint({ missing, hot }: { missing: KitSlot[]; hot?: string | null }
       })}
       {hot === "planks" || hot?.startsWith("plank")
         ? queenPost.slots
-            .filter((slot) => slot.kind === "plank" && (hot === "planks" || slot.id === hot))
+            .filter((slot) => slot.kind === "plank" && (hot === "planks" || slot.id === hot) && (!guided || hot === "planks" || slot.id === hot))
             .map((slot) => {
               const x = queenPost.scene.originX + plankStart(slot) * queenPost.pxPerMetre;
-              return <rect key={slot.id} x={x} y={queenPost.scene.deckY} width={queenPost.pxPerMetre} height={PLANK_THICK_PX} fill="none" stroke="#E0661A" strokeWidth="4" strokeDasharray="6 4" />;
+              return <rect key={slot.id} className="gk-slot-hot" x={x} y={queenPost.scene.deckY} width={queenPost.pxPerMetre} height={PLANK_THICK_PX} fill="none" stroke="#E0661A" strokeWidth="4" strokeDasharray="6 4" />;
             })
         : null}
     </svg>
@@ -131,10 +141,12 @@ function SlotLabels({
   placed,
   lengths,
   geometryLevel,
+  only,
 }: {
   placed: Record<string, boolean>;
   lengths: Record<string, number>;
   geometryLevel: number;
+  only?: string | null;
 }) {
   return (
     <>
@@ -142,6 +154,17 @@ function SlotLabels({
         const nodes = slotNodes(slot);
         if (!nodes || slot.bonus || slot.kind === "gusset" || slot.kind === "bolt") {
           return null;
+        }
+        if (only) {
+          if (only === "planks" || only.startsWith("plank")) {
+            if (slot.kind !== "plank") {
+              return null;
+            }
+          } else if (only === "gussets") {
+            return null;
+          } else if (slot.id !== only) {
+            return null;
+          }
         }
         const from = nodePixel(nodes.from);
         const to = nodePixel(nodes.to);
@@ -172,7 +195,7 @@ export function BridgeScene({
   geometryLevel = 4,
   hot = null,
   focus = null,
-  corners = false,
+  guided = false,
   flyGusset = null,
   preview = false,
   holes = false,
@@ -185,7 +208,7 @@ export function BridgeScene({
   geometryLevel?: number;
   hot?: string | null;
   focus?: string | null;
-  corners?: boolean;
+  guided?: boolean;
   flyGusset?: { id: string; at: string } | null;
   preview?: boolean;
   holes?: boolean;
@@ -193,7 +216,8 @@ export function BridgeScene({
 }) {
   const structural = queenPost.slots.filter((slot) => slot.structural || slot.kind === "gusset" || slot.kind === "rail");
   const missing = structural.filter((slot) => !placed[slot.id] && slot.kind !== "gusset" && slot.kind !== "rail");
-  const lit = focus ?? hot;
+  const lit = hot ?? focus;
+  const labelOnly = guided ? lit : null;
   return (
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
@@ -202,10 +226,9 @@ export function BridgeScene({
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
-      <Blueprint missing={missing} hot={lit} />
+      <Blueprint missing={missing} hot={lit} guided={guided} />
       {holes ? <PlankHoles placed={placed} /> : null}
-      <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} />
-      {corners ? <CornerPulses placed={placed} /> : null}
+      <SlotLabels placed={placed} lengths={lengths} geometryLevel={geometryLevel} only={labelOnly} />
       {flyGusset?.at ? (
         <img
           className="gk-fly-gusset"
@@ -274,19 +297,6 @@ export function BridgeScene({
       <Ruler focus={lit} />
     </div>
     </div>
-  );
-}
-
-function CornerPulses({ placed }: { placed: Record<string, boolean> }) {
-  return (
-    <svg viewBox="0 0 1000 620" width="1000" height="620" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-      {queenPost.slots
-        .filter((slot) => slot.kind === "gusset" && slot.at && !placed[slot.id])
-        .map((slot) => {
-          const point = nodePixel(kitNode(slot.at!));
-          return <circle key={slot.id} className="gk-corner-pulse" data-corner-pulse={slot.at} cx={point.x} cy={point.y} r="10" fill="#E0661A" opacity="0.55" />;
-        })}
-    </svg>
   );
 }
 

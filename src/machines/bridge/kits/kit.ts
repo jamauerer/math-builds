@@ -464,13 +464,13 @@ export function slotFact(slot: KitSlot, printed = false): string {
   if (slot.kind === "beam" && nodes) {
     const left = Math.min(nodes.from.m, nodes.to.m);
     const right = Math.max(nodes.from.m, nodes.to.m);
-    return `This beam runs from ${formatLength(left)} to ${formatLength(right)} on the tape.${printed ? " The number is on the piece." : " How long?"}`;
+    return `It runs from ${formatLength(left)} to ${formatLength(right)} on the tape.${printed ? "" : " How long?"}`;
   }
   if (slot.kind === "plank") {
-    return `Planks are the floor. ${formatLength(queenPost.span)} of bridge, ${formatLength(1)} each, so ${plankSlots().length} planks.`;
+    return `${formatLength(queenPost.span)} of bridge, ${formatLength(1)} each, so ${plankSlots().length} planks.`;
   }
   if (slot.kind === "gusset") {
-    return "Gussets hold the corners. Tap to put one on each.";
+    return "They go on every corner.";
   }
   return knownLine();
 }

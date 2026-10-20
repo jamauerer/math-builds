@@ -129,14 +129,14 @@
   ],
   "guide": [
     { "piece": "bottom-a", "say": "The stone blocks are the abutments. They are already there. The beams rest on them." },
-    { "piece": "bottom-b", "say": "The bottom beams rest on the abutments. They are the sides of the bridge." },
-    { "piece": "post-a", "say": "Left post: it stands on the bottom beams and holds the top beam up." },
-    { "piece": "post-b", "say": "Right post: it stands on the bottom beams and holds the top beam up." },
-    { "piece": "top", "say": "Top beam: it ties the two posts together." },
-    { "piece": "brace-a", "say": "Braces: they stop the posts from folding over." },
-    { "piece": "brace-b", "say": "Braces: they stop the posts from folding over." },
-    { "piece": "gussets", "say": "Gussets hold the corners. Tap to put one on each." },
-    { "piece": "planks", "say": "Planks are the floor. 8 ft of bridge, 1 ft each, so 8 planks." }
+    { "piece": "bottom-b", "say": "Bottom beam. The bridge rests on it." },
+    { "piece": "post-a", "say": "Left post. It stands on the bottom beams and holds the top beam up." },
+    { "piece": "post-b", "say": "Right post. It stands on the bottom beams and holds the top beam up." },
+    { "piece": "top", "say": "Top beam. It ties the two posts together." },
+    { "piece": "brace-a", "say": "Brace. It stops the posts from folding over." },
+    { "piece": "brace-b", "say": "Brace. It stops the posts from folding over." },
+    { "piece": "gussets", "say": "Gussets hold the corners." },
+    { "piece": "planks", "say": "Planks are the floor." }
   ],
   "dunks": [
     { "line": "Nobody was hurt. Mostly.", "cause": "general" },

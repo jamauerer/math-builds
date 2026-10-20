@@ -407,7 +407,7 @@ describe("goat bridge screens", () => {
         />,
       );
     });
-    expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("This beam runs from 0 ft to 4 ft on the tape");
+    expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("It runs from 0 ft to 4 ft on the tape");
     expect(container.querySelector("[data-slot-fact]")?.textContent).toContain("How long?");
     expect(container.querySelector("[data-tape-hi]")).toBeTruthy();
     root.unmount();
@@ -552,6 +552,75 @@ describe("goat bridge screens", () => {
     expect(kids.indexOf(cutField)).toBeLessThan(kids.indexOf(cutPlace));
     cutRoot.unmount();
     cutBox.remove();
+  });
+
+  it("guides assemble one piece at a time with a soft outline and no pulse", async () => {
+    setUnitSystem("us");
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          guideMode="on"
+          kitProfile={placedProfile}
+        />,
+      );
+    });
+    expect(container.textContent).toContain("The stone blocks are the abutments. They are already there. The beams rest on them.");
+    expect(container.textContent).toContain("It runs from 0 ft to 4 ft on the tape");
+    expect(container.querySelectorAll(".gk-row").length).toBe(1);
+    expect(container.querySelectorAll(".gk-slot-label").length).toBe(1);
+    expect(container.querySelector(".gk-row")?.className).toContain("focus");
+    expect(container.querySelector(".gk-row.pulse")).toBeNull();
+    expect(container.querySelector(".gk-corner-pulse")).toBeNull();
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Send the goat")).toBe(false);
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Place")).toBe(true);
+    root.unmount();
+    container.remove();
+  });
+
+  it("puts all gussets on at once from Put on the gussets", async () => {
+    vi.useFakeTimers();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <GoatKit
+          map={createLearnerMap(skills)}
+          marks={0}
+          onMarks={() => undefined}
+          units="us"
+          onUnits={() => undefined}
+          start="assemble"
+          level={2}
+          round={1}
+          guideMode="on"
+          drops={{ "bottom-a": "4", "bottom-b": "4" }}
+          kitProfile={placedProfile}
+        />,
+      );
+    });
+    expect(container.textContent).toContain("Put on the gussets");
+    const put = [...container.querySelectorAll("button")].find((button) => button.textContent === "Put on the gussets") as HTMLButtonElement;
+    await act(async () => {
+      put.click();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(90 * 6);
+    });
+    expect(container.querySelectorAll('[data-piece^="gusset-"]').length).toBeGreaterThanOrEqual(5);
+    vi.useRealTimers();
+    root.unmount();
+    container.remove();
   });
 
   it("names pre-cut mode on the intro card and parent profile", async () => {
