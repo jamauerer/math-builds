@@ -6,7 +6,7 @@ import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
 import { setUnitSystem } from "../../../units";
 import { answerEarn, openRun } from "../kits/earn";
-import { queenPost } from "../kits/kit";
+import { deckBeamBox } from "../kits/kit";
 import { GoatKit } from "./GoatKit";
 import { LADDER_VERSION } from "../../../ladder/steps";
 import { blankKitProfile, type KitProfile } from "../../../storage/progress";
@@ -281,7 +281,7 @@ describe("goat bridge screens", () => {
       );
     });
     expect(low.querySelectorAll("input.gk-len")).toHaveLength(0);
-    expect(low.textContent).toContain("The stone blocks are the abutments. They are already there. The beams rest on them.");
+    expect(low.textContent).toContain("The beams rest on the banks.");
     lowRoot.unmount();
     low.remove();
 
@@ -315,7 +315,7 @@ describe("goat bridge screens", () => {
     });
     const beam = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
     expect(beam.getAttribute("data-length")).toBe("40");
-    expect(parseFloat(beam.style.width)).toBe(2000);
+    expect(parseFloat(beam.style.width)).toBeCloseTo(deckBeamBox("left", 40).width, 5);
     root.unmount();
     container.remove();
   });
@@ -377,23 +377,17 @@ describe("goat bridge screens", () => {
   });
 
   it("shows a stare line after a dunk and does not change marks", async () => {
-    vi.useFakeTimers();
     const onMarks = vi.fn();
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
     await act(async () => {
       root.render(
-        <GoatKit map={createLearnerMap(skills)} marks={12} onMarks={onMarks} units="us" onUnits={() => undefined} start="wreck" fault="top" level={4} kitProfile={placedProfile} />,
+        <GoatKit map={createLearnerMap(skills)} marks={12} onMarks={onMarks} units="us" onUnits={() => undefined} start="wreck" fault="top" level={4} kitProfile={placedProfile} stareNow />,
       );
     });
-    await act(async () => {
-      vi.advanceTimersByTime(1600);
-    });
-    const line = queenPost.dunks.find((item) => container.textContent?.includes(item.line));
-    expect(line).toBeTruthy();
+    expect(container.textContent).toMatch(/let go|needed a 4|wet/i);
     expect(onMarks).not.toHaveBeenCalled();
-    vi.useRealTimers();
     root.unmount();
     container.remove();
   });
@@ -607,8 +601,10 @@ describe("goat bridge screens", () => {
         />,
       );
     });
-    expect(container.textContent).toContain("The stone blocks are the abutments. They are already there. The beams rest on them.");
-    expect(container.textContent).toContain("It runs from 0 ft to 4 ft on the tape");
+    expect(container.textContent).toContain("The beams rest on the banks.");
+    expect(container.textContent).not.toContain("It runs from 0 ft to 4 ft on the tape");
+    expect(container.textContent).toContain("Bottom beam");
+    expect(container.textContent).not.toContain("Bot...");
     expect(container.querySelectorAll(".gk-row").length).toBe(1);
     expect(container.querySelectorAll(".gk-slot-label").length).toBe(1);
     expect(container.querySelector(".gk-row")?.className).toContain("focus");

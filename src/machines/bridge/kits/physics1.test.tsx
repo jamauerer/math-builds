@@ -18,7 +18,7 @@ describe("physics 1", () => {
     for (const frame of result.frames.filter((item) => item.mode === "swim" || item.mode === "splash")) {
       expect(frame.goatY).toBeLessThanOrEqual(water + 0.02);
       expect(frame.splashes.length).toBeGreaterThan(0);
-      const splashPx = queenPost.scene.deckY - queenPost.pxPerMetre * frame.splashes[0].y;
+      const splashPx = queenPost.scene.bankTopY - queenPost.pxPerMetre * frame.splashes[0].y;
       expect(Math.abs(splashPx - waterPixel())).toBeLessThanOrEqual(10);
     }
     const swim = result.frames.find((frame) => frame.mode === "swim");

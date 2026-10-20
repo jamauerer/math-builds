@@ -2761,7 +2761,7 @@ function AssembleView({
         />
         <div className="gk-strip">
           {(() => {
-            const line = guide ? [guide.say, fact].filter(Boolean).join(" ") : fact ?? knownLine();
+            const line = guide ? guide.say : fact ?? knownLine();
             return (
               <p className="gk-say" data-slot-fact={guide?.piece ?? focus ?? ""}>
                 {line}

@@ -1,6 +1,6 @@
 import { BoxShape, RevoluteJoint, Vec2, type Body, type Joint, type World } from "planck";
 import { createWorld, TIME_STEP } from "../../../engine/physics";
-import { kitNode, pieceEnd, plankCovers, plankStart, queenPost, roundTrial, waterWorld, wreckLines, type KitSlot, type WreckCause } from "./kit";
+import { BEARING_FT, kitNode, pieceEnd, plankCovers, plankStart, queenPost, roundTrial, waterWorld, wreckLines, type KitSlot, type WreckCause } from "./kit";
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
@@ -116,13 +116,17 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
   }
   const from = kitNode(slot.from);
   const end = pieceEnd(slot, typed);
-  const length = Math.max(0.25, Math.hypot(end.m - from.m, end.h - from.h));
-  const angle = Math.atan2(end.h - from.h, end.m - from.m);
+  const shift0 = slot.id === "bottom-a" ? -BEARING_FT : 0;
+  const shift1 = slot.id === "bottom-b" ? BEARING_FT : 0;
+  const ax = from.m + shift0;
+  const bx = end.m + shift1;
+  const length = Math.max(0.25, Math.hypot(bx - ax, end.h - from.h));
+  const angle = Math.atan2(end.h - from.h, bx - ax);
   const thick = slot.kind === "post" ? 0.18 : 0.12;
   const deck = slot.kind === "beam" && Math.abs(end.h - from.h) < 0.02;
   const lift = deck ? thick / 2 : 0;
   const body = world.createDynamicBody({
-    position: new Vec2((from.m + end.m) / 2, (from.h + end.h) / 2 + lift),
+    position: new Vec2((ax + bx) / 2, (from.h + end.h) / 2 + lift),
     angle,
     linearDamping: 0.35,
     angularDamping: 0.45,
@@ -141,17 +145,17 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
     thick,
     length,
     kind: slot.kind,
-    ax: from.m,
+    ax,
     ay: from.h,
-    bx: end.m,
+    bx,
     by: end.h,
     broken: null,
   };
   return {
     piece,
     ends: [
-      { piece, local: new Vec2(-length / 2, deck ? -thick / 2 : 0), x: from.m, y: from.h, side: "left" },
-      { piece, local: new Vec2(length / 2, deck ? -thick / 2 : 0), x: end.m, y: end.h, side: "right" },
+      { piece, local: new Vec2(-length / 2, deck ? -thick / 2 : 0), x: ax, y: from.h, side: "left" },
+      { piece, local: new Vec2(length / 2, deck ? -thick / 2 : 0), x: bx, y: end.h, side: "right" },
     ],
   };
 }
@@ -281,16 +285,15 @@ function deckUnder(pieces: Piece[], x: number): { piece: Piece; y: number } | nu
 
 export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_MASS): CrossingResult {
   const world = createWorld(10);
-  const banks: { id: string; body: Body; x: number; y: number }[] = [];
-  for (const node of [
-    { id: "n0", x: 0, y: 0 },
-    { id: "n8", x: 8, y: 0 },
+  const banks: { id: string; body: Body; x: number; y: number; side: "left" | "right" }[] = [];
+  for (const bank of [
+    { id: "n0", x: -1.5, side: "left" as const },
+    { id: "n8", x: 9.5, side: "right" as const },
   ]) {
     const body = world.createBody({ type: "static" });
-    const shift = node.x === 0 ? -1.4 : 1.4;
-    body.setPosition(new Vec2(node.x + shift, -0.2));
-    body.createFixture(new BoxShape(1.4, 0.2), { friction: 0.9, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
-    banks.push({ id: node.id, body, x: node.x, y: node.y });
+    body.setPosition(new Vec2(bank.x, -0.1));
+    body.createFixture(new BoxShape(1.5, 0.1), { friction: 0.9, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
+    banks.push({ id: bank.id, body, x: bank.side === "left" ? 0 : 8, y: 0, side: bank.side });
   }
 
   const waterY = waterWorld();
@@ -342,8 +345,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
     for (const bank of banks) {
-      const dist = Math.hypot(end.x - bank.x, end.y - bank.y);
-      if (dist > JOIN_M) {
+      const onBank = bank.side === "left" ? end.x <= 0.05 : end.x >= 7.95;
+      if (!onBank || Math.abs(end.y) > 0.25) {
         continue;
       }
       const joint = world.createJoint(

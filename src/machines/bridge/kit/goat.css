@@ -584,10 +584,11 @@
   border-radius: 12px;
   padding: 8px 10px;
   min-height: 64px;
+  height: auto;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .gk-row:not(:has(.gk-cut)) {
@@ -677,16 +678,17 @@
 
 .gk-row-copy {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .gk-row-copy b,
 .gk-row b {
   display: block;
   font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.2;
 }
 
 .gk-row-copy span,

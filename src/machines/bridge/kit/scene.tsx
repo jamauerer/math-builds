@@ -1,8 +1,8 @@
 import type { CSSProperties } from "react";
 import { formatLength, lengthAbbrev } from "../../../units";
 import {
-  abutmentTopPx,
   BEAM_THICK_PX,
+  deckBeamBox,
   kitNode,
   nodePixel,
   PLANK_THICK_PX,
@@ -63,8 +63,20 @@ export function memberStyle(slot: KitSlot, typed: number): CSSProperties {
   const height = slot.kind === "brace" ? 15 : slot.kind === "rail" ? 28 : 22;
   const width = Math.max(8, typed * queenPost.pxPerMetre);
   const alongDeck = slot.kind === "beam" && fromNode.h === 0 && Math.abs(angle) < 0.2;
+  if (alongDeck && (slot.id === "bottom-a" || slot.id === "bottom-b")) {
+    const box = deckBeamBox(slot.id === "bottom-a" ? "left" : "right", typed);
+    return {
+      position: "absolute",
+      left: box.left,
+      top: box.top,
+      width: box.width,
+      height: box.height,
+      transform: `rotate(${angle}rad)`,
+      transformOrigin: "0 0%",
+    };
+  }
   const top = alongDeck
-    ? queenPost.scene.deckY + PLANK_THICK_PX
+    ? queenPost.scene.bankTopY - BEAM_THICK_PX
     : from.y - (slot.kind === "brace" ? 11 : height / 2);
   return {
     position: "absolute",
@@ -221,7 +233,7 @@ export function BridgeScene({
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
       <img className="banks" src={art("banks.png")} alt="" />
-      <Abutments />
+      <BankGuides />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />
@@ -430,7 +442,7 @@ function poseStyle(pose: PiecePose, layer: "far" | "near" = "near"): CSSProperti
     : plank
       ? py - height / 2
       : deckBeam && pose.y > -0.2
-        ? queenPost.scene.deckY + PLANK_THICK_PX
+        ? queenPost.scene.bankTopY - BEAM_THICK_PX
         : py - height / 2;
   if (!deckBeam && !plank && pose.y <= waterWorld() + 0.02) {
     top = Math.max(top, waterPixel() - height / 2);
@@ -593,62 +605,23 @@ export function frameNear(frames: CrossingFrame[], metres: number): CrossingFram
   return best;
 }
 
-/** Abutment inset into the bank: outer edge 0.3 m inside the bank face. */
-export const ABUTMENT_INSET_M = 0.3;
-
-function Abutments() {
-  const top = abutmentTopPx();
-  const span = queenPost.scene.originX + 8 * queenPost.pxPerMetre;
-  const width = 110;
-  const height = 70;
-  const inset = ABUTMENT_INSET_M * queenPost.pxPerMetre;
-  // Gap face of each bank is at originX / span. Outer edge of the block sits 0.3 m inside that face.
-  const leftX = queenPost.scene.originX - inset - width;
-  const rightX = span + inset;
-  const faceTop = top + height * 0.42;
-  const faceHeight = height * 0.58;
-  const banksLeft = -79;
-  const banksTop = 224;
-  const banksW = 1158;
-  const banksH = 386;
-  // Brick only on the upper part; bank art drawn on top of the lower half so the block reads set into the wall.
-  const brick = (left: number): CSSProperties => ({
+function BankGuides() {
+  if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("guides") !== "1") {
+    return null;
+  }
+  const { leftEdge, rightEdge, bankTopY } = queenPost.scene;
+  const line = (extra: CSSProperties): CSSProperties => ({
     position: "absolute",
-    left,
-    top,
-    width,
-    height,
-    zIndex: 1,
-    clipPath: "inset(0 0 58% 0)",
-  });
-  const face = (left: number): CSSProperties => ({
-    position: "absolute",
-    left,
-    top: faceTop,
-    width,
-    height: faceHeight,
-    overflow: "hidden",
+    background: "#dc2020",
     pointerEvents: "none",
-    zIndex: 2,
+    zIndex: 20,
+    ...extra,
   });
   return (
     <>
-      <img className="gk-piece gk-abutment" data-piece="abutment-left" alt="" src={art("brick-side.png")} style={brick(leftX)} />
-      <img className="gk-piece gk-abutment" data-piece="abutment-right" alt="" src={art("brick-side.png")} style={brick(rightX)} />
-      <span className="gk-abutment-face" data-abutment-face="left" style={face(leftX)}>
-        <img
-          alt=""
-          src={art("banks.png")}
-          style={{ position: "absolute", left: banksLeft - leftX, top: banksTop - faceTop, width: banksW, height: banksH, maxWidth: "none" }}
-        />
-      </span>
-      <span className="gk-abutment-face" data-abutment-face="right" style={face(rightX)}>
-        <img
-          alt=""
-          src={art("banks.png")}
-          style={{ position: "absolute", left: banksLeft - rightX, top: banksTop - faceTop, width: banksW, height: banksH, maxWidth: "none" }}
-        />
-      </span>
+      <span data-guide="left-edge" style={line({ left: leftEdge, top: 0, width: 1, height: 620 })} />
+      <span data-guide="right-edge" style={line({ left: rightEdge, top: 0, width: 1, height: 620 })} />
+      <span data-guide="bank-top" style={line({ left: 0, top: bankTopY, width: 1000, height: 1 })} />
     </>
   );
 }
@@ -749,7 +722,6 @@ export function CrossingPicture({ frame, extras = {} }: { frame: CrossingFrame; 
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode} data-goat-kind={frame.goat}>
       <img className="banks" src={art("banks.png")} alt="" />
-      <Abutments />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110, zIndex: 8 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />

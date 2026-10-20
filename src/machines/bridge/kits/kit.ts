@@ -51,7 +51,16 @@ export type QueenPostKit = {
   span: number;
   marks: number;
   pxPerMetre: number;
-  scene: { width: number; height: number; originX: number; deckY: number; waterY: number };
+  scene: {
+    width: number;
+    height: number;
+    originX: number;
+    deckY: number;
+    waterY: number;
+    leftEdge: number;
+    rightEdge: number;
+    bankTopY: number;
+  };
   nodes: KitNode[];
   groups: KitGroup[];
   rounds: KitRound[];
@@ -147,7 +156,7 @@ export function waterWorld(): number {
 }
 
 export function waterPixel(): number {
-  return queenPost.scene.deckY - queenPost.pxPerMetre * waterWorld();
+  return queenPost.scene.bankTopY - queenPost.pxPerMetre * waterWorld();
 }
 
 export type PieceRow = {
@@ -432,6 +441,9 @@ function readQueenPost(value: unknown): QueenPostKit {
       originX: readNumber(scene.originX, "scene.originX"),
       deckY: readNumber(scene.deckY, "scene.deckY"),
       waterY: readNumber(scene.waterY, "scene.waterY"),
+      leftEdge: readNumber(scene.leftEdge, "scene.leftEdge"),
+      rightEdge: readNumber(scene.rightEdge, "scene.rightEdge"),
+      bankTopY: readNumber(scene.bankTopY, "scene.bankTopY"),
     },
     nodes: readArray(kit.nodes, "nodes").map((node, index) => {
       const item = readObject(node, `nodes.${index}`);
@@ -569,22 +581,20 @@ export function knownLine(): string {
   return `The gap is ${formatLength(queenPost.span)}. The posts stand at ${stands[0]} and ${stands[1]}.`;
 }
 
-/** Pixel sizes for the deck stack: plank on beam on abutment. */
+/** Pixel sizes for the deck stack: plank on beam on the bank. */
 export const BEAM_THICK_PX = 22;
 export const PLANK_THICK_PX = 16;
+export const BEARING_FT = 0.5;
 
-/** CSS top of the abutment (deck minus beam minus plank thickness). Sunk so plank tops sit on the deck line. */
-export function abutmentTopPx(): number {
-  return queenPost.scene.deckY + PLANK_THICK_PX + BEAM_THICK_PX;
-}
-
-/** CSS left of each abutment: outer edge 0.3 m inside the bank face at 0 m / 8 m. */
-export function abutmentLeftPx(side: "left" | "right", width = 110): number {
-  const inset = 0.3 * queenPost.pxPerMetre;
+/** Bottom beam box: 0.5 ft onto the bank, bottom face on bankTopY. */
+export function deckBeamBox(side: "left" | "right", typed = 4) {
+  const px = queenPost.pxPerMetre;
+  const bearing = BEARING_FT * px;
+  const top = queenPost.scene.bankTopY - BEAM_THICK_PX;
   if (side === "left") {
-    return queenPost.scene.originX - inset - width;
+    return { left: queenPost.scene.leftEdge - bearing, top, width: typed * px + bearing, height: BEAM_THICK_PX, bottom: queenPost.scene.bankTopY };
   }
-  return queenPost.scene.originX + 8 * queenPost.pxPerMetre + inset;
+  return { left: queenPost.scene.leftEdge + 4 * px, top, width: typed * px + bearing, height: BEAM_THICK_PX, bottom: queenPost.scene.bankTopY };
 }
 
 /** Dotted-slot label: where the piece runs, never how long it is. */

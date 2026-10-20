@@ -4,9 +4,9 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vitest";
 import { createLearnerMap } from "../../../engine/placement";
 import { skills } from "../../../data/load-skills";
-import { queenPost, waterPixel } from "./kit";
+import { deckBeamBox, queenPost, waterPixel } from "./kit";
 import { simulateCrossing } from "./simulate";
-import { blueDominates, measuredWaterY, pixelAt, BANKS_LAYOUT } from "./water-line";
+import { blueDominates, measuredWaterY, pixelAt } from "./water-line";
 import { GoatKit } from "../kit/GoatKit";
 import { CrossingPicture, goatSprite } from "../kit/scene";
 import type { KitProfile } from "../../../storage/progress";
@@ -38,11 +38,11 @@ function truss(): Record<string, number> {
 describe("physics 2", () => {
   it("reads the water line from the painted banks", () => {
     expect(queenPost.scene.waterY).toBeCloseTo(measuredWaterY(), 5);
-    const sceneX = BANKS_LAYOUT.originX + BANKS_LAYOUT.gapCenterM * BANKS_LAYOUT.pxPerMetre;
+    const sceneX = (queenPost.scene.leftEdge + queenPost.scene.rightEdge) / 2;
     expect(blueDominates(pixelAt(sceneX, waterPixel() + 5))).toBe(true);
   });
 
-  it("rests both bottom beams on the abutment top", () => {
+  it("rests both bottom beams on the bank top", () => {
     const result = simulateCrossing(truss());
     expect(result.ok).toBe(true);
     const beams = result.bodies.filter((body) => body.id === "bottom-a" || body.id === "bottom-b");
@@ -53,7 +53,7 @@ describe("physics 2", () => {
     }
   });
 
-  it("seats beam bottoms on abutment tops within 2 px in the scene", async () => {
+  it("seats beam bottoms on the measured bank top", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -74,16 +74,14 @@ describe("physics 2", () => {
         />,
       );
     });
-    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
+    expect(container.querySelector('[data-piece="abutment-left"]')).toBeNull();
     const beamA = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
     const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
-    expect(left).toBeTruthy();
     expect(beamA).toBeTruthy();
     expect(beamB).toBeTruthy();
-    const abutmentTop = parseFloat(left.style.top);
     for (const beam of [beamA, beamB]) {
       const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
-      expect(Math.abs(beamBottom - abutmentTop)).toBeLessThanOrEqual(2);
+      expect(Math.abs(beamBottom - queenPost.scene.bankTopY)).toBeLessThanOrEqual(2);
     }
     root.unmount();
     container.remove();
@@ -121,7 +119,7 @@ describe("physics 2", () => {
     for (const id of ["bottom-a", "bottom-b"]) {
       const body = container.querySelector(`[data-piece="${id}"]`) as HTMLElement;
       expect(body.getAttribute("data-length")).toBe("6");
-      expect(parseFloat(body.style.width)).toBe(6 * queenPost.pxPerMetre);
+      expect(parseFloat(body.style.width)).toBeCloseTo(deckBeamBox(id === "bottom-a" ? "left" : "right", 6).width, 5);
     }
     root.unmount();
     container.remove();
@@ -178,7 +176,7 @@ describe("physics 2", () => {
     container.remove();
   });
 
-  it("sets abutments 0.3 m inside the bank with bank stone over the lower half", async () => {
+  it("does not draw stone abutments", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -197,20 +195,10 @@ describe("physics 2", () => {
         />,
       );
     });
-    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
-    const right = container.querySelector('[data-piece="abutment-right"]') as HTMLElement;
-    const faceLeft = container.querySelector('[data-abutment-face="left"]') as HTMLElement;
-    const faceRight = container.querySelector('[data-abutment-face="right"]') as HTMLElement;
-    expect(left).toBeTruthy();
-    expect(right).toBeTruthy();
-    expect(faceLeft).toBeTruthy();
-    expect(faceRight).toBeTruthy();
-    const inset = 0.3 * queenPost.pxPerMetre;
-    const width = parseFloat(left.style.width);
-    expect(parseFloat(left.style.left)).toBeCloseTo(queenPost.scene.originX - inset - width, 0);
-    expect(parseFloat(right.style.left)).toBeCloseTo(queenPost.scene.originX + 8 * queenPost.pxPerMetre + inset, 0);
-    expect(parseFloat(faceLeft.style.top)).toBeGreaterThan(parseFloat(left.style.top));
-    expect(parseFloat(faceLeft.style.height)).toBeGreaterThan(parseFloat(left.style.height) * 0.4);
+    expect(container.querySelector('[data-piece="abutment-left"]')).toBeNull();
+    expect(container.querySelector('[data-piece="abutment-right"]')).toBeNull();
+    expect(container.querySelector("[data-abutment-face]")).toBeNull();
+    expect(container.textContent).not.toMatch(/abutment/i);
     root.unmount();
     container.remove();
   });
@@ -231,7 +219,7 @@ describe("physics 2", () => {
     expect(held.frames.some((frame) => frame.mode === "arrived" && frame.celebrate > 0.2 && goatSprite(frame.mode, frame.walkFrame, frame.goat, frame.celebrate).src.includes("biggoat-dance"))).toBe(true);
   });
 
-  it("seats Test beam sprites on the abutment row at both ends", async () => {
+  it("seats Test beam sprites on the bank top at both ends", async () => {
     const result = simulateCrossing({ "bottom-a": 4, "bottom-b": 4, ...planks() });
     const container = document.createElement("div");
     document.body.appendChild(container);
@@ -239,15 +227,12 @@ describe("physics 2", () => {
     await act(async () => {
       root.render(<CrossingPicture frame={result.frames[0]} extras={{ "gusset-n4": 1, "gusset-n2": 1 }} />);
     });
-    const left = container.querySelector('[data-piece="abutment-left"]') as HTMLElement;
-    const right = container.querySelector('[data-piece="abutment-right"]') as HTMLElement;
+    expect(container.querySelector('[data-piece="abutment-left"]')).toBeNull();
     const beamA = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
     const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
-    const abutmentTop = parseFloat(left.style.top);
-    expect(parseFloat(right.style.top)).toBeCloseTo(abutmentTop, 0);
     for (const beam of [beamA, beamB]) {
       const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
-      expect(Math.abs(beamBottom - abutmentTop)).toBeLessThanOrEqual(2);
+      expect(Math.abs(beamBottom - queenPost.scene.bankTopY)).toBeLessThanOrEqual(2);
     }
     const gusset = container.querySelector('[data-piece="gusset-n4"]') as HTMLElement;
     const plank = container.querySelector('[data-kind="plank"]') as HTMLElement;

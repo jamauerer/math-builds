@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "art": "node scripts/sync-art.mjs",
+    "build": "node scripts/sync-art.mjs && tsc --noEmit && vite build",
     "curriculum": "node scripts/build-curriculum.mjs",
-    "test": "vitest run",
+    "test": "node scripts/sync-art.mjs && vitest run",
     "preview": "vite preview"
   },
   "dependencies": {

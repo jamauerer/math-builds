@@ -7,7 +7,7 @@
   "span": 8,
   "marks": 12,
   "pxPerMetre": 50,
-  "scene": { "width": 1000, "height": 620, "originX": 292, "deckY": 355, "waterY": 1.2 },
+  "scene": { "width": 1000, "height": 620, "originX": 292, "deckY": 355, "waterY": 1.2, "leftEdge": 292, "rightEdge": 692, "bankTopY": 355 },
   "nodes": [
     { "id": "n0", "m": 0, "h": 0 },
     { "id": "n2", "m": 2, "h": 0 },
@@ -128,7 +128,7 @@
     }
   ],
   "guide": [
-    { "piece": "bottom-a", "say": "The stone blocks are the abutments. They are already there. The beams rest on them." },
+    { "piece": "bottom-a", "say": "The beams rest on the banks." },
     { "piece": "bottom-b", "say": "Bottom beam. The bridge rests on it." },
     { "piece": "post-a", "say": "Left post. It stands on the bottom beams and holds the top beam up." },
     { "piece": "post-b", "say": "Right post. It stands on the bottom beams and holds the top beam up." },
