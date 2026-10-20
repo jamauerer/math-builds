@@ -173,6 +173,7 @@ export function App() {
           flyGusset={new URLSearchParams(window.location.search).get("fly")}
           skill={new URLSearchParams(window.location.search).get("skill")}
           skillSeed={kitLevel(new URLSearchParams(window.location.search).get("seed"))}
+          demo={new URLSearchParams(window.location.search).get("demo")}
           units={kitUnits(new URLSearchParams(window.location.search).get("units"), progress.units)}
           onUnits={(units) => {
             setUnitSystem(units);

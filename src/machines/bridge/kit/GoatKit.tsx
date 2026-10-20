@@ -7,6 +7,7 @@ import {
   beginAdaptive,
   fitLevels,
   gradeStartLevel,
+  learnStartLevels,
   withGradeBias,
   KIT_STRANDS,
   strandLine,
@@ -62,7 +63,16 @@ import {
   type EarnQuestion,
   type EarnState,
 } from "../kits/earn";
-import type { ChoiceOption } from "../../../skills/generate";
+import type { ActionKind, ChoiceOption } from "../../../skills/generate";
+import { cancelSpeech, speakText, speechLang } from "../../../locale/speech";
+import {
+  demoFluentBook,
+  demoReviewBook,
+  medianAnswerMs,
+  skillIsDue,
+  SKILL_STATE_LABEL,
+  type SkillStateName,
+} from "../kits/skills";
 import {
   causeHint,
   causeText,
@@ -152,6 +162,7 @@ export function GoatKit({
   skillSeed = null,
   kitProfile = null,
   onKitProfile,
+  demo = null,
 }: {
   map: LearnerMap;
   marks: number;
@@ -183,6 +194,7 @@ export function GoatKit({
   skillSeed?: number | null;
   kitProfile?: KitProfile | null;
   onKitProfile?: (profile: KitProfile) => void;
+  demo?: string | null;
 }) {
   setUnitSystem(units);
   void map;
@@ -190,6 +202,9 @@ export function GoatKit({
   const [liveLevels, setLiveLevels] = useState<Record<string, number> | null>(savedLevels);
   const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
   const [stage, setStage] = useState<Stage>(() => {
+    if (demo === "fluent") {
+      return "profile";
+    }
     if (skill) {
       return "earn";
     }
@@ -203,9 +218,12 @@ export function GoatKit({
     return opened;
   });
   const [earn, setEarn] = useState<EarnState>(() => {
+    if (demo === "review") {
+      return blankEarn(savedLevels ?? Object.fromEntries(KIT_STRANDS.map((id) => [id, 4])), 1, demoReviewBook(), "2026-10-20");
+    }
     if (skill) {
       const held = skillHold(skill, skillSeed ?? 3);
-      return start === "explain" ? { ...held, phase: "explain", returnPhase: "explain" } : held;
+      return start === "explain" ? { ...held, phase: "explain", returnPhase: "plain" } : held;
     }
     if (picture) {
       return picturedHold(picture, savedLevels?.[picture] ?? level ?? 4);
@@ -215,7 +233,7 @@ export function GoatKit({
     }
     if (word && piece) {
       const held = earnAtWord(savedLevels, piece);
-      return start === "explain" ? { ...held, phase: "explain", returnPhase: "explain" } : held;
+      return start === "explain" ? { ...held, phase: "explain", returnPhase: "plain" } : held;
     }
     if (!lesson && start !== "faster" && start !== "explain" && start !== "practice" && kitProfile?.session) {
       return kitProfile.session;
@@ -268,6 +286,8 @@ export function GoatKit({
       build: kitProfile?.build,
       built: kitProfile?.built,
       dunks: kitProfile?.dunks,
+      placedAt: kitProfile?.placedAt,
+      fastRuns: kitProfile?.fastRuns,
       ...patch,
     });
   }
@@ -523,12 +543,15 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct },
     ].slice(-80);
     if (stepped.levels) {
-      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem);
+      const levels = learnStartLevels(withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem));
+      const placedAt = new Date().toISOString().slice(0, 10);
       writeProfile({
         grade: grade ?? "unsure",
         levels,
         history,
-        skills: skillsFromLevels(levels),
+        skills: skillsFromLevels(levels, placedAt),
+        placedAt,
+        fastRuns: {},
       });
       setEarn(blankEarn(levels));
       setStage("where");
@@ -552,12 +575,15 @@ export function GoatKit({
       { strandId: ask.strandId, level: ask.level, prompt: earnPrompt(question), correct: false, help: true },
     ].slice(-80);
     if (stepped.levels) {
-      const levels = withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem);
+      const levels = learnStartLevels(withGradeBias(stepped.levels, grade ?? "unsure", gradeSystem));
+      const placedAt = new Date().toISOString().slice(0, 10);
       writeProfile({
         grade: grade ?? "unsure",
         levels,
         history,
-        skills: skillsFromLevels(levels),
+        skills: skillsFromLevels(levels, placedAt),
+        placedAt,
+        fastRuns: {},
       });
       setEarn(blankEarn(levels));
       setStage("where");
@@ -916,7 +942,7 @@ export function GoatKit({
           marks={marks}
           units={units}
           onUnits={onUnits}
-          profile={screenProfile(unplaced, kitProfile, level, lesson, seeded)}
+          profile={screenProfile(unplaced, kitProfile, level, lesson, seeded, demo)}
           gradeSystem={gradeSystem}
           onGradeSystem={(system) => {
             setGradeSystem(system);
@@ -988,6 +1014,8 @@ export function GoatKit({
               earn={view}
               typed={typed}
               setTyped={setTyped}
+              country={kitProfile?.country ?? seeded ?? undefined}
+              countingLevel={levelsNow.counting ?? 1}
               fading={celebrate != null}
               pulse={pulse}
               dance={roundDance || earn.phase === "done"}
@@ -1295,10 +1323,14 @@ function EarnView({
   onLearn,
   onBuild,
   earned,
+  country,
+  countingLevel,
 }: {
   earn: EarnState;
   typed: string;
   setTyped: (value: string) => void;
+  country?: string;
+  countingLevel: number;
   fading?: boolean;
   pulse?: string | null;
   dance?: boolean;
@@ -1347,13 +1379,17 @@ function EarnView({
             <div className="gk-kicker">
               <span>Learn</span>
             </div>
-            <h2 className="gk-prompt" data-skill={skill?.id ?? ""}>
-              {learn?.title ?? skill?.name}
-            </h2>
-            <LearnSketch draw={draw} line={line} />
-            <p>{explained.why}</p>
+            <SpokenPrompt
+              text={`${learn?.title ?? skill?.name}. ${line}`}
+              label={learn?.title ?? skill?.name}
+              country={country}
+              parent={earn.current.level <= 2}
+              skillId={skill?.id ?? ""}
+            />
+            <LearnSketch draw={draw ?? null} line={line} />
+            <p className={earn.current.level <= 2 ? "gk-parent-words" : undefined}>{explained.why}</p>
             <button className="gk-check" type="button" data-action="primary" onClick={onLearn}>
-              Try 3 questions
+              Now you try
             </button>
           </div>
           <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
@@ -1415,9 +1451,11 @@ function EarnView({
         : earn.phase === "warmup"
           ? `${earn.runGot + 1} of ${WARMUP_COUNT}`
           : earn.phase === "guided"
-            ? `${earn.runGot + 1} of 3`
+            ? `${earn.streak + 1} right in a row`
             : `${earn.runGot + 1} of ${runLength(groupId, earn.short)}`;
   const openHint = earn.phase === "guided" ? earn.current.hint || hint : hint;
+  const dueReview = Boolean(question.skillId && skillIsDue(earn.book.skills[question.skillId], earn.day));
+  const action = questionAction(question, countingLevel);
   return (
     <div className="gk-body">
       <div className="gk-earn">
@@ -1425,11 +1463,14 @@ function EarnView({
           <div className="gk-kicker gk-kicker-stack">
             <span>{counter}</span>
             <span className="gk-qstrand">{strandName(question.strandId)}</span>
+            {earn.phase === "warmup" && dueReview ? <span data-review="due">Review</span> : null}
           </div>
-          <h2 className="gk-prompt">{earnPrompt(question)}</h2>
-          {question.level <= 2 && question.fact.kind === "plain" && !question.word ? <OperandMarks draw={question.fact.draw} /> : null}
+          <SpokenPrompt text={earnPrompt(question)} country={country} parent={question.level <= 2} />
+          {question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
+            <OperandMarks draw={question.fact.draw} />
+          ) : null}
           {picture ? <EarnSketch question={question} /> : null}
-          {openHint ? <p className="gk-hint">{openHint}</p> : null}
+          {openHint ? <p className={question.level <= 2 ? "gk-hint gk-parent-words" : "gk-hint"}>{openHint}</p> : null}
           <AnswerPad
             phase={earn.phase}
             typed={typed}
@@ -1440,6 +1481,10 @@ function EarnView({
             unit={earnMeasure(question) === "weight" ? weightAbbrev() : earnMeasure(question) === "length" ? lengthAbbrev() : ""}
             keys={keys}
             choices={question.choices}
+            action={action}
+            sizes={question.sizes}
+            draw={question.fact.kind === "plain" ? question.fact.draw : undefined}
+            showDots={countingLevel < 3}
             onType={setTyped}
             onCommit={(attempt) => onCheck(attempt)}
             onHelp={onHelp}
@@ -1483,7 +1528,7 @@ function notationLine(draw: { op: string; a: number; b: number; c?: number }, an
   return `${draw.a}, ${draw.b} = ${answer}`;
 }
 
-function LearnSketch({ draw, line }: { draw: { op: string; a: number; b: number } | null; line: string }) {
+function LearnSketch({ draw, line }: { draw: { op: string; a: number; b: number; c?: number } | null; line: string }) {
   const rows = draw && (draw.op === "mul" || draw.op === "groups" || draw.op === "area") ? Math.min(8, Math.max(1, draw.a)) : 0;
   const each = draw && rows > 0 ? Math.min(12, Math.max(1, draw.b)) : 0;
   return (
@@ -1523,6 +1568,173 @@ function OperandMarks({ draw }: { draw: { op: string; a: number; b: number } }) 
   );
 }
 
+function questionAction(question: EarnQuestion, countingLevel: number): ActionKind {
+  if (question.choices && question.choices.length > 0) {
+    return "tap-choice";
+  }
+  if (question.action === "drag-count" || question.action === "order" || question.action === "drag-goat") {
+    return question.action;
+  }
+  if (question.level <= 1) {
+    return "drag-count";
+  }
+  const value = Number(question.answer);
+  if (question.level === 2 && Number.isInteger(value) && value >= 0 && value <= 10) {
+    return "numeral-strip";
+  }
+  void countingLevel;
+  return question.action ?? "keypad";
+}
+
+function SpokenPrompt({
+  text,
+  label,
+  country,
+  parent,
+  skillId,
+}: {
+  text: string;
+  label?: string;
+  country?: string;
+  parent?: boolean;
+  skillId?: string;
+}) {
+  const lang = speechLang(country);
+  useEffect(() => {
+    speakText(text, lang);
+    return () => cancelSpeech();
+  }, [text, lang]);
+  return (
+    <div className="gk-spoken">
+      <h2 className={parent ? "gk-prompt is-parent" : "gk-prompt"} data-skill={skillId ?? ""}>
+        {label ?? text}
+      </h2>
+      <button className="gk-speak" type="button" data-speak="replay" aria-label="Hear it again" onClick={() => speakText(text, lang)}>
+        Hear it
+      </button>
+    </div>
+  );
+}
+
+function NumeralDots({ count }: { count: number }) {
+  const n = Math.max(0, Math.min(10, count));
+  return (
+    <span className="gk-num-dots" data-dots={n}>
+      {Array.from({ length: n }, (_, index) => (
+        <i key={index} />
+      ))}
+    </span>
+  );
+}
+
+function DragCountPad({
+  answer,
+  draw,
+  resetKey,
+  onCommit,
+}: {
+  answer: string;
+  draw?: { op: string; a: number; b: number };
+  resetKey: string;
+  onCommit: (attempt: string) => void;
+}) {
+  const target = Number(answer);
+  const left = draw && draw.b > 0 ? Math.max(1, draw.a) : Math.max(target, 10);
+  const right = draw && draw.b > 0 ? Math.max(1, draw.b) : 0;
+  const [inBox, setInBox] = useState(0);
+  useEffect(() => {
+    setInBox(0);
+  }, [resetKey]);
+  useEffect(() => {
+    if (inBox !== target || !Number.isFinite(target) || target <= 0) {
+      return;
+    }
+    const timer = window.setTimeout(() => onCommit(String(inBox)), 300);
+    return () => window.clearTimeout(timer);
+  }, [inBox, target, onCommit]);
+  const remainLeft = Math.max(0, left - Math.min(inBox, left));
+  const remainRight = Math.max(0, right - Math.max(0, inBox - left));
+  return (
+    <div className="gk-drag-count" data-action="drag-count">
+      <div className="gk-drag-tray">
+        {Array.from({ length: remainLeft }, (_, index) => (
+          <button key={`a-${index}`} type="button" className="gk-drag-bolt" aria-label="Bolt" onClick={() => setInBox((count) => count + 1)}>
+            <img src={art("bolt.png")} alt="" />
+          </button>
+        ))}
+        {Array.from({ length: remainRight }, (_, index) => (
+          <button key={`b-${index}`} type="button" className="gk-drag-bolt" aria-label="Bolt" onClick={() => setInBox((count) => count + 1)}>
+            <img src={art("bolt.png")} alt="" />
+          </button>
+        ))}
+      </div>
+      <div
+        className="gk-drag-box"
+        data-count={inBox}
+        onClick={() => {
+          if (inBox > 0) {
+            setInBox((count) => count - 1);
+          }
+        }}
+      >
+        {Array.from({ length: inBox }, (_, index) => (
+          <img key={index} src={art("bolt.png")} alt="" />
+        ))}
+        <span>Box</span>
+      </div>
+    </div>
+  );
+}
+
+function OrderPad({
+  sizes,
+  resetKey,
+  onCommit,
+}: {
+  sizes?: number[];
+  resetKey: string;
+  onCommit: (attempt: string) => void;
+}) {
+  const pieces = sizes && sizes.length > 0 ? sizes : [2, 4, 6];
+  const [order, setOrder] = useState(() => [...pieces].reverse());
+  useEffect(() => {
+    setOrder([...pieces].reverse());
+  }, [resetKey, pieces.join(",")]);
+  useEffect(() => {
+    const wanted = [...pieces].sort((left, right) => left - right).join(",");
+    if (order.join(",") === wanted) {
+      const timer = window.setTimeout(() => onCommit(wanted), 300);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [order, pieces, onCommit]);
+  function move(index: number, dir: -1 | 1) {
+    const next = index + dir;
+    if (next < 0 || next >= order.length) {
+      return;
+    }
+    const copy = order.slice();
+    const [item] = copy.splice(index, 1);
+    copy.splice(next, 0, item);
+    setOrder(copy);
+  }
+  return (
+    <div className="gk-order" data-action="order">
+      {order.map((size, index) => (
+        <div key={`${size}-${index}`} className="gk-order-piece" data-size={size} style={{ width: 36 + size * 14 }}>
+          <button type="button" aria-label="Move left" onClick={() => move(index, -1)}>
+            ←
+          </button>
+          <span />
+          <button type="button" aria-label="Move right" onClick={() => move(index, 1)}>
+            →
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AnswerPad({
   phase,
   typed,
@@ -1533,11 +1745,19 @@ function AnswerPad({
   unit,
   keys,
   choices,
+  action,
+  sizes,
+  draw,
+  showDots,
   onType,
   onCommit,
   onHelp,
 }: {
   phase: string;
+  action?: ActionKind;
+  sizes?: number[];
+  draw?: { op: string; a: number; b: number };
+  showDots?: boolean;
   typed: string;
   answer: string;
   truth?: number;
@@ -1636,6 +1856,43 @@ function AnswerPad({
     onType(`${typed}${key}`);
   }
 
+  if (action === "drag-count") {
+    return (
+      <>
+        <DragCountPad answer={answer} draw={draw} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
+        <button className="gk-idk" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
+  if (action === "order") {
+    return (
+      <>
+        <OrderPad sizes={sizes} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
+        <button className="gk-idk" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
+  if (action === "numeral-strip") {
+    return (
+      <>
+        <div className="gk-strip" data-strip="1" role="group" aria-label="Numbers" style={{ display: "grid", gridTemplateColumns: "repeat(6, 58px)", gap: 8 }}>
+          {Array.from({ length: 11 }, (_, value) => (
+            <button key={value} type="button" className="gk-strip-num" data-num={value} onClick={() => pickChoice(String(value))}>
+              <b>{value}</b>
+              {showDots ? <NumeralDots count={value} /> : null}
+            </button>
+          ))}
+        </div>
+        <button className="gk-idk" type="button" onClick={onHelp}>
+          I don't know
+        </button>
+      </>
+    );
+  }
   if (choices && choices.length > 0) {
     return (
       <>
@@ -1710,7 +1967,13 @@ function ChoiceFace({ option }: { option: ChoiceOption }) {
     return <ChoicePicture draw={option.draw} />;
   }
   if (option.kind === "number") {
-    return <span className="gk-choice-num">{option.label ?? option.value}</span>;
+    const value = Number(option.value);
+    return (
+      <span className="gk-choice-num">
+        {option.label ?? option.value}
+        {Number.isInteger(value) && value >= 0 && value <= 10 ? <NumeralDots count={value} /> : null}
+      </span>
+    );
   }
   return <span className="gk-choice-label">{option.label ?? option.value}</span>;
 }
@@ -2914,11 +3177,22 @@ function screenProfile(
   level: number | null,
   lesson?: string | null,
   seedCountry?: string | null,
+  demo?: string | null,
 ): KitProfile {
-  if (unplaced) {
+  if (unplaced && demo !== "fluent") {
     return { grade: null, levels: {}, history: [], notes: [] };
   }
   const base = profile ?? { grade: null, levels: {}, history: [], notes: [] };
+  if (demo === "fluent") {
+    const levels = Object.keys(base.levels).length > 0 ? base.levels : Object.fromEntries(KIT_STRANDS.map((id) => [id, 4]));
+    return {
+      ...base,
+      grade: base.grade ?? 3,
+      country: base.country ?? seedCountry ?? "US",
+      levels,
+      skills: demoFluentBook(),
+    };
+  }
   const country = base.country ?? (seedCountry && countryByCode(seedCountry) ? seedCountry.toUpperCase() : undefined);
   const gradeSystem = base.gradeSystem ?? (country ? defaultsForCountry(country).gradeSystem : undefined);
   if (lesson === "easier") {
@@ -3312,11 +3586,19 @@ function ProfileView({
                       <div className="gk-skill-grid">
                         {skills.map((skill) => {
                           const progress = profile.skills?.skills[skill.id];
-                          const state = progress?.state ?? "new";
+                          const state = (progress?.state ?? "new") as SkillStateName;
+                          const median = medianAnswerMs(progress);
+                          const times = (progress?.recent ?? []).map((item) => item.ms).filter((ms): ms is number => typeof ms === "number");
                           return (
-                            <div key={skill.id} className={`gk-skill ${state}`}>
+                            <div key={skill.id} className={`gk-skill ${state}`} data-state={state}>
                               <b>{skill.name}</b>
-                              <span>{progress?.struggling ? "struggling" : state}</span>
+                              <span>{progress?.struggling ? "struggling" : SKILL_STATE_LABEL[state]}</span>
+                              {median != null ? (
+                                <small data-median={median}>
+                                  Median {Math.round(median / 100) / 10}s
+                                  {times.length > 1 ? ` · ${times.map((ms) => `${Math.round(ms / 100) / 10}`).join(" ")}` : ""}
+                                </small>
+                              ) : null}
                               {progress?.recent.slice(-10).map((item, index) => (
                                 <small key={`${item.prompt}-${index}`}>
                                   {item.prompt} {item.help ? "asked for help" : item.correct ? "right" : "wrong"}

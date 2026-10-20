@@ -880,6 +880,143 @@
   flex: none;
 }
 
+.gk-prompt.is-parent,
+.gk-parent-words {
+  font-family: Figtree, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b6459;
+}
+
+.gk-spoken {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.gk-speak {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid #2e7fb0;
+  background: #fff;
+  color: #2e7fb0;
+  font-weight: 700;
+}
+
+.gk-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 58px);
+  gap: 8px;
+  width: max-content;
+}
+
+.gk-strip-num {
+  width: 58px;
+  max-width: 58px;
+  min-height: 72px;
+  padding: 6px 4px;
+  border-radius: 12px;
+  border: 2px solid #22201c;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.gk-strip-num b {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.gk-num-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 36px;
+}
+
+.gk-num-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2e7fb0;
+  display: block;
+}
+
+.gk-drag-count {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gk-drag-tray,
+.gk-drag-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 72px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px dashed #c8c0b4;
+  background: #f7f3ec;
+}
+
+.gk-drag-box {
+  border-style: solid;
+  background: #fff;
+  min-height: 96px;
+}
+
+.gk-drag-box span {
+  width: 100%;
+  font-size: 13px;
+  color: #6b6459;
+}
+
+.gk-drag-bolt {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.gk-drag-bolt img,
+.gk-drag-box img {
+  width: 36px;
+  height: 36px;
+}
+
+.gk-order {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.gk-order-piece {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.gk-order-piece span {
+  display: block;
+  height: 18px;
+  width: 100%;
+  border-radius: 8px;
+  background: #c47a3a;
+}
+
+.gk-skill.fluent {
+  background: #e3eef8;
+}
+
 .gk-hint {
   font-family: Caveat, cursive;
   font-size: 24px;

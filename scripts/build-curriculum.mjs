@@ -36,10 +36,11 @@ for (const line of text.split(/\r?\n/)) {
   if (!parts || parts.length < 8 || !strand) {
     continue;
   }
-  const [levelText, id, name, notation, answer, learnPicture, kitUse, prereq] = parts;
+  const [levelText, id, name, notation, answer, learnPicture, kitUse, prereq, timeText] = parts;
   if (!/^\d+$/.test(levelText) || !/^[a-z]+\.\d+\.[a-z0-9-]+$/.test(id)) {
     continue;
   }
+  const timeTarget = timeText && /^\d+$/.test(timeText) ? Number(timeText) : Number(levelText) <= 2 ? 5 : Number(levelText) <= 4 ? 3 : 8;
   skills.push({
     id,
     strand,
@@ -49,6 +50,7 @@ for (const line of text.split(/\r?\n/)) {
     answer,
     learnPicture,
     kitUse,
+    timeTarget,
     prereqs: prereq
       .split(",")
       .map((part) => part.trim())

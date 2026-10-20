@@ -1,7 +1,15 @@
 import { fitLevels, KIT_STRANDS } from "../../../engine/strand-placement";
 import { CURRICULUM_SKILLS } from "../../../skills";
 
-export type SkillStateName = "new" | "learning" | "practicing" | "mastered";
+export type SkillStateName = "new" | "learning" | "practicing" | "fluent" | "mastered";
+
+export const SKILL_STATE_LABEL: Record<SkillStateName, string> = {
+  new: "New",
+  learning: "Learning",
+  practicing: "Practicing",
+  fluent: "Fluent",
+  mastered: "Mastered",
+};
 
 export type KitSkill = {
   id: string;
@@ -11,12 +19,14 @@ export type KitSkill = {
   prereqs: string[];
   notation: string;
   learnPicture: string;
+  timeTarget: number;
 };
 
 export type SkillRecent = {
   prompt: string;
   correct: boolean;
   help?: boolean;
+  ms?: number;
 };
 
 export type SkillProgress = {
@@ -26,6 +36,10 @@ export type SkillProgress = {
   warmUp: boolean;
   sessionsSince: number;
   struggling?: boolean;
+  reviewInterval: number;
+  lastReview: string | null;
+  fastDays: string[];
+  fluentOn?: string;
 };
 
 export type SkillBook = {
@@ -35,6 +49,14 @@ export type SkillBook = {
   earned: string[];
   tally: Record<string, { right: number; asked: number }>;
   steps: number;
+  placedAt?: string;
+  fastRuns?: Record<string, number>;
+};
+
+export type AnswerNote = {
+  ms?: number;
+  day?: string;
+  mixed?: boolean;
 };
 
 const SMALL_PIECES = ["gussets", "bolts"];
@@ -51,18 +73,60 @@ export const KIT_SKILLS: KitSkill[] = CURRICULUM_SKILLS.map((skill) => ({
   prereqs: skill.prereqs,
   notation: skill.notation,
   learnPicture: skill.learnPicture,
+  timeTarget: skill.timeTarget,
 }));
+
+export function timeTargetFor(skillId: string): number {
+  return KIT_SKILLS.find((skill) => skill.id === skillId)?.timeTarget ?? 8;
+}
+
+export function dayDiff(from: string, to: string): number {
+  const start = Date.parse(`${from}T00:00:00Z`);
+  const end = Date.parse(`${to}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return 0;
+  }
+  return Math.round((end - start) / 86400000);
+}
+
+export function skillIsDue(progress: SkillProgress | undefined, day: string): boolean {
+  if (!progress || progress.state === "new" || progress.state === "learning") {
+    return false;
+  }
+  if (!progress.lastReview) {
+    return progress.state === "practicing";
+  }
+  return dayDiff(progress.lastReview, day) >= progress.reviewInterval;
+}
+
+export function medianAnswerMs(progress: SkillProgress | undefined): number | null {
+  const times = (progress?.recent ?? []).map((item) => item.ms).filter((ms): ms is number => typeof ms === "number" && ms > 0).slice(-10);
+  if (times.length === 0) {
+    return null;
+  }
+  const sorted = [...times].sort((left, right) => left - right);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
+function doneState(state: SkillStateName | undefined): boolean {
+  return state === "fluent" || state === "mastered";
+}
+
+function readyState(state: SkillStateName | undefined): boolean {
+  return state === "learning" || state === "practicing" || state === "fluent" || state === "mastered";
+}
 
 export function skillById(id: string): KitSkill | undefined {
   return KIT_SKILLS.find((skill) => skill.id === id);
 }
 
 function blankProgress(state: SkillStateName): SkillProgress {
-  return { state, days: [], recent: [], warmUp: false, sessionsSince: 0 };
+  return { state, days: [], recent: [], warmUp: false, sessionsSince: 0, reviewInterval: 1, lastReview: null, fastDays: [] };
 }
 
 /** Skills below the placed level start mastered. The placed level starts new. */
-export function skillsFromLevels(levels: Record<string, number> | null): SkillBook {
+export function skillsFromLevels(levels: Record<string, number> | null, placedAt?: string): SkillBook {
   const fitted = levels && Object.keys(levels).length > 0 ? fitLevels(levels) : null;
   const skills: Record<string, SkillProgress> = {};
   for (const skill of KIT_SKILLS) {
@@ -86,7 +150,7 @@ export function skillsFromLevels(levels: Record<string, number> | null): SkillBo
         }
         const ready = prereq.prereqs.every((pid) => {
           const state = skills[pid]?.state;
-          return state === "mastered" || state === "learning" || state === "practicing";
+          return readyState(state);
         });
         if (ready) {
           skills[id] = blankProgress("learning");
@@ -95,14 +159,14 @@ export function skillsFromLevels(levels: Record<string, number> | null): SkillBo
       }
     }
   }
-  return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0 };
+  return { skills, session: 0, introduced: null, earned: [], tally: {}, steps: 0, placedAt, fastRuns: {} };
 }
 
 export function workingLevel(book: SkillBook, strandId: string, placed?: number): number {
   const levels = [...new Set(KIT_SKILLS.filter((skill) => skill.strandId === strandId).map((skill) => skill.level))].sort((a, b) => a - b);
   for (const level of levels) {
     const at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
-    if (at.some((skill) => book.skills[skill.id]?.state !== "mastered")) {
+    if (at.some((skill) => !doneState(book.skills[skill.id]?.state))) {
       if (placed == null || level <= placed) {
         return level;
       }
@@ -117,7 +181,7 @@ export function workingLevel(book: SkillBook, strandId: string, placed?: number)
 export function prereqsMet(book: SkillBook, skill: KitSkill): boolean {
   return skill.prereqs.every((id) => {
     const state = book.skills[id]?.state;
-    return state === "learning" || state === "practicing" || state === "mastered";
+    return readyState(state);
   });
 }
 
@@ -136,7 +200,7 @@ export function currentSkill(book: SkillBook, strandId: string, level: number): 
     const nearest = levels.sort((a, b) => Math.abs(a - level) - Math.abs(b - level))[0] ?? 1;
     at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === nearest);
   }
-  const rank: SkillStateName[] = ["learning", "practicing", "new", "mastered"];
+  const rank: SkillStateName[] = ["learning", "practicing", "new", "fluent", "mastered"];
   for (const state of rank) {
     const found = at.find((skill) => book.skills[skill.id]?.state === state && (state !== "new" || prereqsMet(book, skill)));
     if (found) {
@@ -157,17 +221,24 @@ function withinLevel(skill: KitSkill, levels: Record<string, number> | null): bo
   return skill.level <= placed + 1 && skill.level >= placed - 2;
 }
 
-/** Warm-up slots: missed skills first, then practicing skills that are due, with a mastered skill about 1 in 10. */
-export function warmUpPlan(book: SkillBook, count = 3, pieceStrand = "dividing", levels: Record<string, number> | null = null): WarmSlot[] {
+/** Warm-up slots: due reviews first, then missed skills, then practicing skills. */
+export function warmUpPlan(
+  book: SkillBook,
+  count = 3,
+  pieceStrand = "dividing",
+  levels: Record<string, number> | null = null,
+  day = "2026-10-20",
+): WarmSlot[] {
   const legal = (skill: KitSkill) => withinLevel(skill, levels);
-  const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp && legal(skill));
+  const due = KIT_SKILLS.filter((skill) => skillIsDue(book.skills[skill.id], day) && legal(skill));
+  const flagged = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.warmUp && legal(skill) && !due.includes(skill));
   const practicing = KIT_SKILLS.filter((skill) => {
     const progress = book.skills[skill.id];
-    return progress?.state === "practicing" && progress.sessionsSince >= dueEvery(skill.id) && legal(skill);
+    return progress?.state === "practicing" && progress.sessionsSince >= dueEvery(skill.id) && legal(skill) && !due.includes(skill);
   });
-  const otherPractice = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "practicing" && !practicing.includes(skill) && legal(skill));
-  const mastered = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "mastered" && legal(skill));
-  const pool = [...flagged, ...practicing, ...otherPractice];
+  const otherPractice = KIT_SKILLS.filter((skill) => book.skills[skill.id]?.state === "practicing" && !practicing.includes(skill) && !due.includes(skill) && legal(skill));
+  const mastered = KIT_SKILLS.filter((skill) => doneState(book.skills[skill.id]?.state) && legal(skill));
+  const pool = [...due, ...flagged, ...practicing, ...otherPractice];
   const slots: WarmSlot[] = [];
   const used = new Set<string>();
   for (const skill of pool) {
@@ -241,21 +312,102 @@ export function beginSession(book: SkillBook): SkillBook {
   return { ...book, skills, session: book.session + 1, introduced: null, tally: {} };
 }
 
-export function rememberAnswer(book: SkillBook, skillId: string, prompt: string, correct: boolean, help = false): SkillBook {
+function applyReview(progress: SkillProgress, correct: boolean, day: string, half = false): SkillProgress {
+  if (progress.state === "new" || progress.state === "learning") {
+    return { ...progress, lastReview: day };
+  }
+  const due = skillIsDue(progress, day);
+  if (!due && !half) {
+    return correct ? { ...progress, lastReview: day } : progress;
+  }
+  if (correct) {
+    const nextInterval = due ? (half ? Math.max(progress.reviewInterval, Math.round(progress.reviewInterval * 1.5)) : progress.reviewInterval * 2) : progress.reviewInterval;
+    return { ...progress, lastReview: day, reviewInterval: nextInterval };
+  }
+  if (!due) {
+    return progress;
+  }
+  return { ...progress, lastReview: day, reviewInterval: Math.max(1, Math.floor(progress.reviewInterval / 2)) };
+}
+
+function dropState(state: SkillStateName): SkillStateName {
+  if (state === "mastered") {
+    return "fluent";
+  }
+  if (state === "fluent") {
+    return "practicing";
+  }
+  return state;
+}
+
+export function rememberAnswer(book: SkillBook, skillId: string, prompt: string, correct: boolean, help = false, note: AnswerNote = {}): SkillBook {
   const progress = book.skills[skillId];
   if (!progress) {
     return book;
   }
-  const recent = [...progress.recent, { prompt, correct: help ? false : correct, help: help || undefined }].slice(-10);
+  const day = note.day ?? "";
+  const recent = [
+    ...progress.recent,
+    { prompt, correct: help ? false : correct, help: help || undefined, ms: typeof note.ms === "number" ? note.ms : undefined },
+  ].slice(-10);
   const tally = book.tally[skillId] ?? { right: 0, asked: 0 };
+  let next: SkillProgress = {
+    ...progress,
+    recent,
+    warmUp: help || correct ? progress.warmUp : true,
+  };
+  if (!help && day) {
+    next = applyReview(next, correct, day, false);
+    if (!correct) {
+      next = { ...next, state: dropState(next.state) };
+    } else {
+      const targetMs = timeTargetFor(skillId) * 1000;
+      const fast = typeof note.ms === "number" && note.ms <= targetMs;
+      const fastDays = fast && !next.fastDays.includes(day) ? [...next.fastDays, day].slice(-8) : next.fastDays;
+      next = { ...next, fastDays };
+      if (next.state === "practicing" && fastDays.length >= 3) {
+        next = { ...next, state: "fluent", fluentOn: next.fluentOn ?? day };
+      }
+      if (next.state === "fluent" && note.mixed === true && next.fluentOn && dayDiff(next.fluentOn, day) >= 7) {
+        next = { ...next, state: "mastered" };
+      }
+    }
+  }
+  const skills = { ...book.skills, [skillId]: next };
+  if (correct && !help && day) {
+    const skill = KIT_SKILLS.find((item) => item.id === skillId);
+    for (const prereqId of skill?.prereqs ?? []) {
+      const prereq = skills[prereqId];
+      if (!prereq) {
+        continue;
+      }
+      skills[prereqId] = applyReview(prereq, true, day, true);
+    }
+  }
   return {
     ...book,
-    skills: {
-      ...book.skills,
-      [skillId]: { ...progress, recent, warmUp: help || correct ? progress.warmUp : true },
-    },
+    skills,
     tally: { ...book.tally, [skillId]: { right: tally.right + (correct ? 1 : 0), asked: tally.asked + 1 } },
   };
+}
+
+export function maybeBoostStrand(
+  book: SkillBook,
+  levels: Record<string, number>,
+  strand: string,
+  day: string,
+  cleanFast: boolean,
+): { book: SkillBook; levels: Record<string, number> } {
+  if (!cleanFast || !book.placedAt || dayDiff(book.placedAt, day) > 7) {
+    return { book, levels };
+  }
+  const fastRuns = { ...(book.fastRuns ?? {}), [strand]: ((book.fastRuns ?? {})[strand] ?? 0) + 1 };
+  const nextBook = { ...book, fastRuns };
+  if (fastRuns[strand] < 3) {
+    return { book: nextBook, levels };
+  }
+  const nextLevel = Math.min(13, (levels[strand] ?? 1) + 1);
+  return { book: nextBook, levels: fitLevels({ ...levels, [strand]: nextLevel }) };
 }
 
 export function markStruggling(book: SkillBook, skillId: string): SkillBook {
@@ -296,11 +448,11 @@ export function markLearning(book: SkillBook, skillId: string): SkillBook {
 
 /**
  * A counted day is at least 4 right out of 5.
- * The same calendar day updates that day. Mastery needs three different days.
+ * That session moves Learning to Practicing. Fluent needs three fast days.
  */
 export function noteSession(book: SkillBook, skillId: string, day: string, right: number, asked: number): SkillBook {
   const progress = book.skills[skillId];
-  if (!progress || progress.state === "new" || progress.state === "mastered" || asked < 5 || right < 4) {
+  if (!progress || progress.state === "new" || progress.state === "fluent" || progress.state === "mastered" || asked < 5 || right < 4) {
     return book;
   }
   const days = progress.days.some((entry) => entry.day === day)
@@ -310,9 +462,6 @@ export function noteSession(book: SkillBook, skillId: string, day: string, right
   let state: SkillStateName = progress.state;
   if (state === "learning" && counted.length >= 1) {
     state = "practicing";
-  }
-  if (counted.length >= 3) {
-    state = "mastered";
   }
   return { ...book, skills: { ...book.skills, [skillId]: { ...progress, state, days } } };
 }
@@ -331,6 +480,48 @@ export function strandLevelsFrom(book: SkillBook): Record<string, number> {
     levels[strandId] = workingLevel(book, strandId);
   }
   return levels;
+}
+
+export function allLevelMap(level = 4): Record<string, number> {
+  return Object.fromEntries(KIT_STRANDS.map((id) => [id, level]));
+}
+
+export function demoFluentBook(day = "2026-10-20"): SkillBook {
+  let book = withState(skillsFromLevels(allLevelMap(4), day), "measuring.1.longer", "fluent");
+  const times = [4200, 3800, 3500, 3100, 2900, 2700, 2500, 2400, 2200, 2100];
+  const recent = times.map((ms, index) => ({ prompt: `Which beam is longer? ${index}`, correct: true, ms }));
+  book = {
+    ...book,
+    skills: {
+      ...book.skills,
+      "measuring.1.longer": {
+        ...book.skills["measuring.1.longer"],
+        fluentOn: "2026-10-18",
+        fastDays: ["2026-10-16", "2026-10-17", "2026-10-18"],
+        lastReview: day,
+        reviewInterval: 2,
+        recent,
+      },
+    },
+  };
+  return book;
+}
+
+export function demoReviewBook(_day = "2026-10-20"): SkillBook {
+  let book = withState(skillsFromLevels(allLevelMap(4), "2026-10-13"), "adding.2.to-20", "practicing");
+  book = {
+    ...book,
+    skills: {
+      ...book.skills,
+      "adding.2.to-20": {
+        ...book.skills["adding.2.to-20"],
+        lastReview: "2026-10-19",
+        reviewInterval: 1,
+        warmUp: true,
+      },
+    },
+  };
+  return book;
 }
 
 export function withState(book: SkillBook, skillId: string, state: SkillStateName): SkillBook {
@@ -356,7 +547,9 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
       continue;
     }
     const state: SkillStateName =
-      item.state === "learning" || item.state === "practicing" || item.state === "mastered" || item.state === "new" ? item.state : "new";
+      item.state === "learning" || item.state === "practicing" || item.state === "fluent" || item.state === "mastered" || item.state === "new"
+        ? item.state
+        : "new";
     base.skills[skill.id] = {
       state,
       days: Array.isArray(item.days)
@@ -370,11 +563,20 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
         ? item.recent
             .filter((entry) => entry && typeof entry.prompt === "string")
             .slice(-10)
-            .map((entry) => ({ prompt: entry.prompt, correct: entry.correct === true, help: entry.help === true || undefined }))
+            .map((entry) => ({
+              prompt: entry.prompt,
+              correct: entry.correct === true,
+              help: entry.help === true || undefined,
+              ms: typeof entry.ms === "number" && entry.ms >= 0 ? entry.ms : undefined,
+            }))
         : [],
       warmUp: item.warmUp === true,
       sessionsSince: typeof item.sessionsSince === "number" ? item.sessionsSince : 0,
       struggling: item.struggling === true || undefined,
+      reviewInterval: typeof item.reviewInterval === "number" && item.reviewInterval >= 1 ? Math.round(item.reviewInterval) : 1,
+      lastReview: typeof item.lastReview === "string" ? item.lastReview : null,
+      fastDays: Array.isArray(item.fastDays) ? item.fastDays.filter((entry): entry is string => typeof entry === "string").slice(-8) : [],
+      fluentOn: typeof item.fluentOn === "string" ? item.fluentOn : undefined,
     };
   }
   return {
@@ -384,5 +586,10 @@ export function sanitizeBook(raw: unknown): SkillBook | undefined {
     earned: Array.isArray(record.earned) ? record.earned.filter((item): item is string => typeof item === "string") : [],
     tally: {},
     steps: typeof record.steps === "number" && record.steps >= 0 ? record.steps : 0,
+    placedAt: typeof record.placedAt === "string" ? record.placedAt : undefined,
+    fastRuns:
+      record.fastRuns && typeof record.fastRuns === "object"
+        ? Object.fromEntries(Object.entries(record.fastRuns).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
+        : {},
   };
 }

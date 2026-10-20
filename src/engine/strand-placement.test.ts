@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitLevels, gradeStartLevel, KIT_STRANDS, PLACEMENT_STRANDS, runAdaptive } from "./strand-placement";
+import { fitLevels, gradeStartLevel, KIT_STRANDS, learnStartLevels, PLACEMENT_STRANDS, runAdaptive } from "./strand-placement";
 
 describe("strand placement", () => {
   it("settles at level 4 when 1 to 4 are right and 5 and up are wrong", () => {
@@ -54,5 +54,16 @@ describe("strand placement", () => {
     });
     expect(fitted.geometry).toBeLessThanOrEqual(5);
     expect(fitted.multiplying).toBe(4);
+  });
+
+  it("starts each strand one level below where the staircase settled", () => {
+    const settled = runAdaptive({
+      startLevel: gradeStartLevel(0),
+      correct: (level) => level <= 4,
+    }).levels;
+    const started = learnStartLevels(settled);
+    for (const strand of KIT_STRANDS) {
+      expect(started[strand]).toBe(Math.max(1, settled[strand] - 1));
+    }
   });
 });

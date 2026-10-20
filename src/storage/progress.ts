@@ -41,6 +41,8 @@ export type KitProfile = {
   built?: boolean;
   dunks?: number;
   kitVersion?: number;
+  placedAt?: string;
+  fastRuns?: Record<string, number>;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -249,6 +251,11 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     build: migrated.build,
     built: migrated.built,
     dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
+    placedAt: typeof record.placedAt === "string" ? record.placedAt : undefined,
+    fastRuns:
+      record.fastRuns && typeof record.fastRuns === "object"
+        ? Object.fromEntries(Object.entries(record.fastRuns).filter((entry): entry is [string, number] => typeof entry[1] === "number"))
+        : undefined,
   };
 }
 

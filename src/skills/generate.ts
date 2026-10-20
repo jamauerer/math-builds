@@ -9,6 +9,8 @@ export type ChoiceOption = {
   draw?: PlainDraw;
 };
 
+export type ActionKind = "keypad" | "drag-count" | "tap-choice" | "order" | "drag-goat" | "numeral-strip";
+
 export type SkillItem = {
   prompt: string;
   answer: string;
@@ -17,6 +19,8 @@ export type SkillItem = {
   draw: PlainDraw;
   truth?: number;
   choices?: ChoiceOption[];
+  action?: ActionKind;
+  sizes?: number[];
 };
 
 /** One plain question in the curriculum notation form for this skill. */
@@ -45,6 +49,7 @@ function item(prompt: string, answer: number | string, steps: string[], why: str
     draw,
     truth: whole || !Number.isFinite(numeric) ? undefined : numeric,
     choices,
+    action: choices && choices.length > 0 ? "tap-choice" : "keypad",
   };
 }
 
@@ -75,6 +80,34 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
   const id = skill.id;
   const why = skill.learnPicture;
 
+  if (id.includes("pattern") && skill.level === 1) {
+    return choice(
+      "What comes next?",
+      "triangle",
+      ["See the repeating pieces."],
+      why,
+      { op: "angle", a: 3, b: 3 },
+      [
+        picOpt("triangle", { op: "angle", a: 3, b: 3 }),
+        picOpt("square", { op: "angle", a: 4, b: 4 }),
+        picOpt("circle", { op: "angle", a: 0, b: 0 }),
+      ],
+      rng,
+    );
+  }
+  if (id.includes("heavier")) {
+    const a = intBetween(rng, 5, 9);
+    const b = intBetween(rng, 1, a - 1);
+    return choice(
+      "Which is heavier?",
+      String(a),
+      [`Compare the two piles.`],
+      why,
+      { op: "compare", a, b },
+      [picOpt(String(a), { op: "groups", a, b: 1 }), picOpt(String(b), { op: "groups", a: b, b: 1 })],
+      rng,
+    );
+  }
   if (id.includes("compare") && id.includes("counting")) {
     const a = intBetween(rng, 3, 9);
     const b = intBetween(rng, 1, a - 1);
@@ -251,8 +284,35 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
     return makeChoice(skill, rng);
   }
   const id = skill.id;
-  if (id.startsWith("counting.1.to-10") || id.startsWith("counting.2.to-100")) {
-    const n = intBetween(rng, 1, id.includes("100") ? 40 : 10);
+  if (id === "counting.1.to-10") {
+    const n = intBetween(rng, 1, 10);
+    return {
+      ...item(`Drag ${n} bolts into the box`, n, [`Count the bolts.`, `There are ${n}.`], skill.learnPicture, { op: "add", a: n, b: 0 }),
+      action: "drag-count",
+    };
+  }
+  if (id === "adding.1.to-5") {
+    const a = intBetween(rng, 1, 3);
+    const b = intBetween(rng, 1, 5 - a);
+    return {
+      ...item(`Put both piles in the box`, a + b, [`${a} and ${b} make ${a + b}.`], skill.learnPicture, { op: "add", a, b }),
+      action: "drag-count",
+    };
+  }
+  if (id === "geometry.1.sort-size") {
+    const sizes = [2, 4, 6];
+    return {
+      ...item(`Put the pieces in order from smallest to largest`, sizes.join(","), [`Smallest first.`], skill.learnPicture, {
+        op: "compare",
+        a: sizes[0],
+        b: sizes[2],
+      }),
+      action: "order",
+      sizes,
+    };
+  }
+  if (id.startsWith("counting.2.to-100")) {
+    const n = intBetween(rng, 1, 40);
     return item(`How many?`, n, [`Count the bolts.`, `There are ${n}.`], skill.learnPicture, { op: "add", a: n, b: 0 });
   }
   if (id.includes("compare") || id.includes("longer") || id.includes("colder") || id.includes("heavier")) {
@@ -290,7 +350,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   if (id.includes("primes")) {
     return item(`Is 17 prime?`, "yes", [`17 has only 1 and itself.`], skill.learnPicture, { op: "add", a: 17, b: 0 });
   }
-  if (id.includes("negatives") && skill.answer === "choice") {
+  if (id.includes("negatives")) {
     return item(`Which is colder, -3 or -7?`, "-7", [`-7 is farther below zero.`], skill.learnPicture, { op: "compare", a: -3, b: -7 });
   }
   if (id.includes("integers-add")) {
@@ -517,7 +577,7 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   if (id.includes("sides") || id.includes("triangles-count")) {
     return item(`How many corners?`, "3", [`Count them.`], skill.learnPicture, { op: "add", a: 3, b: 0 });
   }
-  if (id.includes("angles-names") || id.includes("symmetry") || id.includes("longest-side") || id.includes("triangles") && skill.answer === "choice") {
+  if (id.includes("angles-names") || id.includes("symmetry") || id.includes("longest-side") || id.includes("triangles")) {
     return item(`Is this angle right, acute or obtuse?`, "right", [`A square corner.`], skill.learnPicture, { op: "angle", a: 90, b: 90 });
   }
   if (id.includes("angle-sum")) {

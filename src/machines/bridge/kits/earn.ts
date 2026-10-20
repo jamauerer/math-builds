@@ -1,7 +1,7 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
-import { skillHint, skillQuestion, type ChoiceOption } from "../../../skills/generate";
+import { skillHint, skillQuestion, type ActionKind, type ChoiceOption } from "../../../skills/generate";
 import { skillExplain } from "../../../skills/explain";
 import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
@@ -23,11 +23,13 @@ import {
   KIT_SKILLS,
   markLearning,
   markStruggling,
+  maybeBoostStrand,
   newSkill,
   rememberAnswer,
   runPlan,
   skillsFromLevels,
   strandLevelsFrom,
+  timeTargetFor,
   warmUpPlan,
   withState,
   workingLevel,
@@ -74,6 +76,8 @@ export type EarnQuestion = {
   pictureCaption?: string;
   truth?: number;
   choices?: ChoiceOption[];
+  action?: ActionKind;
+  sizes?: number[];
 };
 
 export type EarnState = {
@@ -97,6 +101,8 @@ export type EarnState = {
   steps: number;
   round: number;
   short: boolean;
+  runMisses: number;
+  runFast: boolean;
 };
 
 export const WARMUP_COUNT = 3;
@@ -482,7 +488,24 @@ export function kitQuestionTotal(round = 0, short = false): number {
 }
 
 function slotQuestion(groupId: string, slot: { skillId: string; strandId: string; level: number; mixed?: boolean }, seed: number, hint: boolean): EarnQuestion {
-  const fromSkill = curriculumSkill(slot.skillId) ? skillQuestion(slot.skillId, seed) : plainQuestion(slot.strandId, slot.level, seed);
+  if (curriculumSkill(slot.skillId)) {
+    const fromSkill = skillQuestion(slot.skillId, seed);
+    return {
+      groupId,
+      strandId: slot.strandId,
+      level: slot.level,
+      answer: fromSkill.answer,
+      truth: fromSkill.truth,
+      skillId: slot.skillId,
+      mixed: slot.mixed === true,
+      hint: hint ? skillHint(fromSkill) : undefined,
+      choices: fromSkill.choices,
+      action: fromSkill.action,
+      sizes: fromSkill.sizes,
+      fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
+    };
+  }
+  const fromSkill = plainQuestion(slot.strandId, slot.level, seed);
   return {
     groupId,
     strandId: slot.strandId,
@@ -492,7 +515,6 @@ function slotQuestion(groupId: string, slot: { skillId: string; strandId: string
     skillId: slot.skillId,
     mixed: slot.mixed === true,
     hint: hint ? skillHint(fromSkill) : undefined,
-    choices: "choices" in fromSkill ? fromSkill.choices : undefined,
     fact: { kind: "plain", prompt: fromSkill.prompt, steps: fromSkill.steps, why: fromSkill.why, draw: fromSkill.draw },
   };
 }
@@ -737,6 +759,8 @@ function runState(state: EarnState, groupIndex: number, levels: Record<string, n
     seed: plan.seed,
     seen: plan.seen,
     roundsFailed: 0,
+    runMisses: 0,
+    runFast: true,
   };
 }
 
@@ -746,7 +770,7 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
   const short = roundsAreShort(book, levels);
   const index = focusIndex(earned, round);
   const group = groupAt(index < 0 ? 0 : index);
-  const slots = warmUpPlan(book, WARMUP_COUNT, group.strand, levels);
+  const slots = warmUpPlan(book, WARMUP_COUNT, group.strand, levels, day);
   const allowed = [...new Set(slots.map((slot) => slot.strandId))];
   const plan = takePlan(group.id, slots, seed, [], false, contextFor(book, group.strand, allowed.length > 0 ? allowed : [group.strand], group.id, levels));
   let cleared = book;
@@ -774,6 +798,8 @@ export function blankEarn(levels: Record<string, number> | null, seed = 1, saved
     steps: 0,
     round,
     short,
+    runMisses: 0,
+    runFast: true,
   };
 }
 
@@ -854,9 +880,8 @@ export function startGuided(state: EarnState, levels?: Record<string, number>): 
   if (state.phase !== "learn" || !state.current.skillId) {
     return state;
   }
-  const book = markLearning(state.book, state.current.skillId);
   const group = groupAt(state.groupIndex);
-  const slots = [0, 1, 2].map(() => ({
+  const slots = [0, 1].map(() => ({
     skillId: state.current.skillId ?? "",
     strandId: state.current.strandId,
     level: state.current.level,
@@ -867,16 +892,16 @@ export function startGuided(state: EarnState, levels?: Record<string, number>): 
     state.seed,
     state.seen,
     true,
-    contextFor(book, group.strand, [state.current.strandId], group.id, levels),
+    contextFor(state.book, group.strand, [state.current.strandId], group.id, levels),
   );
   return {
     ...state,
-    book,
     phase: "guided",
     returnPhase: "guided",
     current: plan.current,
     upcoming: plan.upcoming,
     runGot: 0,
+    streak: 0,
     seed: plan.seed,
     seen: plan.seen,
   };
@@ -893,7 +918,7 @@ export function explainQuestion(question: EarnQuestion): { steps: ExplainStep[];
 /** The numbers in a question, so a practice loop can refuse a repeat. */
 export function numberSignature(question: EarnQuestion): string {
   const fact = question.fact;
-  if (fact.kind === "plain") {
+  if (fact.kind === "plain" && fact.draw) {
     const bits = [fact.draw.a, fact.draw.b];
     if (fact.draw.c != null && fact.draw.c !== -1) {
       bits.push(fact.draw.c);
@@ -1147,9 +1172,10 @@ export function answerEarn(
   if (!current || state.phase === "explain" || state.phase === "done" || state.phase === "learn") {
     return { state, correct: false, levels, note: null, marksDelta: 0 };
   }
+  const note = { ms: elapsedMs, day: state.day, mixed: current.mixed === true };
   if (help === true) {
     const returnPhase = state.phase === "word" ? "word" : state.phase === "warmup" ? "warmup" : state.phase === "guided" ? "guided" : "plain";
-    const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), false, true) : state.book;
+    const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), false, true, note) : state.book;
     return {
       correct: false,
       help: true,
@@ -1191,38 +1217,71 @@ export function answerEarn(
     }
     return { correct: true, levels, note: null, marksDelta: 0, state: { ...state, streak, practiceIndex: state.practiceIndex + 1 } };
   }
+  const runMisses = state.phase === "plain" && !correct ? state.runMisses + 1 : state.runMisses;
+  const runFast =
+    state.phase === "plain" && (!correct || (current.skillId ? elapsedMs > timeTargetFor(current.skillId) * 1000 : false))
+      ? false
+      : state.runFast;
   if (!correct) {
     const returnPhase = state.phase === "word" ? "word" : state.phase === "warmup" ? "warmup" : state.phase === "guided" ? "guided" : "plain";
     const book =
       state.phase === "word" && current.skillId
         ? flagWarmUp(state.book, current.skillId)
         : current.skillId
-          ? rememberAnswer(state.book, current.skillId, earnPrompt(current), false)
+          ? rememberAnswer(state.book, current.skillId, earnPrompt(current), false, false, note)
           : state.book;
     return {
       correct: false,
       levels,
       note: null,
       marksDelta: 0,
-      state: { ...state, book, phase: "explain", returnPhase },
+      state: { ...state, book, phase: "explain", returnPhase, streak: 0, runMisses, runFast },
     };
   }
   if (state.phase === "word") {
-    const finished = afterPiece(advanceStep(state), levels, current.groupId);
-    const total = state.timesMs.reduce((sum, time) => sum + time, 0);
-    const nextState = finished.phase === "done" ? { ...finished, speedLine: speedLine(total, previousMs) } : finished;
+    const group = queenPost.groups.find((item) => item.id === current.groupId);
+    const finished = afterPiece(advanceStep({ ...state, runMisses, runFast }), levels, current.groupId);
+    const boosted = maybeBoostStrand(finished.book, levels, group?.strand ?? current.strandId, state.day, state.runMisses === 0 && state.runFast);
+    const nextState = {
+      ...finished,
+      book: boosted.book,
+      speedLine: finished.phase === "done" ? speedLine(state.timesMs.reduce((sum, time) => sum + time, 0), previousMs) : finished.speedLine,
+    };
     return {
       correct: true,
-      levels: fitLevels({ ...levels, ...strandLevelsFrom(nextState.book) }),
+      levels: fitLevels({ ...boosted.levels, ...strandLevelsFrom(nextState.book) }),
       note: null,
       marksDelta: 3,
       state: nextState,
     };
   }
-  const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), true) : state.book;
+  const book = current.skillId ? rememberAnswer(state.book, current.skillId, earnPrompt(current), true, false, note) : state.book;
   const timesMs = [...state.timesMs, elapsedMs];
   const runGot = state.runGot + 1;
-  const counted = advanceStep({ ...state, book, timesMs, runGot });
+  const counted = advanceStep({ ...state, book, timesMs, runGot, runMisses, runFast });
+  if (state.phase === "guided") {
+    const streak = state.streak + 1;
+    if (streak >= 2) {
+      const learned = current.skillId ? markLearning(counted.book, current.skillId) : counted.book;
+      return { correct: true, levels, note: null, marksDelta: 1, state: runState({ ...counted, book: learned, streak: 0 }, state.groupIndex, levels) };
+    }
+    if (state.upcoming.length > 0) {
+      return {
+        correct: true,
+        levels,
+        note: null,
+        marksDelta: 1,
+        state: { ...counted, streak, current: state.upcoming[0], upcoming: state.upcoming.slice(1) },
+      };
+    }
+    const extra = slotQuestion(
+      groupAt(state.groupIndex).id,
+      { skillId: current.skillId ?? "", strandId: current.strandId, level: current.level },
+      counted.seed,
+      true,
+    );
+    return { correct: true, levels, note: null, marksDelta: 1, state: { ...counted, streak, current: extra, upcoming: [] } };
+  }
   if (state.upcoming.length > 0) {
     const next = state.upcoming[0];
     const rest = state.upcoming.slice(1);
@@ -1241,9 +1300,6 @@ export function answerEarn(
   }
   if (state.phase === "warmup") {
     return { correct: true, levels, note: null, marksDelta: 1, state: afterWarmup(counted, levels) };
-  }
-  if (state.phase === "guided") {
-    return { correct: true, levels, note: null, marksDelta: 1, state: runState(counted, state.groupIndex, levels) };
   }
   const group = groupAt(state.groupIndex);
   const level = workingLevel(book, group.strand, levels[group.strand] ?? current.level);
@@ -1302,6 +1358,8 @@ export function skillHold(skillId: string, seed = 3): EarnState {
     truth: item.truth,
     skillId,
     choices: item.choices,
+    action: item.action,
+    sizes: item.sizes,
     fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
   };
   question = withPicture(question);

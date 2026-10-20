@@ -6,11 +6,12 @@
       "id": "counting.1.to-10",
       "strand": "counting",
       "level": 1,
-      "name": "Count to 10",
-      "notation": "\"How many?\" with 1 to 10 bolts",
-      "answer": "whole",
-      "learnPicture": "bolts in a row",
+      "name": "Count to 10 by dragging",
+      "notation": "Drag N bolts into the box",
+      "answer": "drag",
+      "learnPicture": "bolts dragged into a box",
       "kitUse": "gussets, bolts",
+      "timeTarget": 6,
       "prereqs": []
     },
     {
@@ -18,10 +19,11 @@
       "strand": "counting",
       "level": 1,
       "name": "More or fewer",
-      "notation": "\"Which has more?\" two groups, tap one",
+      "notation": "Tap the bigger pile",
       "answer": "choice",
-      "learnPicture": "two rows of bolts",
+      "learnPicture": "two piles of bolts",
       "kitUse": "",
+      "timeTarget": 5,
       "prereqs": [
         "counting.1.to-10"
       ]
@@ -30,12 +32,29 @@
       "id": "counting.1.numerals",
       "strand": "counting",
       "level": 1,
-      "name": "Read a number",
-      "notation": "\"Tap 7\" from 0 to 10",
+      "name": "Match numeral to quantity",
+      "notation": "Tap the pile that matches the numeral",
       "answer": "choice",
-      "learnPicture": "numerals with dots under them",
+      "learnPicture": "numerals with dots",
       "kitUse": "",
-      "prereqs": []
+      "timeTarget": 5,
+      "prereqs": [
+        "counting.1.to-10"
+      ]
+    },
+    {
+      "id": "counting.1.pattern",
+      "strand": "counting",
+      "level": 1,
+      "name": "Finish a pattern",
+      "notation": "Tap the piece that comes next",
+      "answer": "choice",
+      "learnPicture": "bolts in a repeating row",
+      "kitUse": "",
+      "timeTarget": 6,
+      "prereqs": [
+        "counting.1.to-10"
+      ]
     },
     {
       "id": "counting.2.to-100",
@@ -46,6 +65,7 @@
       "answer": "whole",
       "learnPicture": "rows of 10 bolts",
       "kitUse": "bolts",
+      "timeTarget": 5,
       "prereqs": [
         "counting.1.to-10"
       ]
@@ -59,6 +79,7 @@
       "answer": "whole",
       "learnPicture": "bolts in pairs, hands of 5, rows of 10",
       "kitUse": "planks",
+      "timeTarget": 3,
       "prereqs": [
         "counting.2.to-100"
       ]
@@ -72,6 +93,7 @@
       "answer": "whole",
       "learnPicture": "bundles of 10 planks and loose planks",
       "kitUse": "",
+      "timeTarget": 5,
       "prereqs": [
         "counting.2.to-100"
       ]
@@ -85,6 +107,7 @@
       "answer": "choice",
       "learnPicture": "hundreds squares, tens rods, ones",
       "kitUse": "",
+      "timeTarget": 12,
       "prereqs": [
         "counting.2.place-value"
       ]
@@ -98,6 +121,7 @@
       "answer": "whole",
       "learnPicture": "tape measure with 40 and 50 marked",
       "kitUse": "measuring the gap",
+      "timeTarget": 6,
       "prereqs": [
         "counting.2.place-value"
       ]
@@ -111,6 +135,7 @@
       "answer": "whole",
       "learnPicture": "number line with 2300 and 2400",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "counting.3.round-10"
       ]
@@ -124,6 +149,7 @@
       "answer": "choice",
       "learnPicture": "bolts paired up with one left over",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "counting.2.skip-2-5-10"
       ]
@@ -137,6 +163,7 @@
       "answer": "choice",
       "learnPicture": "12 bolts arranged as 1x12, 2x6, 3x4",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -150,6 +177,7 @@
       "answer": "choice",
       "learnPicture": "bolts that only make one row",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "counting.5.factors"
       ]
@@ -163,6 +191,7 @@
       "answer": "choice",
       "learnPicture": "thermometer and number line through zero",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "counting.3.to-1000"
       ]
@@ -176,6 +205,7 @@
       "answer": "whole",
       "learnPicture": "number line jumps left and right",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.6.negatives"
       ]
@@ -189,6 +219,7 @@
       "answer": "whole",
       "learnPicture": "sign rule table",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.7.integers-add"
       ]
@@ -202,6 +233,7 @@
       "answer": "whole",
       "learnPicture": "squares of dots: 1, 4, 9, 16",
       "kitUse": "brace at level 9",
+      "timeTarget": 10,
       "prereqs": [
         "multiplying.5.multi-digit"
       ]
@@ -215,6 +247,7 @@
       "answer": "expression",
       "learnPicture": "place value sliding",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "counting.9.exponents"
       ]
@@ -223,26 +256,14 @@
       "id": "adding.1.to-5",
       "strand": "adding",
       "level": 1,
-      "name": "Add within 5",
-      "notation": "\"2 + 3 = ?\"",
-      "answer": "whole",
+      "name": "Combine two piles",
+      "notation": "Drag both piles into one box",
+      "answer": "drag",
       "learnPicture": "two groups of bolts pushed together",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "counting.1.to-10"
-      ]
-    },
-    {
-      "id": "adding.1.take-away-5",
-      "strand": "adding",
-      "level": 1,
-      "name": "Take away within 5",
-      "notation": "\"5 - 2 = ?\"",
-      "answer": "whole",
-      "learnPicture": "bolts, some crossed out",
-      "kitUse": "",
-      "prereqs": [
-        "adding.1.to-5"
       ]
     },
     {
@@ -254,6 +275,7 @@
       "answer": "whole",
       "learnPicture": "make a ten: 8 + 2, then 5 more",
       "kitUse": "top beam word problem (posts at 2 and 6)",
+      "timeTarget": 3,
       "prereqs": [
         "adding.1.to-5"
       ]
@@ -267,6 +289,7 @@
       "answer": "whole",
       "learnPicture": "count back on the tape, or count up from 9",
       "kitUse": "",
+      "timeTarget": 3,
       "prereqs": [
         "adding.2.to-20"
       ]
@@ -280,6 +303,7 @@
       "answer": "whole",
       "learnPicture": "balance scale with bolts",
       "kitUse": "",
+      "timeTarget": 3,
       "prereqs": [
         "adding.2.to-20"
       ]
@@ -293,6 +317,7 @@
       "answer": "whole",
       "learnPicture": "tens and ones added separately",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "adding.2.to-20",
         "counting.2.place-value"
@@ -307,6 +332,7 @@
       "answer": "whole",
       "learnPicture": "borrowing shown with a rod broken into ones",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "adding.3.to-100"
       ]
@@ -320,6 +346,7 @@
       "answer": "whole",
       "learnPicture": "pairs that make 10 found first",
       "kitUse": "gussets plus bolts",
+      "timeTarget": 6,
       "prereqs": [
         "adding.2.to-20"
       ]
@@ -333,6 +360,7 @@
       "answer": "whole",
       "learnPicture": "column addition with carries",
       "kitUse": "",
+      "timeTarget": 12,
       "prereqs": [
         "adding.3.to-100"
       ]
@@ -346,6 +374,7 @@
       "answer": "choice",
       "learnPicture": "rounding both first",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "counting.3.round-10"
       ]
@@ -359,6 +388,7 @@
       "answer": "whole",
       "learnPicture": "column method",
       "kitUse": "",
+      "timeTarget": 12,
       "prereqs": [
         "adding.4.to-1000"
       ]
@@ -372,6 +402,7 @@
       "answer": "decimal",
       "learnPicture": "tape measure in tenths",
       "kitUse": "brace at level 9 uses it",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.5.decimals-tenths"
       ]
@@ -385,6 +416,7 @@
       "answer": "decimal",
       "learnPicture": "line up the point",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "adding.5.decimals-tenths"
       ]
@@ -398,6 +430,7 @@
       "answer": "fraction",
       "learnPicture": "planks split in eighths",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.4.unit"
       ]
@@ -411,6 +444,7 @@
       "answer": "fraction",
       "learnPicture": "two planks resplit into sixths",
       "kitUse": "",
+      "timeTarget": 15,
       "prereqs": [
         "adding.6.fractions-like",
         "multiplying.5.lcm"
@@ -425,6 +459,7 @@
       "answer": "fraction or whole",
       "learnPicture": "whole planks and parts",
       "kitUse": "",
+      "timeTarget": 15,
       "prereqs": [
         "adding.7.fractions-unlike"
       ]
@@ -438,6 +473,7 @@
       "answer": "decimal",
       "learnPicture": "number line",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.7.integers-add",
         "adding.6.decimals"
@@ -452,6 +488,7 @@
       "answer": "whole",
       "learnPicture": "3 rows of 4 bolts",
       "kitUse": "bolts: 2 per gusset",
+      "timeTarget": 3,
       "prereqs": [
         "adding.2.to-20"
       ]
@@ -465,6 +502,7 @@
       "answer": "whole",
       "learnPicture": "pairs",
       "kitUse": "",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.3.equal-groups"
       ]
@@ -478,6 +516,7 @@
       "answer": "whole",
       "learnPicture": "rows of bolts",
       "kitUse": "bolts",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.3.equal-groups"
       ]
@@ -491,6 +530,7 @@
       "answer": "whole",
       "learnPicture": "rows of bolts, the 10x10 grid",
       "kitUse": "planks: 8 planks x 1 ft",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.4.tables-5"
       ]
@@ -504,6 +544,7 @@
       "answer": "whole",
       "learnPicture": "digits slide left",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -517,6 +558,7 @@
       "answer": "whole",
       "learnPicture": "40 x 6 and 7 x 6 added",
       "kitUse": "beam weight: 12 lb per ft x length",
+      "timeTarget": 12,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -530,6 +572,7 @@
       "answer": "whole",
       "learnPicture": "area model, four boxes",
       "kitUse": "",
+      "timeTarget": 12,
       "prereqs": [
         "multiplying.5.two-by-one"
       ]
@@ -543,6 +586,7 @@
       "answer": "whole",
       "learnPicture": "two skip count rows meeting",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "counting.5.factors"
       ]
@@ -556,6 +600,7 @@
       "answer": "decimal",
       "learnPicture": "area model with tenths",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "multiplying.5.two-by-one",
         "fractions.5.decimals-tenths"
@@ -570,6 +615,7 @@
       "answer": "fraction",
       "learnPicture": "a plank cut two ways",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.4.unit"
       ]
@@ -583,6 +629,7 @@
       "answer": "whole or fraction",
       "learnPicture": "whole planks and halves",
       "kitUse": "",
+      "timeTarget": 15,
       "prereqs": [
         "multiplying.6.fractions"
       ]
@@ -596,6 +643,7 @@
       "answer": "decimal",
       "learnPicture": "sign rule",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.8.integers-multiply"
       ]
@@ -609,6 +657,7 @@
       "answer": "whole",
       "learnPicture": "stacks of 2s",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.9.exponents"
       ]
@@ -622,6 +671,7 @@
       "answer": "whole",
       "learnPicture": "bolts dealt into rows",
       "kitUse": "bottom beams: 8 ft / 2",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.3.equal-groups"
       ]
@@ -635,6 +685,7 @@
       "answer": "whole",
       "learnPicture": "rows of bolts, count a row",
       "kitUse": "",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.4.tables-5"
       ]
@@ -648,6 +699,7 @@
       "answer": "whole",
       "learnPicture": "rows of bolts",
       "kitUse": "bottom beams, planks: 8 ft / 8",
+      "timeTarget": 3,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -661,6 +713,7 @@
       "answer": "whole",
       "learnPicture": "the same rows read both ways",
       "kitUse": "",
+      "timeTarget": 3,
       "prereqs": [
         "dividing.4.facts-10"
       ]
@@ -674,6 +727,7 @@
       "answer": "whole, remainder",
       "learnPicture": "rows of bolts with leftovers",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.4.facts-10"
       ]
@@ -687,6 +741,7 @@
       "answer": "whole",
       "learnPicture": "digits slide right",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "multiplying.4.by-10-100"
       ]
@@ -700,6 +755,7 @@
       "answer": "whole",
       "learnPicture": "the four steps, one at a time",
       "kitUse": "",
+      "timeTarget": 12,
       "prereqs": [
         "dividing.5.remainders"
       ]
@@ -713,6 +769,7 @@
       "answer": "decimal",
       "learnPicture": "tape measure in tenths",
       "kitUse": "brace at level 9: 5.66 / 2",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.6.long",
         "fractions.5.decimals-tenths"
@@ -727,6 +784,7 @@
       "answer": "whole or fraction",
       "learnPicture": "how many halves fit in 3 planks",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "multiplying.6.fractions"
       ]
@@ -740,6 +798,7 @@
       "answer": "whole",
       "learnPicture": "factor rows",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.5.factors"
       ]
@@ -753,6 +812,7 @@
       "answer": "decimal",
       "learnPicture": "sign rule",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "counting.8.integers-multiply"
       ]
@@ -766,6 +826,7 @@
       "answer": "choice",
       "learnPicture": "planks cut in 2 and 4",
       "kitUse": "",
+      "timeTarget": 5,
       "prereqs": [
         "counting.1.to-10"
       ]
@@ -779,6 +840,7 @@
       "answer": "fraction",
       "learnPicture": "plank in thirds, 2 colored",
       "kitUse": "planks: 3 of 8 laid",
+      "timeTarget": 6,
       "prereqs": [
         "fractions.2.halves"
       ]
@@ -792,6 +854,7 @@
       "answer": "choice",
       "learnPicture": "tape measure split in 4",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "fractions.3.name"
       ]
@@ -805,6 +868,7 @@
       "answer": "whole",
       "learnPicture": "one plank, two cuts",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "fractions.4.unit"
       ]
@@ -818,6 +882,7 @@
       "answer": "choice",
       "learnPicture": "two planks side by side",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "fractions.4.equivalent"
       ]
@@ -831,6 +896,7 @@
       "answer": "whole",
       "learnPicture": "12 planks, 9 colored",
       "kitUse": "planks laid",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.4.facts-10"
       ]
@@ -844,6 +910,7 @@
       "answer": "decimal",
       "learnPicture": "tape measure in tenths",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.4.unit"
       ]
@@ -857,6 +924,7 @@
       "answer": "fraction",
       "learnPicture": "regroup the cuts",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.7.gcf or counting.5.factors"
       ]
@@ -870,6 +938,7 @@
       "answer": "decimal",
       "learnPicture": "3/4 of a tape in hundredths",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.6.decimals"
       ]
@@ -883,6 +952,7 @@
       "answer": "fraction",
       "learnPicture": "one whole plank and 3 quarters",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.4.unit"
       ]
@@ -896,6 +966,7 @@
       "answer": "choice",
       "learnPicture": "all on one tape",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "fractions.6.to-decimal"
       ]
@@ -909,6 +980,7 @@
       "answer": "decimal",
       "learnPicture": "long division that never ends",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "dividing.6.decimals"
       ]
@@ -922,6 +994,7 @@
       "answer": "whole",
       "learnPicture": "rows of bolts and planks",
       "kitUse": "bolts per gusset",
+      "timeTarget": 8,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -935,6 +1008,7 @@
       "answer": "whole",
       "learnPicture": "beam split in 4",
       "kitUse": "beam weight per ft",
+      "timeTarget": 8,
       "prereqs": [
         "dividing.4.facts-10"
       ]
@@ -948,6 +1022,7 @@
       "answer": "whole",
       "learnPicture": "100 bolts, 25 colored",
       "kitUse": "load meter: 40 lb of 180",
+      "timeTarget": 10,
       "prereqs": [
         "fractions.5.of-a-number"
       ]
@@ -961,6 +1036,7 @@
       "answer": "whole",
       "learnPicture": "blueprint next to bridge",
       "kitUse": "blueprint",
+      "timeTarget": 10,
       "prereqs": [
         "ratios.6.unit-rate"
       ]
@@ -974,6 +1050,7 @@
       "answer": "whole",
       "learnPicture": "two equal plank splits",
       "kitUse": "teeter totter counterweights",
+      "timeTarget": 10,
       "prereqs": [
         "fractions.4.equivalent"
       ]
@@ -987,6 +1064,7 @@
       "answer": "whole",
       "learnPicture": "load meter growing",
       "kitUse": "heavy goat: 40 lb to 80 lb",
+      "timeTarget": 10,
       "prereqs": [
         "ratios.7.percent"
       ]
@@ -1000,6 +1078,7 @@
       "answer": "whole",
       "learnPicture": "goat on the tape with a clock",
       "kitUse": "goat crossing time",
+      "timeTarget": 10,
       "prereqs": [
         "ratios.6.unit-rate"
       ]
@@ -1013,6 +1092,7 @@
       "answer": "fraction or decimal",
       "learnPicture": "ramp drawn on a grid",
       "kitUse": "mountain ramp",
+      "timeTarget": 10,
       "prereqs": [
         "ratios.7.proportion"
       ]
@@ -1026,6 +1106,7 @@
       "answer": "whole",
       "learnPicture": "two braces, small and large",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "ratios.7.proportion",
         "geometry.8.triangles"
@@ -1036,10 +1117,23 @@
       "strand": "measuring",
       "level": 1,
       "name": "Longer or shorter",
-      "notation": "\"Which beam is longer?\"",
+      "notation": "Tap the longer beam",
       "answer": "choice",
       "learnPicture": "two beams",
       "kitUse": "pre-cut pieces",
+      "timeTarget": 5,
+      "prereqs": []
+    },
+    {
+      "id": "measuring.1.heavier",
+      "strand": "measuring",
+      "level": 1,
+      "name": "Heavier or lighter",
+      "notation": "Tap the heavier pile",
+      "answer": "choice",
+      "learnPicture": "two bags on a scale",
+      "kitUse": "",
+      "timeTarget": 5,
       "prereqs": []
     },
     {
@@ -1051,6 +1145,7 @@
       "answer": "whole",
       "learnPicture": "tape measure, whole units",
       "kitUse": "every length in Assemble",
+      "timeTarget": 5,
       "prereqs": [
         "counting.1.to-10"
       ]
@@ -1064,6 +1159,7 @@
       "answer": "whole",
       "learnPicture": "two posts on the tape",
       "kitUse": "top beam",
+      "timeTarget": 5,
       "prereqs": [
         "adding.2.subtract-20"
       ]
@@ -1077,6 +1173,7 @@
       "answer": "whole",
       "learnPicture": "railing around a deck",
       "kitUse": "railing: both sides of 8 ft",
+      "timeTarget": 6,
       "prereqs": [
         "adding.3.three-numbers"
       ]
@@ -1090,6 +1187,7 @@
       "answer": "whole",
       "learnPicture": "goat on a scale",
       "kitUse": "load meter",
+      "timeTarget": 6,
       "prereqs": [
         "adding.3.to-100"
       ]
@@ -1103,6 +1201,7 @@
       "answer": "whole",
       "learnPicture": "planks laid in a grid",
       "kitUse": "deck area",
+      "timeTarget": 6,
       "prereqs": [
         "multiplying.4.tables-10"
       ]
@@ -1116,6 +1215,7 @@
       "answer": "whole",
       "learnPicture": "tape with both scales",
       "kitUse": "US and metric toggle",
+      "timeTarget": 6,
       "prereqs": [
         "multiplying.4.by-10-100"
       ]
@@ -1129,6 +1229,7 @@
       "answer": "decimal",
       "learnPicture": "tape in tenths",
       "kitUse": "brace 2.83",
+      "timeTarget": 8,
       "prereqs": [
         "fractions.5.decimals-tenths"
       ]
@@ -1142,6 +1243,7 @@
       "answer": "choice",
       "learnPicture": "clock",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "adding.3.to-100"
       ]
@@ -1155,6 +1257,7 @@
       "answer": "whole",
       "learnPicture": "stacked bricks",
       "kitUse": "abutments",
+      "timeTarget": 8,
       "prereqs": [
         "measuring.4.area"
       ]
@@ -1168,6 +1271,7 @@
       "answer": "choice",
       "learnPicture": "protractor on the truss",
       "kitUse": "braces",
+      "timeTarget": 8,
       "prereqs": [
         "geometry.4.angles-names"
       ]
@@ -1181,6 +1285,7 @@
       "answer": "decimal",
       "learnPicture": "a wheel rolled out on the tape",
       "kitUse": "bicycle, gears",
+      "timeTarget": 10,
       "prereqs": [
         "multiplying.6.decimals"
       ]
@@ -1194,6 +1299,7 @@
       "answer": "whole",
       "learnPicture": "deck plus landing",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "measuring.4.area"
       ]
@@ -1202,12 +1308,27 @@
       "id": "geometry.1.shapes",
       "strand": "geometry",
       "level": 1,
-      "name": "Name a shape",
-      "notation": "\"Tap the triangle\"",
+      "name": "Tap the shape",
+      "notation": "Tap the named shape",
       "answer": "choice",
       "learnPicture": "shapes made of beams",
       "kitUse": "",
+      "timeTarget": 5,
       "prereqs": []
+    },
+    {
+      "id": "geometry.1.sort-size",
+      "strand": "geometry",
+      "level": 1,
+      "name": "Sort by size",
+      "notation": "Order the pieces from smallest to largest",
+      "answer": "drag",
+      "learnPicture": "three pieces of different sizes",
+      "kitUse": "",
+      "timeTarget": 6,
+      "prereqs": [
+        "geometry.1.shapes"
+      ]
     },
     {
       "id": "geometry.2.sides",
@@ -1218,6 +1339,7 @@
       "answer": "whole",
       "learnPicture": "a gusset plate, a truss panel",
       "kitUse": "gussets at corners",
+      "timeTarget": 5,
       "prereqs": [
         "counting.1.to-10"
       ]
@@ -1231,6 +1353,7 @@
       "answer": "whole",
       "learnPicture": "the truss",
       "kitUse": "brace at level 3",
+      "timeTarget": 6,
       "prereqs": [
         "geometry.1.shapes"
       ]
@@ -1244,6 +1367,7 @@
       "answer": "choice",
       "learnPicture": "brace against post",
       "kitUse": "brace",
+      "timeTarget": 6,
       "prereqs": [
         "geometry.2.sides"
       ]
@@ -1257,6 +1381,7 @@
       "answer": "choice",
       "learnPicture": "the truss, folded",
       "kitUse": "",
+      "timeTarget": 6,
       "prereqs": [
         "geometry.1.shapes"
       ]
@@ -1270,6 +1395,7 @@
       "answer": "choice",
       "learnPicture": "brace, post, beam as a triangle",
       "kitUse": "brace at level 5",
+      "timeTarget": 12,
       "prereqs": [
         "geometry.4.angles-names"
       ]
@@ -1283,6 +1409,7 @@
       "answer": "whole",
       "learnPicture": "the brace triangle",
       "kitUse": "brace at level 6",
+      "timeTarget": 8,
       "prereqs": [
         "measuring.6.angles"
       ]
@@ -1296,6 +1423,7 @@
       "answer": "choice",
       "learnPicture": "truss nodes on a grid",
       "kitUse": "blueprint nodes",
+      "timeTarget": 10,
       "prereqs": [
         "counting.6.negatives"
       ]
@@ -1309,6 +1437,7 @@
       "answer": "choice",
       "learnPicture": "two braces mirrored",
       "kitUse": "braces",
+      "timeTarget": 10,
       "prereqs": [
         "geometry.6.angle-sum"
       ]
@@ -1322,6 +1451,7 @@
       "answer": "decimal (1 place) or whole",
       "learnPicture": "real squares drawn on each leg",
       "kitUse": "brace at level 9: sqrt(2^2 + 2^2)",
+      "timeTarget": 15,
       "prereqs": [
         "counting.9.exponents"
       ]
@@ -1335,6 +1465,7 @@
       "answer": "whole or decimal",
       "learnPicture": "triangle under the line",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "geometry.9.pythagoras",
         "geometry.7.coordinates"
@@ -1349,6 +1480,7 @@
       "answer": "whole",
       "learnPicture": "truss panel",
       "kitUse": "truss panel",
+      "timeTarget": 18,
       "prereqs": [
         "measuring.4.area"
       ]
@@ -1362,6 +1494,7 @@
       "answer": "decimal",
       "learnPicture": "brace triangle with the angle marked",
       "kitUse": "brace at level 11",
+      "timeTarget": 15,
       "prereqs": [
         "geometry.9.pythagoras"
       ]
@@ -1375,6 +1508,7 @@
       "answer": "choice",
       "learnPicture": "two triangles with marks",
       "kitUse": "",
+      "timeTarget": 15,
       "prereqs": [
         "geometry.8.triangles"
       ]
@@ -1388,6 +1522,7 @@
       "answer": "decimal",
       "learnPicture": "gear tooth arc",
       "kitUse": "gears",
+      "timeTarget": 18,
       "prereqs": [
         "measuring.7.circles"
       ]
@@ -1401,6 +1536,7 @@
       "answer": "decimal",
       "learnPicture": "force arrows on the truss",
       "kitUse": "who is working hardest",
+      "timeTarget": 18,
       "prereqs": [
         "geometry.11.trig-ratios"
       ]
@@ -1414,6 +1550,7 @@
       "answer": "whole",
       "learnPicture": "balance scale with bolts",
       "kitUse": "top beam as x",
+      "timeTarget": 8,
       "prereqs": [
         "adding.2.missing"
       ]
@@ -1427,6 +1564,7 @@
       "answer": "whole",
       "learnPicture": "planks laid in a growing pattern",
       "kitUse": "",
+      "timeTarget": 8,
       "prereqs": [
         "counting.2.skip-2-5-10"
       ]
@@ -1440,6 +1578,7 @@
       "answer": "whole",
       "learnPicture": "balance, same move on both sides",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.6.unknown"
       ]
@@ -1453,6 +1592,7 @@
       "answer": "whole",
       "learnPicture": "substitute the bolt count",
       "kitUse": "",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.6.unknown"
       ]
@@ -1466,6 +1606,7 @@
       "answer": "whole",
       "learnPicture": "balance in two moves",
       "kitUse": "brace length as x",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.7.one-step"
       ]
@@ -1479,6 +1620,7 @@
       "answer": "choice",
       "learnPicture": "number line shaded",
       "kitUse": "load limit: 40x < 180",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.7.one-step"
       ]
@@ -1492,6 +1634,7 @@
       "answer": "whole",
       "learnPicture": "ramp line on a grid",
       "kitUse": "ramp",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.7.expressions",
         "ratios.9.slope"
@@ -1506,6 +1649,7 @@
       "answer": "fraction or decimal",
       "learnPicture": "grid with the ramp",
       "kitUse": "ramp",
+      "timeTarget": 10,
       "prereqs": [
         "algebra.9.linear"
       ]
@@ -1519,6 +1663,7 @@
       "answer": "whole pair",
       "learnPicture": "two lines crossing",
       "kitUse": "teeter totter: two weights",
+      "timeTarget": 15,
       "prereqs": [
         "algebra.9.linear"
       ]
@@ -1532,6 +1677,7 @@
       "answer": "expression",
       "learnPicture": "area model",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "algebra.8.two-step"
       ]
@@ -1545,6 +1691,7 @@
       "answer": "whole pair",
       "learnPicture": "parabola, the catapult arc",
       "kitUse": "catapult",
+      "timeTarget": 15,
       "prereqs": [
         "algebra.10.distribute",
         "counting.9.exponents"
@@ -1559,6 +1706,7 @@
       "answer": "whole",
       "learnPicture": "input and output machine",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "algebra.7.expressions"
       ]
@@ -1572,6 +1720,7 @@
       "answer": "whole",
       "learnPicture": "doubling bolts",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "algebra.11.functions"
       ]
@@ -1585,6 +1734,7 @@
       "answer": "expression",
       "learnPicture": "factor and cancel",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "algebra.10.distribute"
       ]
@@ -1598,6 +1748,7 @@
       "answer": "fraction or decimal",
       "learnPicture": "unit circle as a wheel",
       "kitUse": "bicycle crank",
+      "timeTarget": 15,
       "prereqs": [
         "geometry.11.trig-ratios"
       ]
@@ -1611,6 +1762,7 @@
       "answer": "whole",
       "learnPicture": "planks stacked in a staircase",
       "kitUse": "",
+      "timeTarget": 18,
       "prereqs": [
         "algebra.6.patterns"
       ]

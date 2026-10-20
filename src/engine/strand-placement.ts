@@ -131,6 +131,15 @@ export function settledLevels(correctAt: readonly number[]): Record<string, numb
   return fitLevels(levels);
 }
 
+/** Practice starts one level below where the staircase settled. */
+export function learnStartLevels(settled: Record<string, number>): Record<string, number> {
+  const next: Record<string, number> = {};
+  for (const id of KIT_STRANDS) {
+    next[id] = Math.max(MIN_LEVEL, (settled[id] ?? MIN_LEVEL) - 1);
+  }
+  return fitLevels(next);
+}
+
 export function adaptiveAnswer(run: AdaptiveRun, correct: boolean): { run: AdaptiveRun; levels: Record<string, number> | null } {
   if (run.done) {
     return { run, levels: settledLevels(run.correctAt) };

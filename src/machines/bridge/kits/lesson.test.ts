@@ -28,7 +28,12 @@ describe("lesson structure", () => {
     expect(fresh.earned).toEqual([]);
     const guided = startGuided(fresh);
     expect(guided.phase).toBe("guided");
-    expect(guided.book.skills[fresh.current.skillId ?? ""].state).toBe("learning");
+    expect(guided.book.skills[fresh.current.skillId ?? ""].state).toBe("new");
+    const first = answerEarn(guided, guided.current.answer, levels);
+    expect(first.state.book.skills[fresh.current.skillId ?? ""].state).toBe("new");
+    const second = answerEarn(first.state, first.state.current.answer, levels);
+    expect(second.state.book.skills[fresh.current.skillId ?? ""].state).toBe("learning");
+    expect(second.state.phase).toBe("plain");
     expect(earnPrompt(guided.current).toLowerCase()).not.toContain("level");
 
     let book = skillsFromLevels(levels);
@@ -131,16 +136,18 @@ describe("lesson structure", () => {
     }
   });
 
-  it("masters a skill only across three different days", () => {
+  it("moves a skill to practicing after 4 of 5, not to fluent", () => {
     const skill = currentSkill(skillsFromLevels(levels), "dividing", 4);
     let book = withState(skillsFromLevels(levels), skill.id, "learning");
     book = noteSession(book, skill.id, "2026-10-01", 4, 5);
     book = noteSession(book, skill.id, "2026-10-01", 4, 5);
     book = noteSession(book, skill.id, "2026-10-01", 4, 5);
-    expect(book.skills[skill.id].state).not.toBe("mastered");
+    expect(book.skills[skill.id].state).toBe("practicing");
     book = noteSession(book, skill.id, "2026-10-02", 4, 5);
-    expect(book.skills[skill.id].state).not.toBe("mastered");
+    expect(book.skills[skill.id].state).toBe("practicing");
     book = noteSession(book, skill.id, "2026-10-03", 5, 5);
-    expect(book.skills[skill.id].state).toBe("mastered");
+    expect(book.skills[skill.id].state).toBe("practicing");
+    expect(book.skills[skill.id].state).not.toBe("fluent");
+    expect(book.skills[skill.id].state).not.toBe("mastered");
   });
 });

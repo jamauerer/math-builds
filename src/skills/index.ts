@@ -27,6 +27,7 @@ export type CurriculumSkill = {
   learnPicture: string;
   learnPictureKind: LearnPictureKind;
   kitUse: string;
+  timeTarget: number;
   prereqs: string[];
 };
 
@@ -40,6 +41,9 @@ function answerKind(raw: string): AnswerKind {
   const text = raw.toLowerCase();
   if (text.includes("choice")) {
     return "choice";
+  }
+  if (text.includes("drag") || text.includes("order")) {
+    return "whole";
   }
   if (text.includes("expression")) {
     return "expression";
@@ -104,6 +108,7 @@ export const CURRICULUM_SKILLS: CurriculumSkill[] = graph.skills.map((skill) => 
   learnPicture: skill.learnPicture,
   learnPictureKind: pictureKind(skill.learnPicture),
   kitUse: skill.kitUse,
+  timeTarget: typeof skill.timeTarget === "number" && skill.timeTarget > 0 ? skill.timeTarget : skill.level <= 2 ? 5 : 8,
   prereqs: skill.prereqs,
 }));
 

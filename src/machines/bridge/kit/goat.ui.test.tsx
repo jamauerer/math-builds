@@ -66,7 +66,8 @@ describe("goat bridge screens", () => {
     expect(container.textContent).toContain("Round 1 of 3");
     expect(container.textContent).toContain("The goat waits on the bank.");
     expect(container.querySelector(".gk-qpic")).toBeNull();
-    expect(container.querySelector(".gk-keys")?.textContent).not.toContain(".");
+    expect(container.querySelector(".gk-keys")).toBeNull();
+    expect(container.querySelector("[data-action='drag-count'], [data-action='order'], [data-choices]")).toBeTruthy();
     root.unmount();
     container.remove();
   });
