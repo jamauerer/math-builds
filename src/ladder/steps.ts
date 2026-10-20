@@ -128,9 +128,22 @@ export function gradeCap(op: LadderOp, grade: number | "unsure" | null | undefin
   return op === "A" ? 18 : op === "S" ? 15 : op === "M" ? 13 : 10;
 }
 
+export function opStrand(op: LadderOp): string {
+  if (op === "S") {
+    return "subtracting";
+  }
+  if (op === "M") {
+    return "multiplying";
+  }
+  if (op === "D") {
+    return "dividing";
+  }
+  return "adding";
+}
+
 export function strandAllowed(strandId: string, grade: number | "unsure" | null | undefined): boolean {
   const g = gradeNumber(grade);
-  if (strandId === "adding") {
+  if (strandId === "adding" || strandId === "subtracting") {
     return true;
   }
   if (strandId === "multiplying") {
@@ -150,7 +163,39 @@ export function stepAllowed(step: LadderStep, grade: number | "unsure" | null | 
 }
 
 export function legalSteps(grade: number | "unsure" | null | undefined): LadderStep[] {
-  return LADDER_STEPS.filter((step) => stepAllowed(step, grade));
+  const allowed = LADDER_STEPS.filter((step) => stepAllowed(step, grade));
+  const byOp: Record<LadderOp, LadderStep[]> = { A: [], S: [], M: [], D: [] };
+  for (const step of allowed) {
+    byOp[step.op].push(step);
+  }
+  const mixed: LadderStep[] = [];
+  const longest = Math.max(byOp.A.length, byOp.S.length, byOp.M.length, byOp.D.length);
+  for (let index = 0; index < longest; index += 1) {
+    for (const op of ["A", "S", "M", "D"] as const) {
+      if (byOp[op][index]) {
+        mixed.push(byOp[op][index]);
+      }
+    }
+  }
+  return mixed;
+}
+
+/** Steps this grade may serve that the profile has already opened. */
+export function reachedSteps(grade: number | "unsure" | null | undefined, levels?: Record<string, number> | null): LadderStep[] {
+  return legalSteps(grade).filter((step) => {
+    if (!levels) {
+      return true;
+    }
+    const placed =
+      step.op === "S"
+        ? (levels.subtracting ?? levels.adding ?? step.level)
+        : step.op === "A"
+          ? (levels.adding ?? step.level)
+          : step.op === "M"
+            ? (levels.multiplying ?? 0)
+            : (levels.dividing ?? 0);
+    return step.level <= placed;
+  });
 }
 
 export function startStep(op: LadderOp, grade: number | "unsure" | null | undefined): LadderStep {

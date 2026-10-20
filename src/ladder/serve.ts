@@ -5,6 +5,7 @@ import {
   gradeNumber,
   ladderStep,
   legalSteps,
+  opStrand,
   stepAllowed,
   strandAllowed,
   type LadderOp,
@@ -40,7 +41,7 @@ function toServed(item: LadderItem, kind: ServedKind): ServedQuestion {
   return {
     stepId: item.stepId,
     skillId: item.skillId,
-    strandId: step?.op === "M" ? "multiplying" : step?.op === "D" ? "dividing" : "adding",
+    strandId: step ? opStrand(step.op) : "adding",
     level: step?.level ?? 1,
     prompt: item.prompt,
     answer: item.answer,

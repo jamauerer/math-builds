@@ -189,6 +189,7 @@ export function strandName(id: string): string {
   const names: Record<string, string> = {
     measuring: "Measuring",
     adding: "Adding",
+    subtracting: "Subtracting",
     multiplying: "Multiplying",
     dividing: "Dividing",
     fractions: "Fractions",

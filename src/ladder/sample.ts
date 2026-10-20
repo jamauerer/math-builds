@@ -27,11 +27,10 @@ export function sampleLearnerQuestions(grade: number, seed = 1): SampleLine[] {
     place = ladderPlaceAnswer(place, grade, lines.length % 3 !== 0);
   }
   const settled = settleLadder(place, grade);
-  const book = withState(
-    withState(skillsFromLevels(settled.levels, "2026-10-20"), legalSteps(grade)[0]?.skillId ?? "adding.1.a1", "practicing"),
-    legalSteps(grade)[1]?.skillId ?? "adding.1.s1",
-    "practicing",
-  );
+  const legal = legalSteps(grade);
+  const firstAdd = legal.find((step) => step.op === "A")?.skillId ?? "adding.1.a1";
+  const firstSub = legal.find((step) => step.op === "S")?.skillId ?? "adding.1.s1";
+  const book = withState(withState(skillsFromLevels(settled.levels, "2026-10-20"), firstAdd, "practicing"), firstSub, "practicing");
   let state = blankEarn(settled.levels, seed + 20, book, "2026-10-20", 0, grade);
   let guard = 0;
   while (lines.length < 60 && guard < 80) {

@@ -3,10 +3,10 @@ import { answerEarn, blankEarn, currentQuestion, startGuided } from "../machines
 import { queenPost } from "../machines/bridge/kits/kit";
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk } from "./place";
 import { serveQuestion } from "./serve";
-import { LADDER_STEPS, legalSteps } from "./steps";
+import { LADDER_STEPS, legalSteps, reachedSteps } from "./steps";
 
 describe("grade cap", () => {
-  it("grade 1: 2000 served questions stay inside A13/S11 and adding only", () => {
+  it("grade 1: 2000 served questions stay inside A13/S11, with both operations", { timeout: 20_000 }, () => {
     const grade = 1;
     const served: { prompt: string; stepId?: string; strandId: string }[] = [];
     let place = beginLadderPlace(grade);
@@ -14,6 +14,13 @@ describe("grade cap", () => {
       const question = ladderPlaceAsk(place, grade, served.length + 1);
       served.push(question);
       place = ladderPlaceAnswer(place, grade, served.length % 3 !== 0);
+    }
+    const placedOps = new Set(served.map((question) => LADDER_STEPS.find((step) => step.id === question.stepId)?.op));
+    expect(placedOps.has("A")).toBe(true);
+    expect(placedOps.has("S")).toBe(true);
+    const reached = reachedSteps(grade);
+    for (const step of reached) {
+      served.push(serveQuestion({ grade, step, seed: 50 + step.n * 3 + (step.op === "S" ? 100 : 0), kind: "run" }));
     }
     for (let round = 0; round < 5 && served.length < 2000; round += 1) {
       for (let i = 0; i < 15 && served.length < 2000; i += 1) {
@@ -39,15 +46,23 @@ describe("grade cap", () => {
       seed += 1;
     }
     expect(served).toHaveLength(2000);
+    const ids = served.map((question) => question.stepId ?? "");
+    const subtract = served.filter((question) => LADDER_STEPS.find((step) => step.id === question.stepId)?.op === "S");
+    expect(subtract.length / served.length).toBeGreaterThanOrEqual(0.3);
+    for (const step of reached) {
+      expect(ids, `missing ${step.id}`).toContain(step.id);
+    }
     for (const question of served) {
-      expect(question.strandId, question.prompt).toBe("adding");
+      expect(["adding", "subtracting"], question.prompt).toContain(question.strandId);
       const step = LADDER_STEPS.find((item) => item.id === question.stepId);
       expect(step, question.prompt).toBeTruthy();
       if (step?.op === "A") {
         expect(step.n, question.stepId).toBeLessThanOrEqual(13);
+        expect(question.strandId).toBe("adding");
       }
       if (step?.op === "S") {
         expect(step.n, question.stepId).toBeLessThanOrEqual(11);
+        expect(question.strandId).toBe("subtracting");
       }
       expect(step?.op === "A" || step?.op === "S", question.stepId).toBe(true);
     }
@@ -77,6 +92,8 @@ describe("grade cap", () => {
       }
     }
     expect(served.length).toBeGreaterThan(20);
+    const reached = reachedSteps(grade, levels);
+    expect(served.some((id) => reached.some((step) => step.op === "S" && (step.id === id || step.skillId === id)))).toBe(true);
     for (const id of served) {
       const step = LADDER_STEPS.find((item) => item.id === id || item.skillId === id);
       expect(step, id).toBeTruthy();

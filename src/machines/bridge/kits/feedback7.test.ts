@@ -84,7 +84,7 @@ describe("feedback 7", () => {
       if (!question) {
         break;
       }
-      if (question.strandId === "adding") {
+      if (question.strandId === "adding" || question.strandId === "subtracting") {
         expect(question.level).toBeGreaterThanOrEqual(2);
       }
       state = answerEarn(state, question.answer, levels).state;

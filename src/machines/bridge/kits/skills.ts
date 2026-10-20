@@ -195,11 +195,25 @@ export function newSkill(book: SkillBook, strandId: string, level: number): KitS
 }
 
 export function currentSkill(book: SkillBook, strandId: string, level: number): KitSkill {
+  return currentSkillForOp(book, strandId, level) ?? KIT_SKILLS[0];
+}
+
+function skillOp(skill: KitSkill): string | undefined {
+  return ladderStep(skill.id)?.op;
+}
+
+export function currentSkillForOp(book: SkillBook, strandId: string, level: number, op?: "A" | "S"): KitSkill | null {
   let at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === level);
+  if (op) {
+    at = at.filter((skill) => skillOp(skill) === op);
+  }
   if (at.length === 0) {
-    const levels = KIT_SKILLS.filter((skill) => skill.strandId === strandId).map((skill) => skill.level);
-    const nearest = levels.sort((a, b) => Math.abs(a - level) - Math.abs(b - level))[0] ?? 1;
-    at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === nearest);
+    const levels = KIT_SKILLS.filter((skill) => skill.strandId === strandId && (!op || skillOp(skill) === op)).map((skill) => skill.level);
+    const nearest = levels.sort((a, b) => Math.abs(a - level) - Math.abs(b - level))[0];
+    if (nearest == null) {
+      return op ? null : KIT_SKILLS[0];
+    }
+    at = KIT_SKILLS.filter((skill) => skill.strandId === strandId && skill.level === nearest && (!op || skillOp(skill) === op));
   }
   const rank: SkillStateName[] = ["learning", "practicing", "new", "fluent", "mastered"];
   for (const state of rank) {
@@ -208,7 +222,7 @@ export function currentSkill(book: SkillBook, strandId: string, level: number): 
       return found;
     }
   }
-  return at[0] ?? KIT_SKILLS[0];
+  return at[0] ?? null;
 }
 
 function dueEvery(skillId: string): number {
@@ -252,8 +266,8 @@ export function warmUpPlan(
   const recentMastered = [...mastered].sort((left, right) => right.level - left.level);
   const includeMastered = book.session % 2 === 1 && recentMastered.length > 0;
   const pieceLevel = workingLevel(book, pieceStrand, levels?.[pieceStrand]);
-  const piece = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === pieceLevel && legal(skill));
-  let fill = recentMastered.length > 0 ? recentMastered : piece;
+  const piece = interleaveOps(KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && skill.level === pieceLevel && legal(skill)));
+  let fill = recentMastered.length > 0 ? interleaveOps(recentMastered) : piece;
   if (fill.length === 0) {
     fill = KIT_SKILLS.filter((skill) => skill.strandId === pieceStrand && legal(skill));
   }
@@ -281,13 +295,35 @@ export function warmUpPlan(
 
 export type RunSlot = { skillId: string; strandId: string; level: number; mixed: boolean };
 
-/** Every question in a piece run is that piece's strand, at the learner's working level. */
+function interleaveOps(skills: KitSkill[]): KitSkill[] {
+  const add = skills.filter((skill) => skillOp(skill) !== "S");
+  const sub = skills.filter((skill) => skillOp(skill) === "S");
+  if (sub.length === 0 || add.length === 0) {
+    return skills;
+  }
+  const mixed: KitSkill[] = [];
+  const longest = Math.max(add.length, sub.length);
+  for (let index = 0; index < longest; index += 1) {
+    if (add[index]) {
+      mixed.push(add[index]);
+    }
+    if (sub[index]) {
+      mixed.push(sub[index]);
+    }
+  }
+  return mixed;
+}
+
+/** Every question in a piece run is that piece's strand, at the learner's working level. Adding mixes in subtracting. */
 export function runPlan(book: SkillBook, strandId: string, level: number, length: number, seed: number): RunSlot[] {
-  void seed;
   const focus = currentSkill(book, strandId, level);
+  const add = strandId === "adding" ? currentSkillForOp(book, strandId, level, "A") : null;
+  const sub = strandId === "adding" ? currentSkillForOp(book, strandId, level, "S") : null;
   const slots: RunSlot[] = [];
   for (let index = 0; index < length; index += 1) {
-    slots.push({ skillId: focus.id, strandId: focus.strandId, level: focus.level, mixed: false });
+    const useSub = Boolean(sub) && (index + seed) % 3 === 0;
+    const skill = (useSub ? sub : add) ?? focus;
+    slots.push({ skillId: skill.id, strandId: skill.strandId, level: skill.level, mixed: false });
   }
   return slots;
 }

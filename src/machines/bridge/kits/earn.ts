@@ -654,14 +654,28 @@ function contextFor(
   return { book, pieceStrand, allowed, groupId, levels: known, grade, kind };
 }
 
+function familyAllowed(strandId: string, allowed: string[]): boolean {
+  if (allowed.includes(strandId)) {
+    return true;
+  }
+  return (strandId === "adding" || strandId === "subtracting") && (allowed.includes("adding") || allowed.includes("subtracting"));
+}
+
+function placedLevel(levels: Record<string, number>, strandId: string): number {
+  if (strandId === "subtracting") {
+    return levels.subtracting ?? levels.adding ?? 1;
+  }
+  return levels[strandId] ?? 1;
+}
+
 /** One door for every served question. A miss logs the whole context and a legal question goes out instead. */
 export function guardQuestion(question: EarnQuestion, context: GuardContext, seed: number, hint: boolean): EarnQuestion {
-  const learner = context.levels[question.strandId] ?? 1;
+  const learner = placedLevel(context.levels, question.strandId);
   const remapped =
     Boolean(question.skillId) &&
     !questionAboveCap(question.skillId ?? "", context.grade) &&
     !strandAllowed(context.pieceStrand, context.grade);
-  const strandOk = Boolean(question.word) || context.allowed.includes(question.strandId) || remapped;
+  const strandOk = Boolean(question.word) || familyAllowed(question.strandId, context.allowed) || remapped;
   const levelOk = question.level <= learner + 1 && question.level >= learner - 2;
   if (strandOk && levelOk) {
     return question;

@@ -42,12 +42,13 @@ describe("level guard", () => {
     }
     expect(served.length).toBeGreaterThanOrEqual(100);
     for (const question of served.slice(0, 100)) {
-      const learner = placed[question.strandId] ?? 1;
+      const learner = question.strandId === "subtracting" ? (placed.adding ?? 1) : (placed[question.strandId] ?? 1);
       expect(question.level).toBeLessThanOrEqual(learner + 1);
       if (question.phase === "warmup") {
         expect(question.level).toBeLessThanOrEqual(learner + 1);
       } else if (question.phase !== "word") {
-        expect(question.strandId).toBe(question.piece);
+        const sameFamily = question.piece === "adding" && question.strandId === "subtracting";
+        expect(question.strandId === question.piece || sameFamily).toBe(true);
       }
       expect(question.prompt.toLowerCase()).not.toContain("legs 4 and 5");
     }
