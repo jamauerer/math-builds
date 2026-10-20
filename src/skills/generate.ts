@@ -138,9 +138,9 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
       why,
       { op: "frac", a: 1, b: 2, c: 2 },
       [
-        picOpt("half", { op: "frac", a: 1, b: 2, c: 2 }, "2 equal"),
-        picOpt("third", { op: "frac", a: 1, b: 3, c: 3 }, "3 equal"),
-        picOpt("unequal", { op: "frac", a: 1, b: 2, c: -2 }, "2 unequal"),
+        picOpt("half", { op: "frac", a: 1, b: 2, c: 2 }),
+        picOpt("third", { op: "frac", a: 1, b: 3, c: 3 }),
+        picOpt("unequal", { op: "frac", a: 1, b: 2, c: -2 }),
       ],
       rng,
     );
@@ -163,7 +163,7 @@ function makeChoice(skill: CurriculumSkill, rng: Rng): SkillItem {
       [`${a} is longer than ${b}.`],
       why,
       { op: "compare", a, b },
-      [picOpt(String(a), { op: "compare", a, b: 0 }, `${a}`), picOpt(String(b), { op: "compare", a: b, b: 0 }, `${b}`)],
+      [picOpt(String(a), { op: "compare", a, b: 0 }), picOpt(String(b), { op: "compare", a: b, b: 0 })],
       rng,
     );
   }
@@ -580,22 +580,8 @@ function make(skill: CurriculumSkill, rng: Rng): SkillItem {
   return item(`${a} + ${b} = ?`, a + b, [`${a} + ${b}.`], skill.learnPicture, { op: "add", a, b });
 }
 
-export function skillExplain(skillId: string, prompt: string, answer: string): { steps: string[]; why: string } {
-  const skill = curriculumSkill(skillId);
-  const why = skill ? `${skill.name}: ${skill.learnPicture}.` : "Use the numbers in the question.";
-  const numbers = prompt.match(/-?\d+(\.\d+)?/g) ?? [];
-  const steps = [
-    numbers[0] ? `Start with ${numbers[0]}.` : "Read the question.",
-    numbers[1] ? `Use ${numbers[1]} next.` : "Use the given numbers.",
-    `That comes to ${answer}.`,
-  ];
-  for (const number of numbers.slice(2)) {
-    if (!steps.some((step) => step.includes(number))) {
-      steps[0] = `${number}. ${steps[0]}`;
-    }
-  }
-  return { steps, why };
-}
+export { skillExplain, explanationMatchesLearn } from "./explain";
+export type { ExplainStep } from "../machines/bridge/kits/explain";
 
 export function skillLearnLine(skillId: string, seed = 1): { title: string; line: string; kind: string; draw: PlainDraw } {
   const skill = curriculumSkill(skillId);

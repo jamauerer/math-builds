@@ -205,7 +205,8 @@ export function GoatKit({
   });
   const [earn, setEarn] = useState<EarnState>(() => {
     if (skill) {
-      return skillHold(skill, skillSeed ?? 3);
+      const held = skillHold(skill, skillSeed ?? 3);
+      return start === "explain" ? { ...held, phase: "explain", returnPhase: "explain" } : held;
     }
     if (picture) {
       return picturedHold(picture, savedLevels?.[picture] ?? level ?? 4);
@@ -1636,7 +1637,7 @@ function AnswerPad({
 
 function ChoiceFace({ option }: { option: ChoiceOption }) {
   if (option.kind === "picture" && option.draw) {
-    return <ChoicePicture draw={option.draw} label={option.label ?? option.value} />;
+    return <ChoicePicture draw={option.draw} />;
   }
   if (option.kind === "number") {
     return <span className="gk-choice-num">{option.label ?? option.value}</span>;
@@ -1644,7 +1645,7 @@ function ChoiceFace({ option }: { option: ChoiceOption }) {
   return <span className="gk-choice-label">{option.label ?? option.value}</span>;
 }
 
-function ChoicePicture({ draw, label }: { draw: { op: string; a: number; b: number; c?: number }; label: string }) {
+function ChoicePicture({ draw }: { draw: { op: string; a: number; b: number; c?: number } }) {
   if (draw.op === "groups" || (draw.op === "add" && draw.b === 0 && draw.a <= 12)) {
     const count = Math.max(1, Math.min(12, draw.a));
     return (
@@ -1658,31 +1659,28 @@ function ChoicePicture({ draw, label }: { draw: { op: string; a: number; b: numb
   if (draw.op === "frac") {
     const unequal = (draw.c ?? 0) < 0;
     const parts = Math.max(1, Math.min(8, Math.abs(draw.c ?? draw.b)));
-    const cuts = unequal ? [30] : Array.from({ length: parts - 1 }, (_, index) => ((index + 1) / parts) * 100);
+    const widths = unequal
+      ? [38, 62]
+      : Array.from({ length: parts }, () => Math.floor(100 / parts));
     return (
-      <span className="gk-choice-pic" data-pic="plank" data-parts={parts}>
-        <img src={art("plank-side.png")} alt="" />
-        <span className="gk-choice-cuts">
-          {cuts.map((pct) => (
-            <i key={pct} style={{ left: `${pct}%` }} />
-          ))}
-        </span>
-        <em>{label}</em>
+      <span className="gk-choice-pic" data-pic="plank-parts" data-parts={unequal ? 2 : parts}>
+        {widths.map((pct, index) => (
+          <span key={`${pct}-${index}`} className="gk-plank-part" style={{ flex: `${pct} 1 0` }}>
+            <img src={art("plank-side.png")} alt="" />
+          </span>
+        ))}
       </span>
     );
   }
   if (draw.op === "compare") {
-    const long = Math.max(draw.a, draw.b);
-    const short = Math.min(draw.a, draw.b) || draw.a;
-    const width = draw.b === 0 ? Math.min(160, 24 + draw.a * 14) : Math.min(160, 24 + (draw.a === long ? long : short) * 14);
+    const width = draw.b === 0 ? Math.min(160, 24 + draw.a * 14) : Math.min(160, 24 + Math.min(draw.a, draw.b || draw.a) * 14);
     return (
       <span className="gk-choice-pic" data-pic="beam">
         <img src={art("beam-side.png")} alt="" style={{ width, height: 22 }} />
-        <em>{label}</em>
       </span>
     );
   }
-  return <span className="gk-choice-label">{label}</span>;
+  return <span className="gk-choice-label">{draw.a}</span>;
 }
 
 function ScratchPad({ level, resetKey }: { level: number; resetKey: string }) {
@@ -1898,20 +1896,87 @@ function Worked({ steps }: { steps: ExplainStep[] }) {
 }
 
 function StepPicture({ step }: { step: ExplainStep }) {
-  if (step.picture === "triangle") {
+  if (step.picture === "triangle" || step.picture === "root") {
     return (
-      <svg className="gk-step-pic" data-picture="triangle" viewBox="0 0 140 84" width="140" height="84">
+      <svg className="gk-step-pic" data-picture={step.picture} viewBox="0 0 140 84" width="140" height="84">
         <polygon points="12,72 128,72 128,16" fill="#f6d34d" stroke="#22201c" strokeWidth="2" />
-        <text x="58" y="80" fontSize="12">{step.a}</text>
-        <text x="130" y="48" fontSize="12">{step.b}</text>
+        <text x="58" y="80" fontSize="12">
+          {step.a}
+        </text>
+        <text x="130" y="48" fontSize="12">
+          {step.b}
+        </text>
+        {step.picture === "root" && step.count != null ? (
+          <text x="70" y="48" fontSize="14" fontWeight="700">
+            {step.count}
+          </text>
+        ) : null}
       </svg>
     );
   }
-  if (step.picture === "squares") {
+  if (step.picture === "squares" || step.picture === "sum" || step.picture === "area" || step.picture === "area-fill") {
     return (
-      <div className="gk-step-pic gk-square-row" data-picture="squares">
+      <div className="gk-step-pic gk-square-row" data-picture={step.picture}>
         <SquareBlock count={step.a ?? 1} />
-        <SquareBlock count={step.b ?? 1} />
+        {step.b != null ? <SquareBlock count={step.b} /> : null}
+      </div>
+    );
+  }
+  if (step.picture.startsWith("plank")) {
+    const parts = step.picture === "plank" ? 1 : step.picture === "plank-thirds" ? 3 : Math.max(2, Math.min(8, step.b ?? 2));
+    const apart = step.picture === "plank-apart" || step.picture === "plank-thirds";
+    if (apart) {
+      return (
+        <div className="gk-step-pic gk-step-planks is-apart" data-picture={step.picture} data-parts={parts}>
+          {Array.from({ length: parts }, (_, index) => (
+            <span key={index} className="gk-step-plank">
+              <img src={art("plank-side.png")} alt="" />
+            </span>
+          ))}
+        </div>
+      );
+    }
+    const cuts = step.picture === "plank-cut" ? Array.from({ length: parts - 1 }, (_, index) => ((index + 1) / parts) * 100) : [];
+    return (
+      <div className="gk-step-pic gk-step-plank-one" data-picture={step.picture} data-parts={parts}>
+        <img src={art("plank-side.png")} alt="" />
+        {cuts.map((pct) => (
+          <i key={pct} className="gk-step-cut-line" style={{ left: `${pct}%` }} />
+        ))}
+      </div>
+    );
+  }
+  if (step.picture === "beam" || step.picture === "beams-pair" || step.picture === "brace-angle") {
+    const long = Math.min(160, 40 + (step.a ?? 4) * 10);
+    const short = Math.min(120, 28 + (step.b ?? 2) * 10);
+    return (
+      <div className="gk-step-pic gk-step-beams" data-picture={step.picture}>
+        <img src={art("beam-side.png")} alt="" style={{ width: long, height: 18 }} />
+        {step.picture !== "beam" ? <img src={art("beam-side.png")} alt="" style={{ width: short, height: 18 }} /> : null}
+        {step.picture === "brace-angle" ? (
+          <svg viewBox="0 0 80 48" width="80" height="48" aria-hidden="true">
+            <polyline points="8,40 8,8 64,40" fill="none" stroke="#22201c" strokeWidth="4" />
+          </svg>
+        ) : null}
+      </div>
+    );
+  }
+  if (step.picture === "tape" || step.picture === "tape-marks" || step.picture === "number-line") {
+    return (
+      <div className="gk-step-pic gk-step-tape" data-picture={step.picture}>
+        <span className="gk-step-tape-bar" />
+        <i style={{ left: "20%" }} />
+        <i style={{ left: "50%" }} />
+        <i style={{ left: "80%" }} />
+        {step.a != null ? <b>{step.a}</b> : null}
+      </div>
+    );
+  }
+  if (step.picture === "balance" || step.picture === "sign" || step.picture === "grid" || step.picture === "symbol") {
+    return (
+      <div className="gk-step-pic gk-step-symbol" data-picture={step.picture}>
+        {step.picture === "balance" ? "=" : step.picture === "sign" ? "±" : step.picture === "grid" ? "▦" : "→"}
+        {step.a != null ? <span>{step.a}</span> : null}
       </div>
     );
   }

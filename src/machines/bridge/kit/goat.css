@@ -1005,6 +1005,7 @@
 }
 
 .gk-choice-pic[data-pic="plank"],
+.gk-choice-pic[data-pic="plank-parts"],
 .gk-choice-pic[data-pic="beam"] {
   position: relative;
 }
@@ -1013,6 +1014,37 @@
   width: 120px;
   height: 28px;
   object-fit: fill;
+}
+
+.gk-choice-pic[data-pic="plank-parts"] {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  width: 132px;
+}
+
+.gk-plank-part {
+  position: relative;
+  min-width: 0;
+  display: block;
+  height: 28px;
+}
+
+.gk-plank-part img {
+  width: 100%;
+  height: 28px;
+  object-fit: fill;
+  display: block;
+  border-left: 3px solid #22201c;
+  border-right: 3px solid #22201c;
+}
+
+.gk-plank-part:first-child img {
+  border-left: 0;
+}
+
+.gk-plank-part:last-child img {
+  border-right: 0;
 }
 
 .gk-choice-cuts {
@@ -1028,8 +1060,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 3px;
-  margin-left: -1px;
+  width: 5px;
+  margin-left: -2px;
   background: #22201c;
 }
 
@@ -1038,6 +1070,98 @@
   font-size: 14px;
   font-weight: 700;
   color: #5a5348;
+}
+
+.gk-step-planks {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  max-width: 200px;
+}
+
+.gk-step-planks.is-apart {
+  gap: 10px;
+}
+
+.gk-step-plank {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.gk-step-plank img {
+  width: 100%;
+  height: 26px;
+  object-fit: fill;
+  display: block;
+}
+
+.gk-step-plank-one {
+  position: relative;
+  width: 180px;
+  height: 28px;
+}
+
+.gk-step-plank-one > img {
+  width: 100%;
+  height: 28px;
+  object-fit: fill;
+  display: block;
+}
+
+.gk-step-cut-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  margin-left: -2px;
+  background: #22201c;
+}
+
+.gk-step-beams {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.gk-step-tape {
+  position: relative;
+  width: 160px;
+  height: 28px;
+}
+
+.gk-step-tape-bar {
+  display: block;
+  height: 10px;
+  margin-top: 10px;
+  background: #f2b544;
+  border: 2px solid #22201c;
+  border-radius: 4px;
+}
+
+.gk-step-tape i {
+  position: absolute;
+  top: 6px;
+  width: 3px;
+  height: 18px;
+  background: #22201c;
+}
+
+.gk-step-tape b {
+  position: absolute;
+  top: -2px;
+  left: 48%;
+  font-size: 12px;
+}
+
+.gk-step-symbol {
+  font-size: 28px;
+  font-weight: 800;
+  color: #22201c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .gk-idk {

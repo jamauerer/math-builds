@@ -1,7 +1,8 @@
 ﻿import type { LearnerMap } from "../../../engine/placement";
 import { formatLength, formatWeight, lengthAbbrev } from "../../../units";
 import { plainQuestion } from "./plain";
-import { skillExplain, skillQuestion, type ChoiceOption } from "../../../skills/generate";
+import { skillQuestion, type ChoiceOption } from "../../../skills/generate";
+import { skillExplain } from "../../../skills/explain";
 import { curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
 import { labelAt, slice } from "../../../pictures/layout";
@@ -873,13 +874,11 @@ export function startGuided(state: EarnState, levels?: Record<string, number>): 
 }
 
 export function explainQuestion(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
-  const base = workedExample(question);
   if (!question.skillId || !curriculumSkill(question.skillId)) {
-    return base;
+    return workedExample(question);
   }
-  const explained = skillExplain(question.skillId, earnPrompt(question), question.answer);
-  // Keep worked steps so every prompt number stays visible; attach the curriculum why line.
-  return { ...base, why: explained.why };
+  const draw = question.fact.kind === "plain" ? question.fact.draw : undefined;
+  return skillExplain(question.skillId, earnPrompt(question), question.answer, draw);
 }
 
 /** The numbers in a question, so a practice loop can refuse a repeat. */

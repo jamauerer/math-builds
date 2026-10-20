@@ -1,7 +1,31 @@
 import type { EarnFact, EarnQuestion } from "./earn";
 import type { PlainDraw } from "../../../pictures/parts";
 
-export type ExplainPicture = "triangle" | "squares" | "sum" | "root" | "pile" | "rows" | "count";
+/** Step pictures. Bolt pile/rows/count are the dots template; fractions and geometry never use those. */
+export type ExplainPicture =
+  | "triangle"
+  | "squares"
+  | "sum"
+  | "root"
+  | "pile"
+  | "rows"
+  | "count"
+  | "plank"
+  | "plank-cut"
+  | "plank-apart"
+  | "plank-thirds"
+  | "beam"
+  | "beams-pair"
+  | "brace-angle"
+  | "tape"
+  | "tape-marks"
+  | "number-line"
+  | "area"
+  | "area-fill"
+  | "balance"
+  | "sign"
+  | "grid"
+  | "symbol";
 
 export type ExplainStep = {
   text: string;
@@ -13,9 +37,9 @@ export type ExplainStep = {
   each?: number;
 };
 
-const PICTURES: ExplainPicture[] = ["pile", "rows", "count", "sum", "triangle", "squares", "root"];
+const FALLBACK: ExplainPicture[] = ["symbol", "tape-marks", "grid", "beam", "triangle"];
 
-/** A worked example: the missed question's numbers, at least three steps, a new picture each step. */
+/** A worked example when there is no curriculum skill: numbers, at least three steps, a new picture each step. */
 export function workedExample(question: EarnQuestion): { steps: ExplainStep[]; why: string } {
   const fact = question.fact;
   if (fact.kind === "plain") {
@@ -29,10 +53,31 @@ export function workedExample(question: EarnQuestion): { steps: ExplainStep[]; w
 
 function fromDraw(draw: PlainDraw, prompt: string, answer: string): ExplainStep[] {
   if (draw.op === "hyp") {
-    return cover(hypSteps(draw.a, draw.b), prompt);
+    return coverFallback(hypSteps(draw.a, draw.b), prompt);
+  }
+  if (draw.op === "frac") {
+    const parts = Math.max(2, Math.min(8, Math.abs(draw.c ?? draw.b)));
+    return coverFallback(
+      [
+        { text: `Start with one plank.`, picture: "plank", a: draw.a, b: parts },
+        { text: `Cut into ${parts} parts.`, picture: "plank-cut", a: draw.a, b: parts },
+        { text: `That comes to ${answer}.`, picture: "plank-apart", a: draw.a, b: parts },
+      ],
+      prompt,
+    );
+  }
+  if (draw.op === "angle") {
+    return coverFallback(
+      [
+        { text: `Look at the ${draw.a}° angle.`, picture: "brace-angle", a: draw.a },
+        { text: `Compare with a right angle.`, picture: "beams-pair", a: 90, b: draw.a },
+        { text: `That comes to ${answer}.`, picture: "beam", a: draw.a },
+      ],
+      prompt,
+    );
   }
   if (draw.op === "div" || draw.op === "rem") {
-    return cover(divSteps(draw, answer), prompt);
+    return coverFallback(divSteps(draw, answer), prompt);
   }
   const extra = draw.c != null && draw.c !== -1 ? draw.c : null;
   const steps: ExplainStep[] = [
@@ -47,7 +92,7 @@ function fromDraw(draw: PlainDraw, prompt: string, answer: string): ExplainStep[
     },
     { text: `That comes to ${answer}.`, picture: "count", each: Math.max(1, Math.min(12, Math.abs(Number(answer)) || 1)) },
   ];
-  return cover(steps, prompt);
+  return coverFallback(steps, prompt);
 }
 
 function divSteps(draw: PlainDraw, answer: string): ExplainStep[] {
@@ -62,7 +107,7 @@ function divSteps(draw: PlainDraw, answer: string): ExplainStep[] {
   ];
 }
 
-function hypSteps(across: number, up: number): ExplainStep[] {
+export function hypSteps(across: number, up: number): ExplainStep[] {
   const left = across * across;
   const right = up * up;
   const sum = left + right;
@@ -88,14 +133,14 @@ function hypSteps(across: number, up: number): ExplainStep[] {
 function fromNumbers(numbers: number[], answer: string): ExplainStep[] {
   const [first, second, third] = numbers.length > 0 ? numbers : [0];
   const steps: ExplainStep[] = [
-    { text: `Start with ${first}.`, picture: "pile", a: first, count: Math.min(24, Math.max(1, Math.abs(first))) },
-    { text: second == null ? `Keep ${first} in mind.` : third == null ? `Use ${second} next.` : `Use ${second} and ${third}.`, picture: "rows", a: first, b: second, rows: 2, each: 2 },
-    { text: `That comes to ${answer}.`, picture: "count", each: Math.max(1, Math.min(12, Math.abs(Number(answer)) || 1)) },
+    { text: `Start with ${first}.`, picture: "symbol", a: first },
+    { text: second == null ? `Keep ${first} in mind.` : third == null ? `Use ${second} next.` : `Use ${second} and ${third}.`, picture: "tape-marks", a: first, b: second },
+    { text: `That comes to ${answer}.`, picture: "grid" },
   ];
-  return cover(steps, numbers.join(" "));
+  return coverFallback(steps, numbers.join(" "));
 }
 
-function cover(steps: ExplainStep[], prompt: string): ExplainStep[] {
+function coverFallback(steps: ExplainStep[], prompt: string): ExplainStep[] {
   const needed = prompt.match(/\d+(\.\d+)?/g) ?? [];
   let joined = steps.map((step) => step.text).join(" ");
   for (const number of needed) {
@@ -105,15 +150,14 @@ function cover(steps: ExplainStep[], prompt: string): ExplainStep[] {
     }
   }
   while (steps.length < 3) {
-    const picture = PICTURES[steps.length % PICTURES.length];
+    const picture = FALLBACK[steps.length % FALLBACK.length];
     steps.push({ text: steps[steps.length - 1]?.text ?? "Look again.", picture });
   }
-  return steps.map((step, index) => {
-    const previous = index > 0 ? steps[index - 1].picture : null;
-    if (previous !== step.picture) {
+  return steps.map((step, index, list) => {
+    if (index === 0 || list[index - 1].picture !== step.picture) {
       return step;
     }
-    return { ...step, picture: PICTURES[(PICTURES.indexOf(step.picture) + 1) % PICTURES.length] };
+    return { ...step, picture: FALLBACK[(FALLBACK.indexOf(step.picture) + 1 + index) % FALLBACK.length] };
   });
 }
 

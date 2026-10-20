@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { CURRICULUM_SKILLS, curriculumSkillIds, KIT_PIECE_STRANDS } from "./index";
-import { skillExplain, skillLearnLine, skillQuestion } from "./generate";
+import { skillExplain, skillLearnLine, skillQuestion, explanationMatchesLearn } from "./generate";
 import graph from "./graph.json";
 import { queenPost } from "../machines/bridge/kits/kit";
 import { KIT_SKILLS } from "../machines/bridge/kits/skills";
+import { explainQuestion } from "../machines/bridge/kits/earn";
 
 function parseCurriculumIds(): string[] {
   const text = readFileSync(resolve("docs/curriculum.md"), "utf8");
@@ -44,9 +45,66 @@ describe("curriculum graph", () => {
       const learn = skillLearnLine(id, 3);
       expect(learn.title.length, id).toBeGreaterThan(0);
       expect(learn.line.length, id).toBeGreaterThan(0);
-      const explained = skillExplain(id, question.prompt, question.answer);
+      const explained = skillExplain(id, question.prompt, question.answer, question.draw);
       expect(explained.steps.length, id).toBeGreaterThanOrEqual(3);
       expect(explained.why.length, id).toBeGreaterThan(0);
+      expect(
+        explanationMatchesLearn(
+          id,
+          explained.steps.map((step) => step.picture),
+        ),
+        id,
+      ).toBe(true);
+    }
+  });
+
+  it("keeps choice captions off pictures unless the answer form is a word", () => {
+    const choiceIds = CURRICULUM_SKILLS.filter((skill) => skill.answer === "choice").map((skill) => skill.id);
+    for (const id of choiceIds) {
+      for (let seed = 1; seed <= 20; seed += 1) {
+        const question = skillQuestion(id, seed);
+        const wordForm = /^[a-z][a-z\s'-]*$/i.test(question.answer);
+        const answerWords = question.answer
+          .toLowerCase()
+          .split(/[^a-z]+/i)
+          .filter((word) => word.length > 1);
+        for (const option of question.choices ?? []) {
+          if (option.kind === "picture") {
+            expect(option.label, `${id} picture caption`).toBeUndefined();
+            continue;
+          }
+          if (wordForm) {
+            continue;
+          }
+          const caption = (option.label ?? option.value).toLowerCase();
+          for (const word of answerWords) {
+            expect(caption.split(/[^a-z]+/).includes(word), `${id} caption "${caption}" has answer word "${word}"`).toBe(false);
+          }
+        }
+      }
+    }
+  });
+
+  it("explains halves with plank pictures and never dots for fractions or geometry", () => {
+    const halves = skillExplain("fractions.2.halves", "Tap the plank cut in half", "half");
+    expect(halves.steps.map((step) => step.picture).every((pic) => pic.startsWith("plank"))).toBe(true);
+    expect(halves.steps.map((step) => step.text).join(" ")).toContain("Both parts are the same size");
+    expect(halves.steps.map((step) => step.text).join(" ")).toContain("thirds");
+    for (const skill of CURRICULUM_SKILLS.filter((item) => item.strandId === "fractions" || item.strandId === "geometry")) {
+      const question = skillQuestion(skill.id, 5);
+      const explained = explainQuestion({
+        groupId: "braces",
+        strandId: skill.strandId,
+        level: skill.level,
+        answer: question.answer,
+        truth: question.truth,
+        skillId: skill.id,
+        fact: { kind: "plain", prompt: question.prompt, steps: question.steps, why: question.why, draw: question.draw },
+      });
+      expect(
+        explained.steps.every((step) => step.picture !== "pile" && step.picture !== "rows" && step.picture !== "count"),
+        skill.id,
+      ).toBe(true);
     }
   });
 
