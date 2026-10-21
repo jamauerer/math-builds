@@ -3,7 +3,7 @@ import { answerEarn, blankEarn, currentQuestion, startGuided } from "../machines
 import { queenPost } from "../machines/bridge/kits/kit";
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk } from "./place";
 import { serveQuestion } from "./serve";
-import { LADDER_STEPS, legalSteps, reachedSteps } from "./steps";
+import { LADDER_STEPS, ladderStep, legalSteps, reachedSteps } from "./steps";
 
 describe("grade cap", () => {
   it("grade 1: 2000 served questions stay inside A13/S11, with both operations", { timeout: 20_000 }, () => {
@@ -105,5 +105,39 @@ describe("grade cap", () => {
         expect(step.n).toBeLessThanOrEqual(11);
       }
     }
+  });
+
+  it("keeps pre-reader counting at kindergarten and dividing at grade 3 or later", () => {
+    for (const grade of [1, 2, 3, 4]) {
+      const served = serveQuestion({
+        grade,
+        skillId: "counting.1.to-10",
+        prompt: "Drag 3 bolts into the box",
+        answer: "3",
+        seed: 4 + grade,
+        kind: "run",
+      });
+      expect(served.skillId, `grade ${grade}`).not.toBe("counting.1.to-10");
+      expect(served.strandId, `grade ${grade}`).not.toBe("counting");
+    }
+    const kinder = serveQuestion({
+      grade: 0,
+      skillId: "counting.1.to-10",
+      prompt: "Drag 5 bolts into the box",
+      answer: "5",
+      seed: 2,
+      kind: "run",
+    });
+    expect(kinder.skillId).toBe("counting.1.to-10");
+    expect(kinder.prompt).toContain("5");
+    for (const grade of [0, 1, 2]) {
+      const served = serveQuestion({ grade, skillId: "dividing.4.d1", seed: 9 + grade, kind: "run" });
+      expect(served.strandId, `grade ${grade}`).not.toBe("dividing");
+      expect(ladderStep(served.skillId)?.op, `grade ${grade}`).not.toBe("D");
+    }
+    const dividing = serveQuestion({ grade: 3, skillId: "dividing.4.d1", seed: 6, kind: "run" });
+    expect(dividing.strandId).toBe("dividing");
+    expect(ladderStep(dividing.skillId)?.op).toBe("D");
+    expect((ladderStep(dividing.skillId)?.n ?? 99) <= 6).toBe(true);
   });
 });

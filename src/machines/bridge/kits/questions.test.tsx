@@ -93,6 +93,11 @@ describe("question cards", () => {
     await act(async () => {
       vi.advanceTimersByTime(300);
     });
+    expect(container.querySelector("h2.gk-prompt")?.textContent).toBe(before);
+    const check = container.querySelector("[data-check]") as HTMLButtonElement;
+    await act(async () => {
+      check.click();
+    });
     expect(container.querySelector("h2.gk-prompt")?.textContent).not.toBe(before);
     vi.useRealTimers();
     root.unmount();

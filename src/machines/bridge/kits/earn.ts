@@ -5,6 +5,7 @@ import { pictureTemplate, promptNeedsPicture, skillHint, skillQuestion, type Act
 import { skillExplain } from "../../../skills/explain";
 import { CURRICULUM_SKILLS, curriculumSkill } from "../../../skills";
 import { drawPlain } from "../../../pictures";
+import { dotsPicture } from "../../../pictures/dots";
 import { labelAt, pictureSlot, slice } from "../../../pictures/layout";
 import { choicesMatchPicture, pictureAgrees } from "../../../pictures/check";
 import { pictureHasInk } from "../../../pictures/need";
@@ -20,6 +21,7 @@ import { parseStackSpec } from "../../../ladder/stack";
 import { questionAboveCap, serveQuestion, type ServedKind } from "../../../ladder/serve";
 import type { ServeCeiling } from "../../../ladder/current";
 import { DOT_STEPS, gradeCap, gradeNumber, ladderStep, strandAllowed } from "../../../ladder/steps";
+import { isPreReader } from "../../../silent/pre-reader";
 import { wordAllowed, wordPrompt } from "../../../ladder/word";
 import {
   beginSession,
@@ -698,19 +700,51 @@ export function questionNeedsPicture(question: EarnQuestion): boolean {
   return question.needsPicture === true || promptNeedsPicture(earnPrompt(question));
 }
 
+function servedPictureKind(question: EarnQuestion): "dots" | "planks" | "shapes" | null {
+  if (question.word) {
+    return null;
+  }
+  if (isPreReader(question) && !question.needsPicture && !promptNeedsPicture(earnPrompt(question))) {
+    return null;
+  }
+  const choicesArePictures = Boolean(question.choices && question.choices.length > 0 && question.choices.every((choice) => choice.kind === "picture"));
+  if (choicesArePictures && !question.needsPicture && !promptNeedsPicture(earnPrompt(question))) {
+    return null;
+  }
+  const step = ladderStep(question.skillId ?? question.stepId ?? "");
+  if (step?.dots) {
+    return "dots";
+  }
+  if (step) {
+    return null;
+  }
+  const draw = question.fact.kind === "plain" ? question.fact.draw : undefined;
+  if (question.strandId === "fractions" && draw?.op === "frac") {
+    return "planks";
+  }
+  if (question.strandId === "geometry") {
+    return "shapes";
+  }
+  return null;
+}
+
 function attachQuestionPicture(question: EarnQuestion): EarnQuestion {
   if (question.word) {
     return question;
   }
-  if (question.picture && pictureHasInk(question.picture)) {
+  const kind = servedPictureKind(question);
+  if (!kind) {
+    return { ...question, picture: undefined };
+  }
+  if (kind !== "dots" && question.picture && pictureHasInk(question.picture)) {
     return question;
   }
   if (question.fact.kind !== "plain" || !question.fact.draw) {
-    return question;
+    return { ...question, picture: undefined };
   }
-  const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
+  const drawn = kind === "dots" ? dotsPicture(question.fact.draw) : drawPlain(question.strandId, question.fact.draw, question.answer);
   if (!drawn || !pictureHasInk(drawn.picture)) {
-    return question;
+    return { ...question, picture: undefined };
   }
   return { ...question, picture: drawn.picture, pictureCaption: drawn.caption };
 }
@@ -897,6 +931,9 @@ function picturedStrand(question: EarnQuestion): boolean {
     return false;
   }
   if (question.choices && question.choices.length > 0) {
+    if (question.choices.every((choice) => choice.kind === "picture")) {
+      return false;
+    }
     return question.fact.draw?.op === "angle" || question.fact.draw?.op === "hyp" || question.fact.draw?.op === "frac";
   }
   if (question.strandId === "fractions") {
@@ -915,7 +952,8 @@ function withPicture(question: EarnQuestion): EarnQuestion {
   if (!picturedStrand(question) || question.fact.kind !== "plain" || !question.fact.draw) {
     return question;
   }
-  const drawn = drawPlain(question.strandId, question.fact.draw, question.answer);
+  const step = question.skillId ? ladderStep(question.skillId) : undefined;
+  const drawn = step?.dots ? dotsPicture(question.fact.draw) : drawPlain(question.strandId, question.fact.draw, question.answer);
   if (!drawn || !pictureHasInk(drawn.picture)) {
     return question;
   }
@@ -975,14 +1013,15 @@ export function picturedHold(strandId: string, level: number): EarnState {
     if (!drawn) {
       continue;
     }
+    const ruled = strandId === "fractions" || strandId === "geometry";
     const question: EarnQuestion = {
       groupId: group.id,
       strandId,
       level,
       answer: item.answer,
       fact: { kind: "plain", prompt: item.prompt, steps: item.steps, why: item.why, draw: item.draw },
-      picture: drawn.picture,
-      pictureCaption: drawn.caption,
+      picture: ruled ? drawn.picture : undefined,
+      pictureCaption: ruled ? drawn.caption : undefined,
     };
     fallback = question;
     if (pictureFits(strandId, item.draw)) {
@@ -1761,7 +1800,7 @@ export function skillHold(skillId: string, seed = 3): EarnState {
 /** One question a learner at this grade might be served. */
 export function serveGradeQuestion(grade: number, seed: number): EarnQuestion {
   const cap = gradeNumber(grade) + 2;
-  const skills = CURRICULUM_SKILLS.filter((skill) => skill.level <= cap && strandAllowed(skill.strandId, grade));
+  const skills = CURRICULUM_SKILLS.filter((skill) => skill.level <= cap && strandAllowed(skill.strandId, grade) && !questionAboveCap(skill.id, grade));
   const skill = skills[Math.abs(seed) % Math.max(skills.length, 1)];
   if (!skill) {
     return fromServed("bottom", serveQuestion({ grade, seed, kind: "run" }), false);

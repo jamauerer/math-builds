@@ -84,6 +84,9 @@ export function questionAboveCap(skillId: string, grade: number | "unsure" | nul
   if (!strandAllowed(strand, grade)) {
     return true;
   }
+  if (strand === "counting" && Number.isFinite(level) && level <= 1 && gradeNumber(grade) !== 0) {
+    return true;
+  }
   if (Number.isFinite(level) && level > gradeNumber(grade) + 2) {
     return true;
   }
@@ -157,7 +160,7 @@ export function serveQuestion(input: {
   }
   if (input.prompt && input.answer && input.skillId) {
     const strand = input.strandId ?? input.skillId.split(".")[0] ?? "adding";
-    if (!strandAllowed(strand, grade)) {
+    if (!strandAllowed(strand, grade) || questionAboveCap(input.skillId, grade)) {
       const next = replacement(grade, input.seed, input.ceiling, input.banned, input.zeroUsed === true);
       console.error("Served question above the grade cap", { wanted: input.skillId, strand, grade: gradeNumber(grade), replacement: next.stepId });
       return toServed(next, input.kind);

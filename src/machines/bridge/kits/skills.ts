@@ -7,7 +7,7 @@ import {
   type LadderStarts,
   type ServeCeiling,
 } from "../../../ladder/current";
-import { gradeCap, ladderStep, opStrand, stepsForOp, strandAllowed, type LadderOp } from "../../../ladder/steps";
+import { gradeCap, gradeNumber, ladderStep, opStrand, stepsForOp, strandAllowed, type LadderOp } from "../../../ladder/steps";
 import { CURRICULUM_SKILLS } from "../../../skills";
 
 export type SkillStateName = "new" | "learning" | "practicing" | "fluent" | "mastered";
@@ -480,6 +480,16 @@ export function familyRoundPlan(book: SkillBook, grade?: GradeChoice | null, see
 
 /** Every question in a piece run is that piece's strand, at the learner's working level. Adding mixes in subtracting. */
 export function runPlan(book: SkillBook, strandId: string, level: number, length: number, seed: number, grade?: GradeChoice | null): RunSlot[] {
+  if (strandId === "counting" && gradeNumber(grade) !== 0) {
+    const counting = currentSkill(book, strandId, level);
+    if (counting.level <= 1) {
+      const ops: LadderOp[] = ["A"];
+      if (gradeCap("S", grade) > 0) {
+        ops.push("S");
+      }
+      return ladderRunSlots(book, ops, length, seed, grade);
+    }
+  }
   if (useLadderPlan(book, grade)) {
     if (strandId === "multiplying" && gradeCap("M", grade) > 0) {
       return ladderRunSlots(book, ["M"], length, seed, grade);

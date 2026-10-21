@@ -12,7 +12,8 @@ import {
   type GradeSystem,
 } from "../../../engine/strand-placement";
 import { beginLadderPlace, ladderPlaceAnswer, ladderPlaceAsk, settleLadder, type LadderPlace } from "../../../ladder/place";
-import { LADDER_VERSION } from "../../../ladder/steps";
+import { LADDER_VERSION, ladderStep } from "../../../ladder/steps";
+import { dotGroups } from "../../../pictures/dots";
 import type { LadderLayout } from "../../../ladder/generate";
 import { drawPencilCarries, drawStack, stackGeom } from "../../../ladder/stack";
 import {
@@ -1621,6 +1622,13 @@ function EarnView({
   const openHint = earn.phase === "guided" ? earn.current.hint || hint : hint;
   const dueReview = Boolean(question.skillId && skillIsDue(earn.book.skills[question.skillId], earn.day));
   const action = questionAction(question, countingLevel);
+  const sketch = usesSketch(action, question);
+  const pictureChoices = Boolean(question.choices?.length && question.choices.every((choice) => choice.kind === "picture") && !question.needsPicture);
+  const step = ladderStep(question.skillId ?? question.stepId ?? "");
+  const draw = question.fact.kind === "plain" ? question.fact.draw : undefined;
+  const dots = sketch && step?.dots && draw ? dotGroups(draw) : null;
+  const cross = sketch && step?.dots && draw?.op === "sub" ? Math.max(0, draw.b) : 0;
+  const showPicture = Boolean(picture) && !sketch && !pictureChoices && action !== "drag-count";
   return (
     <div className="gk-body">
       <div className="gk-earn">
@@ -1630,15 +1638,12 @@ function EarnView({
             <span className="gk-qstrand">{strandName(question.strandId)}</span>
             {earn.phase === "warmup" && dueReview ? <span data-review="due">Review</span> : null}
           </div>
-          <div className="gk-work">
+          <div className={sketch ? "gk-work" : "gk-work is-full"}>
             <div className="gk-card-main">
-          <PromptLine text={earnPrompt(question)} parent={silent || question.level <= 2} skillId={question.skillId} />
-          {silent && !picture ? <PictureCue kind={help} /> : null}
-          {silent && !picture ? <HandDemo kind={help} force={forceHand} mid={forceHand} /> : null}
-          {!silent && !picture && question.level <= 2 && question.fact.kind === "plain" && question.fact.draw && !question.word && action !== "drag-count" && action !== "order" ? (
-            <OperandMarks draw={question.fact.draw} />
-          ) : null}
-          {picture ? <EarnSketch question={question} /> : null}
+          <PromptLine text={earnPrompt(question)} parent={silent || question.level <= 2} skillId={question.skillId} hidden={sketch} />
+          {silent && !picture && help !== "count-tray" ? <PictureCue kind={help} /> : null}
+          {silent && !picture && help !== "count-tray" ? <HandDemo kind={help} force={forceHand} mid={forceHand} /> : null}
+          {showPicture ? <EarnSketch question={question} /> : null}
           {openHint ? <p className={silent || question.level <= 2 ? "gk-hint gk-parent-words" : "gk-hint"}>{openHint}</p> : null}
           <AnswerPad
             phase={earn.phase}
@@ -1662,11 +1667,17 @@ function EarnView({
             onFeel={setFeel}
           />
             </div>
-            <ScratchPad
-              resetKey={`${earn.phase}:${earnPrompt(question)}:${earn.runGot}`}
-              layout={question.layout}
-              marks={new URLSearchParams(window.location.search).get("marks") === "borrow" ? "borrow" : new URLSearchParams(window.location.search).get("marks") === "carry" ? "carry" : undefined}
-            />
+            {sketch ? (
+              <ScratchPad
+                resetKey={`${earn.phase}:${earnPrompt(question)}:${earn.runGot}`}
+                layout={question.layout}
+                prompt={earnPrompt(question)}
+                dots={dots}
+                cross={cross}
+                embed={step?.dots || !picture ? null : question}
+                marks={new URLSearchParams(window.location.search).get("marks") === "borrow" ? "borrow" : new URLSearchParams(window.location.search).get("marks") === "carry" ? "carry" : undefined}
+              />
+            ) : null}
           </div>
         </div>
         <EarnedBar steps={earn.steps} round={earn.round} short={earn.short} />
@@ -1728,25 +1739,6 @@ function LearnSketch({ draw, line }: { draw: { op: string; a: number; b: number;
   );
 }
 
-function OperandMarks({ draw }: { draw: { op: string; a: number; b: number } }) {
-  const bolt = draw.op === "mul" || draw.op === "div" || draw.op === "groups";
-  const groups = [draw.a, draw.b].filter((count) => count > 0 && count <= 12);
-  if (groups.length === 0) {
-    return null;
-  }
-  return (
-    <div className="gk-dots" data-marks="1">
-      {groups.map((count, index) => (
-        <span key={index} data-count={count}>
-          {Array.from({ length: count }, (_, dot) => (
-            <i key={dot} className={bolt ? "bolt" : ""} />
-          ))}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function questionAction(question: EarnQuestion, countingLevel: number): ActionKind {
   if (isPreReader(question)) {
     if (question.action === "order") {
@@ -1774,17 +1766,29 @@ function questionAction(question: EarnQuestion, countingLevel: number): ActionKi
   return question.action ?? "keypad";
 }
 
+function usesSketch(action: ActionKind, question: EarnQuestion): boolean {
+  if (question.choices && question.choices.length > 0) {
+    return false;
+  }
+  if (action === "drag-count" || action === "order" || action === "numeral-strip" || action === "drag-goat" || action === "tap-choice") {
+    return false;
+  }
+  return true;
+}
+
 function PromptLine({
   text,
   parent,
   skillId,
+  hidden = false,
 }: {
   text: string;
   parent?: boolean;
   skillId?: string;
+  hidden?: boolean;
 }) {
   return (
-    <h2 className={parent ? "gk-prompt is-parent" : "gk-prompt"} data-skill={skillId ?? ""}>
+    <h2 hidden={hidden || undefined} className={parent ? "gk-prompt is-parent" : "gk-prompt"} data-skill={skillId ?? ""} data-in-sketch={hidden ? "1" : undefined}>
       {text}
     </h2>
   );
@@ -1805,27 +1809,25 @@ function DragCountPad({
   answer,
   draw,
   resetKey,
-  onCommit,
+  onDraft,
 }: {
   answer: string;
   draw?: { op: string; a: number; b: number };
   resetKey: string;
-  onCommit: (attempt: string) => void;
+  onDraft: (attempt: string) => void;
 }) {
   const target = Number(answer);
-  const left = draw && draw.b > 0 ? Math.max(1, draw.a) : Math.max(target, 10);
+  const left = draw && draw.b > 0 ? Math.max(1, draw.a) : Math.max(target, 1);
   const right = draw && draw.b > 0 ? Math.max(1, draw.b) : 0;
   const [inBox, setInBox] = useState(0);
+  const draftRef = useRef(onDraft);
+  draftRef.current = onDraft;
   useEffect(() => {
     setInBox(0);
   }, [resetKey]);
   useEffect(() => {
-    if (inBox !== target || !Number.isFinite(target) || target <= 0) {
-      return;
-    }
-    const timer = window.setTimeout(() => onCommit(String(inBox)), 300);
-    return () => window.clearTimeout(timer);
-  }, [inBox, target, onCommit]);
+    draftRef.current(inBox > 0 ? String(inBox) : "");
+  }, [inBox, resetKey]);
   const remainLeft = Math.max(0, left - Math.min(inBox, left));
   const remainRight = Math.max(0, right - Math.max(0, inBox - left));
   return (
@@ -1863,25 +1865,22 @@ function DragCountPad({
 function OrderPad({
   sizes,
   resetKey,
-  onCommit,
+  onDraft,
 }: {
   sizes?: number[];
   resetKey: string;
-  onCommit: (attempt: string) => void;
+  onDraft: (attempt: string) => void;
 }) {
   const pieces = sizes && sizes.length > 0 ? sizes : [2, 4, 6];
   const [order, setOrder] = useState(() => [...pieces].reverse());
+  const draftRef = useRef(onDraft);
+  draftRef.current = onDraft;
   useEffect(() => {
     setOrder([...pieces].reverse());
   }, [resetKey, pieces.join(",")]);
   useEffect(() => {
-    const wanted = [...pieces].sort((left, right) => left - right).join(",");
-    if (order.join(",") === wanted) {
-      const timer = window.setTimeout(() => onCommit(wanted), 300);
-      return () => window.clearTimeout(timer);
-    }
-    return undefined;
-  }, [order, pieces, onCommit]);
+    draftRef.current(order.length > 0 ? order.join(",") : "");
+  }, [order, resetKey]);
   function move(index: number, dir: -1 | 1) {
     const next = index + dir;
     if (next < 0 || next >= order.length) {
@@ -1906,6 +1905,14 @@ function OrderPad({
         </div>
       ))}
     </div>
+  );
+}
+
+function CheckButton({ ready, wordless, onClick }: { ready: boolean; wordless: boolean; onClick: () => void }) {
+  return (
+    <button className={wordless ? "gk-check gk-check-mark" : "gk-check"} type="button" data-action="primary" data-check="1" disabled={!ready} aria-label="Check" onClick={onClick}>
+      {wordless ? "✓" : "Check"}
+    </button>
   );
 }
 
@@ -1950,82 +1957,45 @@ function AnswerPad({
   onCommit: (attempt?: string) => void;
   onHelp: () => void;
 }) {
-  void _level;
+  void phase;
+  void truth;
   const [flash, setFlash] = useState<"" | "right" | "wrong">("");
   const [held, setHeld] = useState<string | null>(null);
-  const moving = useRef(false);
+  const [draft, setDraft] = useState("");
+  const wordless = _level <= 2;
   useEffect(() => {
     setFlash("");
     setHeld(null);
-    moving.current = false;
+    setDraft("");
   }, [resetKey]);
-  const commitRef = useRef(onCommit);
-  commitRef.current = onCommit;
+  const choosing = Boolean((choices && choices.length > 0) || action === "numeral-strip" || action === "drag-count" || action === "order" || (silent && (pictureHelp === "compare-piles" || pictureHelp === "pattern-gap")));
+  const attempt = choosing ? draft : typed;
+  const ready = attempt.trim().length > 0;
+  function commit() {
+    if (!ready) {
+      return;
+    }
+    onCommit(attempt);
+  }
   useEffect(() => {
-    if (choices && choices.length > 0) {
-      return;
+    function onKey(event: KeyboardEvent) {
+      const enter = event.key === "Enter" || event.code === "Enter" || event.keyCode === 13;
+      if (!enter || !ready) {
+        return;
+      }
+      event.preventDefault();
+      onCommit(attempt);
     }
-    if (phase !== "plain" || moving.current || held != null || !typed) {
-      return;
-    }
-    if (!acceptsAnswer(typed, answer, truth)) {
-      return;
-    }
-    moving.current = true;
-    setFlash("right");
-    const attempt = typed;
-    const timer = window.setTimeout(() => commitRef.current(attempt), 300);
-    return () => {
-      window.clearTimeout(timer);
-      moving.current = false;
-    };
-  }, [typed, resetKey, phase, answer, truth, held, choices]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready, attempt, onCommit]);
 
   function pickChoice(value: string) {
-    if (moving.current) {
-      return;
-    }
-    if (phase !== "plain") {
-      onCommit(value);
-      return;
-    }
-    if (acceptsAnswer(value, answer, truth)) {
-      moving.current = true;
-      setFlash("right");
-      setHeld(value);
-      window.setTimeout(() => onCommit(value), 300);
-      return;
-    }
-    moving.current = true;
-    setFlash("wrong");
-    setHeld(answer);
-    window.setTimeout(() => onCommit(value), 1000);
-  }
-
-  function commit() {
-    if (moving.current) {
-      return;
-    }
-    if (phase !== "plain") {
-      onCommit(typed);
-      return;
-    }
-    if (acceptsAnswer(typed, answer, truth)) {
-      moving.current = true;
-      setFlash("right");
-      window.setTimeout(() => onCommit(typed), 300);
-      return;
-    }
-    moving.current = true;
-    setFlash("wrong");
-    setHeld(answer);
-    const attempt = typed;
-    window.setTimeout(() => onCommit(attempt), 1000);
+    setHeld(value);
+    setDraft(value);
+    setFlash("");
   }
   function press(key: string) {
-    if (moving.current) {
-      return;
-    }
     if (key === "←") {
       onType(typed.slice(0, -1));
       return;
@@ -2045,9 +2015,9 @@ function AnswerPad({
           draw={draw}
           resetKey={resetKey}
           kind={draw?.op === "compare" && draw.b === 0 ? "plank" : "bolt"}
-          onCommit={(value) => onCommit(value)}
-          onFeel={(next) => onFeel?.(next)}
+          onDraft={setDraft}
         />
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className="gk-idk gk-parent-words" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2057,7 +2027,8 @@ function AnswerPad({
   if (silent && pictureHelp === "pattern-gap" && action !== "order") {
     return (
       <>
-        <PatternGapPad answer={answer} choices={choices} resetKey={resetKey} onCommit={(value) => onCommit(value)} onFeel={(next) => onFeel?.(next)} />
+        <PatternGapPad answer={answer} choices={choices} resetKey={resetKey} onDraft={setDraft} />
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className="gk-idk gk-parent-words" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2068,10 +2039,11 @@ function AnswerPad({
     return (
       <>
         {silent && pictureHelp ? (
-          <SilentCountPad answer={answer} draw={draw} help={pictureHelp} resetKey={resetKey} onCommit={(value) => onCommit(value)} onFeel={(next) => onFeel?.(next)} />
+          <SilentCountPad answer={answer} draw={draw} help={pictureHelp} resetKey={resetKey} onDraft={setDraft} onFeel={(next) => onFeel?.(next)} />
         ) : (
-          <DragCountPad answer={answer} draw={draw} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
+          <DragCountPad answer={answer} draw={draw} resetKey={resetKey} onDraft={setDraft} />
         )}
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className={silent ? "gk-idk gk-parent-words" : "gk-idk"} type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2081,7 +2053,8 @@ function AnswerPad({
   if (action === "order") {
     return (
       <>
-        <OrderPad sizes={sizes} resetKey={resetKey} onCommit={(value) => onCommit(value)} />
+        <OrderPad sizes={sizes} resetKey={resetKey} onDraft={setDraft} />
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className="gk-idk" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2093,12 +2066,13 @@ function AnswerPad({
       <>
         <div className="gk-strip" data-strip="1" role="group" aria-label="Numbers" style={{ display: "grid", gridTemplateColumns: "repeat(6, 58px)", gap: 8 }}>
           {Array.from({ length: 11 }, (_, value) => (
-            <button key={value} type="button" className="gk-strip-num" data-num={value} onClick={() => pickChoice(String(value))}>
+            <button key={value} type="button" className={held === String(value) ? "gk-strip-num is-picked" : "gk-strip-num"} data-num={value} onClick={() => pickChoice(String(value))}>
               <b>{value}</b>
               {showDots ? <NumeralDots count={value} /> : null}
             </button>
           ))}
         </div>
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className="gk-idk" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2109,7 +2083,7 @@ function AnswerPad({
     return (
       <>
         <div className="gk-choices" data-choices={choices.length} role="group" aria-label="Choices">
-          {choices.map((option, index) => {
+          {choices.map((option) => {
             const lit = held === option.value;
             const cls =
               flash === "right" && lit ? "is-right" : flash === "wrong" && lit ? "is-right" : flash === "wrong" && held !== option.value ? "is-dim" : "";
@@ -2120,8 +2094,7 @@ function AnswerPad({
                 className={`gk-choice ${cls}`}
                 data-choice={option.value}
                 data-kind={option.kind}
-                data-action={index === 0 ? "primary" : undefined}
-                disabled={moving.current}
+                aria-pressed={held === option.value}
                 onClick={() => pickChoice(option.value)}
               >
                 <ChoiceFace option={option} />
@@ -2129,6 +2102,7 @@ function AnswerPad({
             );
           })}
         </div>
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
         <button className="gk-idk" type="button" onClick={onHelp}>
           I don't know
         </button>
@@ -2144,19 +2118,9 @@ function AnswerPad({
           className={flash === "right" ? "is-right" : flash === "wrong" ? "is-wrong" : ""}
           value={held ?? typed}
           onChange={(event) => onType(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commit();
-            }
-          }}
         />
         <span className="gk-unit">{unit}</span>
-        {phase === "plain" ? null : (
-          <button className="gk-check" type="button" data-action="primary" onClick={commit}>
-            Check
-          </button>
-        )}
+        <CheckButton ready={ready} wordless={wordless} onClick={commit} />
       </div>
       <div className="gk-keys">
         {keys.map((key) => (
@@ -2285,11 +2249,19 @@ function ScratchPad({
   resetKey,
   layout,
   marks,
+  prompt,
+  dots,
+  cross = 0,
+  embed,
 }: {
   level?: number;
   resetKey: string;
   layout?: LadderLayout;
   marks?: "carry" | "borrow";
+  prompt: string;
+  dots: number[] | null;
+  cross?: number;
+  embed: EarnQuestion | null;
 }) {
   const bgRef = useRef<HTMLCanvasElement>(null);
   const inkRef = useRef<HTMLCanvasElement>(null);
@@ -2299,6 +2271,12 @@ function ScratchPad({
   const geom = layout && (layout.kind === "stacked" || layout.kind === "long-division") ? stackGeom(layout) : null;
   const canvasW = geom?.canvasWidth ?? 640;
   const canvasH = geom?.canvasHeight ?? 280;
+  const promptRef = useRef(prompt);
+  const dotsRef = useRef(dots);
+  const crossRef = useRef(cross);
+  promptRef.current = prompt;
+  dotsRef.current = dots;
+  crossRef.current = cross;
   function paintBg() {
     const canvas = bgRef.current;
     const context = canvas?.getContext("2d");
@@ -2308,7 +2286,36 @@ function ScratchPad({
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (geom) {
       drawStack(context, geom);
+      return;
     }
+    context.fillStyle = "#22201c";
+    context.font = "700 36px Fraunces, Georgia, serif";
+    context.textBaseline = "top";
+    context.fillText(promptRef.current, 24, 24);
+    const groups = dotsRef.current;
+    if (!groups) {
+      return;
+    }
+    let crossed = 0;
+    groups.forEach((count, row) => {
+      for (let index = 0; index < count; index += 1) {
+        const x = 32 + index * 22;
+        const y = 88 + row * 28;
+        context.beginPath();
+        context.arc(x, y, 8, 0, Math.PI * 2);
+        context.fillStyle = "#2e7fb0";
+        context.fill();
+        if (crossed < crossRef.current) {
+          context.strokeStyle = "#b3452b";
+          context.lineWidth = 2;
+          context.beginPath();
+          context.moveTo(x - 7, y - 7);
+          context.lineTo(x + 7, y + 7);
+          context.stroke();
+          crossed += 1;
+        }
+      }
+    });
   }
   useEffect(() => {
     paintBg();
@@ -2319,7 +2326,7 @@ function ScratchPad({
         drawPencilCarries(ink, geom);
       }
     }
-  }, [resetKey, canvasW, canvasH, layout?.top, layout?.bottom, layout?.op, layout?.kind, marks]);
+  }, [resetKey, canvasW, canvasH, layout?.top, layout?.bottom, layout?.op, layout?.kind, marks, prompt, dots?.join(","), cross]);
   function point(event: ReactPointerEvent<HTMLCanvasElement>) {
     const canvas = inkRef.current;
     if (!canvas) {
@@ -2374,7 +2381,12 @@ function ScratchPad({
         data-carry-y={geom ? String(Math.round(geom.carry.y)) : undefined}
         data-cols={geom ? geom.columns.map((col) => Math.round(col.centerX)).join(",") : undefined}
       >
-        <canvas ref={bgRef} className="gk-scratch-bg" width={canvasW} height={canvasH} aria-hidden="true" />
+        <canvas ref={bgRef} className="gk-scratch-bg" width={canvasW} height={canvasH} aria-hidden="true" data-question={prompt} />
+        {embed ? (
+          <div className="gk-sketch-question" data-sketch-picture="1">
+            <EarnSketch question={embed} />
+          </div>
+        ) : null}
         <canvas
           ref={inkRef}
           className="gk-scratch-ink"
@@ -2751,7 +2763,7 @@ function KitPanel({ earned, current, pulse, dance }: { earned: string[]; current
         return (
           <div key={group.id} data-group={group.id} className={`gk-row ${state}${pulse === group.id ? " pulse" : ""}`}>
             <img src={art(group.sprite)} alt="" />
-            <div>
+            <div className="gk-row-copy">
               <b>
                 {group.name} ×{group.count}
               </b>
@@ -3640,6 +3652,23 @@ function PlaceView({
 }) {
   const question = ladderPlaceAsk(run, grade, run.asked);
   const keys = keysFor(question.answer);
+  const ready = typed.trim().length > 0;
+  const step = ladderStep(question.stepId ?? question.skillId);
+  const draw = question.item?.draw;
+  const dots = step?.dots && draw ? dotGroups(draw) : null;
+  const cross = step?.dots && draw?.op === "sub" ? Math.max(0, draw.b) : 0;
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const enter = event.key === "Enter" || event.code === "Enter" || event.keyCode === 13;
+      if (!enter || !ready) {
+        return;
+      }
+      event.preventDefault();
+      onCheck();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready, onCheck]);
   return (
     <>
       <header className="gk-header">
@@ -3664,12 +3693,12 @@ function PlaceView({
               <div className="gk-bar thin">
                 <i style={{ width: `${(run.asked / 12) * 100}%` }} />
               </div>
-              <h2 className="gk-prompt">{question.prompt}</h2>
+              <h2 hidden className="gk-prompt" data-in-sketch="1">
+                {question.prompt}
+              </h2>
               <div className="gk-answer">
                 <input aria-label="Answer" value={typed} onChange={(event) => setTyped(event.target.value)} />
-                <button className="gk-check" type="button" data-action="primary" onClick={onCheck}>
-                  Check
-                </button>
+                <CheckButton ready={ready} wordless={question.level <= 2} onClick={onCheck} />
               </div>
               <div className="gk-keys">
                 {keys.map((key) => (
@@ -3682,7 +3711,14 @@ function PlaceView({
                 I don't know
               </button>
             </div>
-            <ScratchPad level={1} resetKey={`${run.asked}:${question.prompt}`} layout={question.item?.layout} />
+            <ScratchPad
+              resetKey={`${run.asked}:${question.prompt}`}
+              layout={question.item?.layout}
+              prompt={question.prompt}
+              dots={dots}
+              cross={cross}
+              embed={null}
+            />
           </div>
         </div>
       </div>

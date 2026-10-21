@@ -101,23 +101,23 @@ export function SilentCountPad({
   draw,
   help,
   resetKey,
-  onCommit,
+  onDraft,
   onFeel,
 }: {
   answer: string;
   draw?: { op: string; a: number; b: number };
   help: PictureHelp;
   resetKey: string;
-  onCommit: (attempt: string) => void;
+  onDraft: (attempt: string) => void;
   onFeel: (feel: "hop" | "slide") => void;
 }) {
   const takeAway = draw?.op === "sub";
   const makeTen = draw?.op === "add" && draw.b > 0 && Number(answer) === draw.b && draw.a + draw.b === 10;
+  const countTray = help === "count-tray" && !takeAway && !makeTen;
   const left = Math.max(0, draw?.a ?? Number(answer) ?? 0);
   const right = Math.max(0, draw?.b ?? 0);
   const startIn = takeAway || makeTen ? left : 0;
-  const extras = help === "count-tray" && !takeAway && !makeTen ? Math.max(10, Number(answer) + 4) : 0;
-  const shownNumeral = takeAway ? right : makeTen ? 10 : Number(answer);
+  const shownNumeral = countTray ? Number(answer) : takeAway ? left : makeTen ? 10 : Number(answer);
   const target = takeAway ? right : makeTen ? 10 : Number(answer);
   const piece: "block" | "bolt" | "plank" = help === "count-tray" && !takeAway && !makeTen ? "bolt" : "block";
   const [inBox, setInBox] = useState(startIn);
@@ -143,19 +143,18 @@ export function SilentCountPad({
       }, 420);
       return () => window.clearTimeout(timer);
     }
-    const done = takeAway ? discarded === target : inBox === target && Number.isFinite(target);
-    if (done) {
-      locked.current = true;
-      setFeel("snap");
-      onFeel("hop");
-      const timer = window.setTimeout(() => onCommit(answer), 380);
-      return () => window.clearTimeout(timer);
-    }
     return undefined;
-  }, [inBox, target, takeAway, left, startIn, answer, onCommit, onFeel, feel]);
-  const remainLeft = takeAway || makeTen || extras > 0 ? 0 : Math.max(0, left - Math.min(inBox, left));
-  const remainRight = takeAway || extras > 0 ? 0 : makeTen ? Math.max(0, right - Math.max(0, inBox - left)) : Math.max(0, right - Math.max(0, inBox - left));
-  const remainExtra = extras > 0 ? Math.max(0, extras - inBox) : 0;
+  }, [inBox, target, takeAway, left, startIn, onFeel, feel]);
+  const draftRef = useRef(onDraft);
+  draftRef.current = onDraft;
+  useEffect(() => {
+    const value = takeAway ? Math.max(0, left - inBox) : inBox;
+    draftRef.current(value > 0 ? String(value) : "");
+  }, [inBox, takeAway, left, resetKey]);
+  const remainLeft = countTray || takeAway || makeTen ? 0 : Math.max(0, left - Math.min(inBox, left));
+  const remainRight = countTray || takeAway ? 0 : makeTen ? Math.max(0, right - Math.max(0, inBox - left)) : Math.max(0, right - Math.max(0, inBox - left));
+  const remainExtra = 0;
+  const dotsLeft = countTray ? Math.max(0, Number(answer) - inBox) : 0;
   const discard = takeAway ? Math.max(0, left - inBox) : 0;
   function addOne() {
     if (!locked.current) {
@@ -163,12 +162,22 @@ export function SilentCountPad({
     }
   }
   return (
-    <div className={`gk-drag-count ${feel === "snap" ? "is-snap" : feel === "slide" ? "is-slide" : ""}`} data-action="drag-count" data-silent-pad={help}>
+    <div className={`gk-drag-count ${feel === "snap" ? "is-snap" : feel === "slide" ? "is-slide" : ""}`} data-action="drag-count" data-silent-pad={help} data-picture-help={help}>
       {help === "count-tray" || makeTen ? (
         <div className="gk-count-head">
           <span className="gk-numeral" data-numeral={shownNumeral}>
             <b>{shownNumeral}</b>
-            <NumeralDots count={shownNumeral} />
+            {countTray ? (
+              <span className="gk-num-dots" data-dots={dotsLeft}>
+                {Array.from({ length: dotsLeft }, (_, index) => (
+                  <button key={index} type="button" className="gk-drag-bolt" aria-label="Bolt" onClick={addOne}>
+                    <i />
+                  </button>
+                ))}
+              </span>
+            ) : (
+              <NumeralDots count={shownNumeral} />
+            )}
           </span>
         </div>
       ) : null}
@@ -231,46 +240,29 @@ export function ComparePilesPad({
   draw,
   answer,
   resetKey,
-  onCommit,
-  onFeel,
+  onDraft,
   kind = "block",
 }: {
   draw?: { op: string; a: number; b: number };
   answer: string;
   resetKey: string;
-  onCommit: (attempt: string) => void;
-  onFeel: (feel: "hop" | "slide") => void;
+  onDraft: (attempt: string) => void;
   kind?: "block" | "bolt" | "plank";
 }) {
+  void answer;
   const left = Math.max(1, draw?.a ?? 3);
   const right = Math.max(0, draw?.b ?? 1);
   const [picked, setPicked] = useState<string | null>(null);
-  const [feel, setFeel] = useState<"" | "snap" | "slide">("");
-  const locked = useRef(false);
   useEffect(() => {
     setPicked(null);
-    setFeel("");
-    locked.current = false;
   }, [resetKey]);
   function tap(value: string) {
-    if (locked.current) {
-      return;
-    }
-    locked.current = true;
     setPicked(value);
-    if (value === answer) {
-      setFeel("snap");
-      onFeel("hop");
-      window.setTimeout(() => onCommit(value), 380);
-      return;
-    }
-    setFeel("slide");
-    onFeel("slide");
-    window.setTimeout(() => onCommit(value), 500);
+    onDraft(value);
   }
   return (
-    <div className={`gk-compare ${feel === "snap" ? "is-snap" : feel === "slide" ? "is-slide" : ""}`} data-action="compare-piles">
-      <button type="button" className={picked === String(left) ? `is-picked ${feel}` : ""} data-pile="left" data-choice={String(left)} onClick={() => tap(String(left))}>
+    <div className="gk-compare" data-action="compare-piles">
+      <button type="button" className={picked === String(left) ? "is-picked" : ""} data-pile="left" data-choice={String(left)} onClick={() => tap(String(left))}>
         <span className="gk-numeral">
           <b>{left}</b>
           <NumeralDots count={left} />
@@ -282,7 +274,7 @@ export function ComparePilesPad({
         </span>
       </button>
       <img className="gk-compare-goat" src={art("goat-idle.png")} alt="" />
-      <button type="button" className={picked === String(right) ? `is-picked ${feel}` : ""} data-pile="right" data-choice={String(right)} onClick={() => tap(String(right))}>
+      <button type="button" className={picked === String(right) ? "is-picked" : ""} data-pile="right" data-choice={String(right)} onClick={() => tap(String(right))}>
         <span className="gk-numeral">
           <b>{right}</b>
           <NumeralDots count={right} />
@@ -329,64 +321,36 @@ export function PatternGapPad({
   answer,
   choices,
   resetKey,
-  onCommit,
-  onFeel,
+  onDraft,
 }: {
   answer: string;
   choices?: ChoiceOption[];
   resetKey: string;
-  onCommit: (attempt: string) => void;
-  onFeel: (feel: "hop" | "slide") => void;
+  onDraft: (attempt: string) => void;
 }) {
+  void answer;
   const options = choices && choices.length > 0 ? choices.map((option) => option.value) : ["triangle", "square", "circle"];
   const [picked, setPicked] = useState<string | null>(null);
-  const [feel, setFeel] = useState<"" | "snap" | "slide">("");
-  const locked = useRef(false);
   useEffect(() => {
     setPicked(null);
-    setFeel("");
-    locked.current = false;
   }, [resetKey]);
   function tap(value: string) {
-    if (locked.current) {
-      return;
-    }
-    locked.current = true;
     setPicked(value);
-    if (value === answer) {
-      setFeel("snap");
-      onFeel("hop");
-      window.setTimeout(() => onCommit(value), 380);
-      return;
-    }
-    setFeel("slide");
-    onFeel("slide");
-    window.setTimeout(() => {
-      setPicked(null);
-      setFeel("");
-      locked.current = false;
-      onCommit(value);
-    }, 500);
+    onDraft(value);
   }
   return (
-    <div className={`gk-pattern ${feel === "snap" ? "is-snap" : feel === "slide" ? "is-slide" : ""}`} data-action="pattern-gap">
+    <div className="gk-pattern" data-action="pattern-gap">
       <div className="gk-pattern-row">
         <Shape name="triangle" />
         <Shape name="square" />
         <Shape name="triangle" />
         <span className="gk-pattern-gap" data-gap="1">
-          {picked && feel === "snap" ? <Shape name={picked} /> : null}
+          {picked ? <Shape name={picked} /> : null}
         </span>
       </div>
       <div className="gk-pattern-picks">
         {options.map((value) => (
-          <button
-            key={value}
-            type="button"
-            data-choice={value}
-            className={picked === value ? (feel === "slide" ? "is-slide" : "is-snap") : ""}
-            onClick={() => tap(value)}
-          >
+          <button key={value} type="button" data-choice={value} className={picked === value ? "is-picked" : ""} onClick={() => tap(value)}>
             <Shape name={value} />
           </button>
         ))}

@@ -585,7 +585,7 @@
 .gk-row {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr) auto auto;
-  align-items: center;
+  align-items: start;
   column-gap: 8px;
   border: 1.5px solid #e6e2da;
   background: #f6f4f0;
@@ -596,7 +596,7 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .gk-row:not(:has(.gk-cut)) {
@@ -697,6 +697,7 @@
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
+  overflow-wrap: anywhere;
   line-height: 1.2;
 }
 
@@ -705,9 +706,10 @@
   display: block;
   color: #6b6459;
   font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
 }
 
 .gk-cut {
@@ -780,6 +782,23 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.gk-work.is-full {
+  display: block;
+}
+
+.gk-work.is-full .gk-card-main {
+  width: 100%;
+  max-width: none;
+}
+
+.gk-sketch-question {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 @media (max-width: 900px) {
@@ -1081,6 +1100,21 @@
   font-weight: 700;
 }
 
+.gk-check:disabled {
+  opacity: 0.4;
+}
+
+.gk-check-mark {
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  border-radius: 18px;
+  background: #3c7a2b;
+  color: #fff;
+  font-size: 52px;
+  line-height: 1;
+}
+
 .gk-answer input.is-right {
   background: #c8e6c4;
 }
@@ -1178,6 +1212,7 @@
 
 .gk-scratch-ink {
   cursor: crosshair;
+  z-index: 1;
 }
 
 .gk-scratch-tools {

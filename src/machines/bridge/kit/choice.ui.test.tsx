@@ -49,10 +49,10 @@ describe("choice screen", () => {
         expect(container.querySelector(".gk-keys"), skillId).toBeNull();
         expect(container.querySelector('input[aria-label="Answer"]'), skillId).toBeNull();
         expect(container.textContent, skillId).toContain("I don't know");
-        expect(
-          container.textContent?.includes("Work it out") || Boolean(container.querySelector('canvas[aria-label="Work it out"]')),
-          skillId,
-        ).toBe(true);
+        expect(container.querySelector('canvas[aria-label="Work it out"]'), skillId).toBeNull();
+        const check = container.querySelector("[data-check]") as HTMLButtonElement | null;
+        expect(check, skillId).toBeTruthy();
+        expect(check?.disabled, skillId).toBe(true);
         root.unmount();
         container.remove();
       }
