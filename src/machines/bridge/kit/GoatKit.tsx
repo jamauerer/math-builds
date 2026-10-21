@@ -88,11 +88,13 @@ import {
   preCut,
   queenPost,
   rowLabel,
+  setActiveKit,
   slotAlong,
   slotFact,
   stareLine,
   testedRound,
   trayNote,
+  bigBridgeUnlocked,
 } from "../kits/kit";
 import type { ExplainStep } from "../kits/explain";
 import { KIT_SKILLS, skillsFromLevels, type SkillBook } from "../kits/skills";
@@ -102,7 +104,7 @@ import "./goat.css";
 import { bicycle, catapult, ramp, teeter, winch } from "./pick-svgs";
 import { art, BridgeScene, CrossingPicture, frameNear, TrussThumb } from "./scene";
 
-type Stage = "pick" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "live" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "where";
+type Stage = "pick" | "choice" | "intro" | "earn" | "assemble" | "drive" | "wreck" | "live" | "grade" | "place" | "place2" | "explain" | "practice" | "profile" | "where";
 type Open = Stage | "faster";
 
 function needsCountry(profile: KitProfile | null | undefined): boolean {
@@ -208,6 +210,7 @@ export function GoatKit({
 }) {
   setUnitSystem(units);
   void map;
+  setActiveKit(kitProfile?.kitId === "big" && bigBridgeUnlocked(kitProfile.littleRounds ?? 0) ? "big" : "little");
   const savedLevels = strandLevels(level, kitProfile?.levels);
   const [liveLevels, setLiveLevels] = useState<Record<string, number> | null>(savedLevels);
   const hasPlacement = !unplaced && (level != null || Object.keys(kitProfile?.levels ?? {}).length > 0);
@@ -823,10 +826,10 @@ export function GoatKit({
       numbers.bolts = 1;
     }
     if (placed["rail-a"] || placed.rails) {
-      numbers["rail-a"] = numbers["rail-a"] ?? 8;
-      numbers["rail-b"] = numbers["rail-b"] ?? 8;
+      numbers["rail-a"] = numbers["rail-a"] ?? queenPost.span;
+      numbers["rail-b"] = numbers["rail-b"] ?? queenPost.span;
     }
-    const crossing = simulateCrossing(numbers, nextMass);
+    const crossing = simulateCrossing(numbers, queenPost.goat === "big" ? BIG_GOAT_MASS : SMALL_GOAT_MASS, queenPost.rounds[earn.round]?.trial);
     setMass(nextMass);
     setResult(crossing);
     setStage("drive");
@@ -858,6 +861,8 @@ export function GoatKit({
           build: { lengths, placed },
           built: true,
           dunks: kitProfile?.dunks ?? 0,
+          kitId: queenPost.goat === "big" ? "big" : "little",
+          littleRounds: queenPost.goat === "big" ? kitProfile?.littleRounds ?? 0 : Math.max(kitProfile?.littleRounds ?? 0, earn.round + 1),
         });
       }
       return;
@@ -948,6 +953,40 @@ export function GoatKit({
 
   return (
     <div className="goat-kit" data-stage={stage}>
+      {stage === "choice" ? (
+        <BridgeChoice
+          marks={marks}
+          units={units}
+          onUnits={onUnits}
+          onProfile={() => setStage("profile")}
+          onBig={() => {
+            setActiveKit("big");
+            onKitProfile?.({
+              grade: kitProfile?.grade ?? grade,
+              kitVersion: queenPost.version,
+              levels: kitProfile?.levels ?? savedLevels ?? {},
+              history: kitProfile?.history ?? [],
+              notes: kitProfile?.notes ?? [],
+              lastRunMs: kitProfile?.lastRunMs,
+              skills: kitProfile?.skills,
+              seenIntro: true,
+              kitId: "big",
+              littleRounds: 3,
+            });
+            setEarn(blankEarn(savedLevels, 1, kitProfile?.skills, "2026-10-20", 0));
+            setLengths({});
+            setPlaced({});
+            setStage("intro");
+          }}
+          onLittle={() => {
+            setActiveKit("little");
+            setEarn(blankEarn(savedLevels, 1, kitProfile?.skills, "2026-10-20", 0));
+            setLengths({});
+            setPlaced({});
+            setStage("intro");
+          }}
+        />
+      ) : null}
       {stage === "pick" ? (
         <Pick
           marks={marks}
@@ -1171,8 +1210,11 @@ export function GoatKit({
               result={shown}
               lengths={numericLengths(lengths)}
               seek={seek}
-              onHeavy={() => sendGoat(BIG_GOAT_MASS)}
-              onNext={() => setStage("pick")}
+              onHeavy={() => sendGoat(queenPost.goat === "big" ? BIG_GOAT_MASS : SMALL_GOAT_MASS)}
+              onNext={() => {
+                const rounds = queenPost.goat === "big" ? kitProfile?.littleRounds ?? 0 : Math.max(kitProfile?.littleRounds ?? 0, earn.round + 1);
+                setStage(queenPost.goat !== "big" && bigBridgeUnlocked(rounds) ? "choice" : "pick");
+              }}
               onSettled={() => {
                 if (!shown.ok) {
                   setStage("wreck");
@@ -1270,6 +1312,49 @@ function Account({
           <div className="gk-avatar">M</div>
           Maya
         </button>
+      </div>
+    </>
+  );
+}
+
+function BridgeChoice({
+  marks,
+  units,
+  onUnits,
+  onProfile,
+  onBig,
+  onLittle,
+}: {
+  marks: number;
+  units: UnitSystem;
+  onUnits: (units: UnitSystem) => void;
+  onProfile: () => void;
+  onBig: () => void;
+  onLittle: () => void;
+}) {
+  return (
+    <>
+      <header className="gk-header">
+        <div className="gk-logo">Math Builds</div>
+        <Account marks={marks} units={units} onUnits={onUnits} onProfile={onProfile} />
+      </header>
+      <div className="gk-pick" data-card="big-goat-unlock">
+        <h1>The little goat's bridge is finished.</h1>
+        <p className="gk-sub">The big goat is too big for the 8 ft bridge. He needs his own.</p>
+        <div className="gk-grid">
+          <button className="gk-card-btn" type="button" data-action="build-big" onClick={onBig}>
+            <div className="meta">
+              <h3>Build the big goat's bridge</h3>
+              <div style={{ fontSize: 14, color: "#6B6459" }}>A 16 ft queen-post truss. Same three rounds. The big goat is the test load.</div>
+            </div>
+          </button>
+          <button className="gk-card-btn" type="button" data-action="build-little" onClick={onLittle}>
+            <div className="meta">
+              <h3>Build the little bridge again</h3>
+              <div style={{ fontSize: 14, color: "#6B6459" }}>The 8 ft bridge, with the little goat.</div>
+            </div>
+          </button>
+        </div>
       </div>
     </>
   );
@@ -3035,13 +3120,15 @@ function DriveView({
         <CrossingPicture frame={frame} extras={lengths} />
         <div className="gk-strip">
           <p>
-            {madeIt ? "He made it. Not a drop on him." : frame.goatX >= 8 ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
+            {madeIt ? "He made it. Not a drop on him." : frame.goatX >= queenPost.span ? "The goat is across." : calm ? "Every piece fit, nothing is bending." : "The goat is on the bridge."}
           </p>
           {showButtons ? (
             <div className="gk-actions">
-              <button className="gk-light" type="button" onClick={onHeavy}>
-                Add a heavier goat
-              </button>
+              {queenPost.goat === "big" ? (
+                <button className="gk-light" type="button" onClick={onHeavy}>
+                  Send the big goat again
+                </button>
+              ) : null}
               <button className="gk-dark" type="button" data-action="primary" onClick={onNext}>
                 Next design
               </button>

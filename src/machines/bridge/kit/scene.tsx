@@ -233,7 +233,7 @@ export function BridgeScene({
   return (
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge">
-      <img className="banks" src={art("banks.png")} alt="" />
+      <img className="banks" src={art(queenPost.banks ?? "banks.png")} alt="" />
       <BankGuides />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110 }} />
@@ -438,12 +438,15 @@ function poseStyle(pose: PiecePose, layer: "far" | "near" = "near"): CSSProperti
   const rotation = vertical ? -pose.angle + Math.PI / 2 : -pose.angle;
   const deckBeam = pose.kind === "beam" && Math.abs(pose.angle) < 0.25;
   const onDeck = plank && Math.abs(pose.angle) < 0.35 && pose.y > -0.15;
+  const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+  const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
+  const seat = pose.x < queenPost.span / 2 ? leftTop : rightTop;
   let top = onDeck
     ? queenPost.scene.deckY
     : plank
       ? py - height / 2
       : deckBeam && pose.y > -0.2
-        ? queenPost.scene.bankTopY - BEAM_THICK_PX
+        ? seat - BEAM_THICK_PX
         : py - height / 2;
   if (!deckBeam && !plank && pose.y <= waterWorld() + 0.02) {
     top = Math.max(top, waterPixel() - height / 2);
@@ -474,8 +477,10 @@ function fit(src: string, width: number, height: number) {
   return { src, width: Math.round(width * 0.5), height: Math.round(height * 0.5) };
 }
 
-const SMALL_H = 150;
-const BIG_H = 300;
+function goatHeightPx(kind: "small" | "big"): number {
+  const small = Math.round(3 * queenPost.pxPerMetre);
+  return kind === "big" ? small * 2 : small;
+}
 
 function scaleTo(src: string, natW: number, natH: number, height: number) {
   return { src, width: Math.round((natW * height) / natH), height };
@@ -493,12 +498,12 @@ export function goatSprite(
   if (mode === "arrived") {
     const frame = danceFrame(celebrate, 28, 12);
     if (frame) {
-      return scaleTo(`goat-dance-${frame}.png`, 223, 240, SMALL_H);
+      return scaleTo(`goat-dance-${frame}.png`, 223, 240, goatHeightPx("small"));
     }
-    return { src: "goat-arrived.png", width: 149, height: 150 };
+    return scaleTo("goat-arrived.png", 149, 150, goatHeightPx("small"));
   }
   if (mode === "walk") {
-    return { src: `goat-walk-${walkFrame}.png`, width: 145, height: 150 };
+    return scaleTo(`goat-walk-${walkFrame}.png`, 145, 150, goatHeightPx("small"));
   }
   if (mode === "slip") {
     return fit("goat-slip.png", 282, 266);
@@ -527,7 +532,7 @@ export function goatSprite(
   if (mode === "glare") {
     return fit(walkFrame === 2 ? "goat-glare-2.png" : "goat-glare-1.png", walkFrame === 2 ? 347 : 353, walkFrame === 2 ? 293 : 322);
   }
-  return { src: "goat-idle.png", width: 149, height: 150 };
+  return scaleTo("goat-idle.png", 149, 150, goatHeightPx("small"));
 }
 
 function danceFrame(celebrate: number, count: number, fps: number): number | null {
@@ -539,7 +544,7 @@ function danceFrame(celebrate: number, count: number, fps: number): number | nul
 }
 
 function bigGoatSprite(mode: GoatMode, walkFrame: number, celebrate: number): { src: string; width: number; height: number } {
-  const sized = (src: string, natW = 295, natH = 335) => scaleTo(src, natW, natH, BIG_H);
+  const sized = (src: string, natW = 295, natH = 335) => scaleTo(src, natW, natH, goatHeightPx("big"));
   if (mode === "arrived") {
     const frame = danceFrame(celebrate, 15, 12);
     if (frame) {
@@ -581,8 +586,8 @@ function bigGoatSprite(mode: GoatMode, walkFrame: number, celebrate: number): { 
 }
 
 export function frameNear(frames: CrossingFrame[], metres: number): CrossingFrame {
-  if (metres >= 8 && frames.some((frame) => frame.celebrate > 0)) {
-    const target = metres - 8;
+  if (metres >= queenPost.span && frames.some((frame) => frame.celebrate > 0)) {
+    const target = metres - queenPost.span;
     let best = frames[0];
     let bestDist = Infinity;
     for (const frame of frames) {
@@ -722,7 +727,7 @@ export function CrossingPicture({ frame, extras = {} }: { frame: CrossingFrame; 
   return (
     <div className="gk-scene-scale">
     <div className="gk-scene" data-scene="bridge" data-goat-x={frame.goatX.toFixed(2)} data-goat-mode={frame.mode} data-goat-kind={frame.goat}>
-      <img className="banks" src={art("banks.png")} alt="" />
+      <img className="banks" src={art(queenPost.banks ?? "banks.png")} alt="" />
       <img src={art("signpost.png")} alt="" style={{ position: "absolute", left: 40, top: 263, width: 90, height: 92 }} />
       <img src={art("flag.png")} alt="" style={{ position: "absolute", left: 760, top: 245, width: 112, height: 110, zIndex: 8 }} />
       <img src={art("grass.png")} alt="" style={{ position: "absolute", left: 880, top: 315, width: 70, height: 40 }} />

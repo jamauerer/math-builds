@@ -1,5 +1,7 @@
 import { formatLength, lengthAbbrev } from "../../../units";
 import raw from "./queen-post.json";
+import rawBig from "./queen-post-big.json";
+import { BEAM_THICK_FT, measuredScene, PLANK_THICK_FT, type KitKind } from "./water-line";
 
 export type DunkTag = "general" | "short beam" | "long beam" | "missing planks" | "missing brace" | "missing post";
 
@@ -62,7 +64,11 @@ export type QueenPostKit = {
     leftEdge: number;
     rightEdge: number;
     bankTopY: number;
+    leftTopY?: number;
+    rightTopY?: number;
   };
+  banks?: string;
+  goat?: "small" | "big";
   nodes: KitNode[];
   groups: KitGroup[];
   rounds: KitRound[];
@@ -470,7 +476,11 @@ function readQueenPost(value: unknown): QueenPostKit {
       leftEdge: readNumber(scene.leftEdge, "scene.leftEdge"),
       rightEdge: readNumber(scene.rightEdge, "scene.rightEdge"),
       bankTopY: readNumber(scene.bankTopY, "scene.bankTopY"),
+      leftTopY: typeof scene.leftTopY === "number" ? scene.leftTopY : readNumber(scene.bankTopY, "scene.bankTopY"),
+      rightTopY: typeof scene.rightTopY === "number" ? scene.rightTopY : readNumber(scene.bankTopY, "scene.bankTopY"),
     },
+    banks: typeof kit.banks === "string" ? kit.banks : "banks.png",
+    goat: kit.id === "queen-post-big" ? "big" : "small",
     nodes: readArray(kit.nodes, "nodes").map((node, index) => {
       const item = readObject(node, `nodes.${index}`);
       return {
@@ -491,7 +501,48 @@ function readQueenPost(value: unknown): QueenPostKit {
   };
 }
 
-export const queenPost = readQueenPost(raw);
+function applyMeasured(kit: QueenPostKit, kind: KitKind): QueenPostKit {
+  const found = measuredScene(kind);
+  return {
+    ...kit,
+    pxPerMetre: found.pxPerFt,
+    banks: found.banks,
+    scene: {
+      ...kit.scene,
+      width: 1000,
+      height: 620,
+      originX: found.originX,
+      deckY: found.deckY,
+      waterY: found.waterY,
+      leftEdge: found.leftEdge,
+      rightEdge: found.rightEdge,
+      bankTopY: found.bankTopY,
+      leftTopY: found.leftTopY,
+      rightTopY: found.rightTopY,
+    },
+  };
+}
+
+export const littleKit = applyMeasured(readQueenPost(raw), "little");
+export const bigKit = applyMeasured(readQueenPost(rawBig), "big");
+export let queenPost = littleKit;
+export let PX_PER_M = queenPost.pxPerMetre;
+
+export function kitKind(kit: QueenPostKit = queenPost): KitKind {
+  return kit.id === "queen-post-big" ? "big" : "little";
+}
+
+export function setActiveKit(kind: KitKind): QueenPostKit {
+  queenPost = kind === "big" ? bigKit : littleKit;
+  PX_PER_M = queenPost.pxPerMetre;
+  BEAM_THICK_PX = BEAM_THICK_FT * queenPost.pxPerMetre;
+  PLANK_THICK_PX = PLANK_THICK_FT * queenPost.pxPerMetre;
+  return queenPost;
+}
+
+export function bigBridgeUnlocked(littleRounds = 0): boolean {
+  return littleRounds >= 3;
+}
 
 /** Highest round whose structural pieces are all present in this build. */
 export function testedRound(lengths: Record<string, number>): number {
@@ -508,8 +559,6 @@ export function testedRound(lengths: Record<string, number>): number {
 export function roundTrial(lengths: Record<string, number>): string {
   return queenPost.rounds[testedRound(lengths)]?.trial ?? "cross";
 }
-
-export const PX_PER_M = queenPost.pxPerMetre;
 
 export function kitNode(id: string): KitNode {
   const node = queenPost.nodes.find((item) => item.id === id);
@@ -593,36 +642,42 @@ export function wreckLines(lengths: Record<string, number>): string[] {
   }
   const top = queenPost.slots.find((slot) => slot.id === "top");
   const post = queenPost.slots.find((slot) => slot.id === "post-b");
-  if (top && post && lengths.top != null && lengthDelta(top, lengths.top) > 0.05) {
-    lines.push(`Right post, ${formatLength(2)}, needed ${formatLength(2)}, right length, nothing on top, fell`);
+  if (top && post && post.length != null && lengths.top != null && lengthDelta(top, lengths.top) > 0.05) {
+    lines.push(`Right post, ${formatLength(post.length)}, needed ${formatLength(post.length)}, right length, nothing on top, fell`);
   }
   return lines;
 }
 
+/** Deck marks under the two posts, not the mid-span joint. */
+export function postFeet(): number[] {
+  return queenPost.slots
+    .filter((slot) => slot.kind === "post" && slot.from)
+    .map((slot) => kitNode(slot.from as string).m)
+    .sort((a, b) => a - b);
+}
+
 /** Facts the learner can see before they type a length. */
 export function knownLine(): string {
-  const posts = queenPost.nodes
-    .filter((node) => node.h === 0 && node.m > 0 && node.m < queenPost.span)
-    .map((node) => node.m)
-    .sort((a, b) => a - b);
-  const stands = posts.filter((metre) => metre === 2 || metre === 6).map((metre) => formatLength(metre));
+  const stands = postFeet().map((metre) => formatLength(metre));
   return `The gap is ${formatLength(queenPost.span)}. The posts stand at ${stands[0]} and ${stands[1]}.`;
 }
 
 /** Pixel sizes for the deck stack: plank on beam on the bank. */
-export const BEAM_THICK_PX = 22;
-export const PLANK_THICK_PX = 16;
+export let BEAM_THICK_PX = BEAM_THICK_FT * littleKit.pxPerMetre;
+export let PLANK_THICK_PX = PLANK_THICK_FT * littleKit.pxPerMetre;
 export const BEARING_FT = 0.5;
 
-/** Bottom beam box: 0.5 ft onto the bank, bottom face on bankTopY. */
-export function deckBeamBox(side: "left" | "right", typed = 4) {
+/** Bottom beam box: 0.5 ft onto the bank, bottom face on that bank's top. */
+export function deckBeamBox(side: "left" | "right", typed = queenPost.span / 2) {
   const px = queenPost.pxPerMetre;
   const bearing = BEARING_FT * px;
-  const top = queenPost.scene.bankTopY - BEAM_THICK_PX;
+  const thick = BEAM_THICK_FT * px;
+  const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+  const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
   if (side === "left") {
-    return { left: queenPost.scene.leftEdge - bearing, top, width: typed * px + bearing, height: BEAM_THICK_PX, bottom: queenPost.scene.bankTopY };
+    return { left: queenPost.scene.leftEdge - bearing, top: leftTop - thick, width: typed * px + bearing, height: thick, bottom: leftTop };
   }
-  return { left: queenPost.scene.leftEdge + 4 * px, top, width: typed * px + bearing, height: BEAM_THICK_PX, bottom: queenPost.scene.bankTopY };
+  return { left: queenPost.scene.leftEdge + (queenPost.span / 2) * px, top: rightTop - thick, width: typed * px + bearing, height: thick, bottom: rightTop };
 }
 
 /** Dotted-slot label: where the piece runs, never how long it is. */

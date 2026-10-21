@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { queenPost, slotAlong, stareLine } from "./kit";
+import { afterEach, describe, expect, it } from "vitest";
+import { bigBridgeUnlocked, bigKit, queenPost, setActiveKit, slotAlong, stareLine } from "./kit";
 import { BIG_GOAT_MASS, SMALL_GOAT_MASS, simulateCrossing } from "./simulate";
 import { fireworkDraws, frameNear, goatSprite } from "../kit/scene";
 
@@ -19,6 +19,10 @@ function truss(): Record<string, number> {
   }
   return lengths;
 }
+
+afterEach(() => {
+  setActiveKit("little");
+});
 
 describe("big goat", () => {
   it("sends one big goat at 120 lb, twice the small height, with no follower", () => {
@@ -51,13 +55,43 @@ describe("big goat", () => {
     expect(queenPost.bigDunks.map((item) => item.line)).toContain(line);
   });
 
-  it("sags the unbolted truss under the big goat and holds when bolted", () => {
-    const loose = simulateCrossing(truss(), BIG_GOAT_MASS);
+  it("sags the unbolted little truss under the little goat and holds when bolted", () => {
+    const loose = simulateCrossing(truss(), SMALL_GOAT_MASS, "heavy");
     expect(loose.ok).toBe(false);
     expect(loose.frames.some((frame) => frame.goatY < 0 || frame.pieces.some((piece) => piece.y < 0))).toBe(true);
-    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, BIG_GOAT_MASS);
+    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, SMALL_GOAT_MASS, "heavy");
     expect(held.ok).toBe(true);
     expect(held.goatX).toBeGreaterThanOrEqual(8);
+    expect(held.frames[0]?.goat).toBe("small");
+  });
+
+  it("sends the big goat across the finished big bridge and into the river on planks only", () => {
+    setActiveKit("big");
+    const planksOnly = Object.fromEntries(queenPost.slots.filter((slot) => slot.kind === "plank").map((slot) => [slot.id, 1]));
+    const bottoms = { "bottom-a": 8, "bottom-b": 8 };
+    const fold = simulateCrossing({ ...bottoms, ...planksOnly }, BIG_GOAT_MASS);
+    expect(fold.ok).toBe(false);
+    expect(fold.frames[0]?.goat).toBe("big");
+    expect(fold.frames.some((frame) => frame.goatY < 0 || frame.mode === "swim" || frame.mode === "fall")).toBe(true);
+    const lengths: Record<string, number> = { ...bottoms, ...planksOnly, bolts: 1, "rail-a": 16, "rail-b": 16 };
+    for (const slot of queenPost.slots) {
+      if (slot.kind !== "rail" && slot.group !== "bolts" && slot.kind !== "plank") {
+        const along = slotAlong(slot);
+        if (along != null) {
+          lengths[slot.id] = along;
+        }
+      }
+    }
+    const held = simulateCrossing(lengths, BIG_GOAT_MASS, "cross");
+    expect(held.ok).toBe(true);
+    expect(held.goatX).toBeGreaterThanOrEqual(bigKit.span);
+    expect(held.frames.every((frame) => frame.goat === "big")).toBe(true);
+  });
+
+  it("unlocks the big bridge only after three little rounds", () => {
+    expect(bigBridgeUnlocked(0)).toBe(false);
+    expect(bigBridgeUnlocked(2)).toBe(false);
+    expect(bigBridgeUnlocked(3)).toBe(true);
   });
 
   it("plays rocket, burst, fade and dance frames on arrival", () => {

@@ -46,6 +46,8 @@ export type KitProfile = {
   fastRuns?: Record<string, number>;
   ladderAt?: number;
   ladderSteps?: { adding: string; subtracting: string; multiplying?: string; dividing?: string };
+  kitId?: "little" | "big";
+  littleRounds?: number;
 };
 
 const STORAGE_KEY = "math-builds.progress.v3";
@@ -281,6 +283,8 @@ function sanitizeKitProfile(raw: unknown): KitProfile {
     build: migrated.build,
     built: migrated.built,
     dunks: typeof record.dunks === "number" && record.dunks >= 0 ? Math.floor(record.dunks) : 0,
+    kitId: record.kitId === "big" ? "big" : record.kitId === "little" ? "little" : undefined,
+    littleRounds: typeof record.littleRounds === "number" && record.littleRounds >= 0 ? Math.min(3, Math.floor(record.littleRounds)) : 0,
     placedAt: typeof record.placedAt === "string" ? record.placedAt : undefined,
     ladderAt: typeof record.ladderAt === "number" ? record.ladderAt : undefined,
     ladderSteps:

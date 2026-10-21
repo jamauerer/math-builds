@@ -9,12 +9,28 @@ export const BANKS_LAYOUT = {
   height: 386,
 };
 
+export const BEAM_THICK_FT = 22 / 50;
+export const PLANK_THICK_FT = 16 / 50;
 export const BEAM_THICK_PX = 22;
 export const PLANK_THICK_PX = 16;
 export const SPAN_FT = 8;
 export const BEARING_FT = 0.5;
 export const SCENE_WIDTH = 1000;
 export const SCENE_HEIGHT = 620;
+
+export type KitKind = "little" | "big";
+
+export const BANKS_FILE: Record<KitKind, string> = {
+  little: "public/art/banks.png",
+  big: "public/art/banks-big.png",
+};
+
+export const BANKS_NAME: Record<KitKind, string> = {
+  little: "banks.png",
+  big: "banks-big.png",
+};
+
+export const SPAN_FOR: Record<KitKind, number> = { little: 8, big: 16 };
 
 export type Rgba = { width: number; height: number; data: Uint8Array };
 export type Pixel = { r: number; g: number; b: number; a: number };
@@ -23,14 +39,18 @@ export type MeasuredScene = {
   leftEdge: number;
   rightEdge: number;
   bankTopY: number;
+  leftTopY: number;
+  rightTopY: number;
   pxPerFt: number;
   originX: number;
   deckY: number;
   waterY: number;
+  span: number;
+  banks: string;
 };
 
-let cachedImage: Rgba | null = null;
-let cachedScene: MeasuredScene | null = null;
+const cachedImage: Partial<Record<KitKind, Rgba>> = {};
+const cachedScene: Partial<Record<KitKind, MeasuredScene>> = {};
 
 function paeth(left: number, up: number, ul: number): number {
   const estimate = left + up - ul;
@@ -117,11 +137,11 @@ export function decodePng(bytes: Uint8Array): Rgba {
   return { width, height, data: pixels };
 }
 
-export function banksImage(): Rgba {
-  if (!cachedImage) {
-    cachedImage = decodePng(readFileSync("public/art/banks.png"));
+export function banksImage(kind: KitKind = "little"): Rgba {
+  if (!cachedImage[kind]) {
+    cachedImage[kind] = decodePng(readFileSync(BANKS_FILE[kind]));
   }
-  return cachedImage;
+  return cachedImage[kind];
 }
 
 export function imagePixel(image: Rgba, x: number, y: number): Pixel {
@@ -147,8 +167,8 @@ function imageToScene(imageX: number, imageY: number, image: Rgba): { x: number;
   };
 }
 
-export function pixelAt(sceneX: number, sceneY: number): Pixel {
-  const image = banksImage();
+export function pixelAt(sceneX: number, sceneY: number, kind: KitKind = "little"): Pixel {
+  const image = banksImage(kind);
   const point = sceneToImage(sceneX, sceneY, image);
   return imagePixel(image, point.x, point.y);
 }
@@ -189,7 +209,7 @@ export function isBank(pixel: Pixel): boolean {
 }
 
 export function isBeam(pixel: Pixel): boolean {
-  return pixel.a > 180 && pixel.r > pixel.g + 10 && pixel.g > pixel.b && pixel.r > 90 && pixel.b < 140;
+  return pixel.a > 180 && pixel.r > pixel.g + 10 && pixel.g > pixel.b && pixel.r > 80 && pixel.b < 140;
 }
 
 function median(values: number[]): number {
@@ -197,22 +217,23 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
-function firstBankTop(image: Rgba, x: number): number {
-  let run = 0;
-  for (let y = 0; y < image.height; y += 1) {
-    if (isBank(imagePixel(image, x, y))) {
-      run += 1;
-      if (run >= 6) {
-        return y - 5;
-      }
-    } else {
-      run = 0;
+/** Bank top at the face, walking up from the water so inland trees do not win. */
+function faceTop(image: Rgba, x: number, waterTop: number): number {
+  let top = waterTop;
+  for (let y = waterTop; y >= 0; y -= 1) {
+    const pixel = imagePixel(image, x, y);
+    if (isBank(pixel)) {
+      top = y;
+      continue;
+    }
+    if (isSky(pixel) || blueDominates(pixel) || isFoam(pixel)) {
+      break;
     }
   }
-  return Math.round(image.height * 0.28);
+  return top;
 }
 
-function measureImage(image: Rgba): { left: number; right: number; top: number } {
+function measureImage(image: Rgba): { left: number; right: number; leftTop: number; rightTop: number } {
   const midX = Math.floor(image.width / 2);
   let waterTop = Math.round(image.height * 0.55);
   for (let y = 0; y < image.height; y += 1) {
@@ -263,40 +284,63 @@ function measureImage(image: Rgba): { left: number; right: number; top: number }
   }
   const left = median(lefts);
   const right = median(rights);
-  const onto = Math.max(10, Math.round((right - left) * 0.04));
-  const top = median([firstBankTop(image, left - onto), firstBankTop(image, right + onto)]);
-  return { left, right, top };
+  const onto = Math.max(8, Math.min(16, Math.round((right - left) * 0.01)));
+  return {
+    left,
+    right,
+    leftTop: faceTop(image, left - onto, waterTop),
+    rightTop: faceTop(image, right + onto, waterTop),
+  };
 }
 
-export function measuredScene(): MeasuredScene {
-  if (cachedScene) {
-    return cachedScene;
+export function measuredScene(kind: KitKind = "little"): MeasuredScene {
+  const hit = cachedScene[kind];
+  if (hit) {
+    return hit;
   }
-  const image = banksImage();
+  const image = banksImage(kind);
   const found = measureImage(image);
-  const left = imageToScene(found.left, found.top, image);
-  const right = imageToScene(found.right, found.top, image);
+  const left = imageToScene(found.left, found.leftTop, image);
+  const right = imageToScene(found.right, found.rightTop, image);
   const leftEdge = left.x;
   const rightEdge = right.x;
-  const bankTopY = (left.y + right.y) / 2;
-  const pxPerFt = (rightEdge - leftEdge) / SPAN_FT;
-  const deckY = bankTopY - BEAM_THICK_PX - PLANK_THICK_PX;
+  const leftTopY = left.y;
+  const rightTopY = right.y;
+  const bankTopY = (leftTopY + rightTopY) / 2;
+  const span = SPAN_FOR[kind];
+  const pxPerFt = (rightEdge - leftEdge) / span;
+  const beamPx = BEAM_THICK_FT * pxPerFt;
+  const plankPx = PLANK_THICK_FT * pxPerFt;
+  const deckY = Math.min(leftTopY, rightTopY) - beamPx - plankPx;
   let waterY = 1.12;
   const gapX = (leftEdge + rightEdge) / 2;
   for (let row = 0; row < BANKS_LAYOUT.height; row += 1) {
     const sceneY = BANKS_LAYOUT.top + row;
-    if (blueDominates(pixelAt(gapX, sceneY))) {
+    if (blueDominates(pixelAt(gapX, sceneY, kind))) {
       waterY = (sceneY - bankTopY) / pxPerFt;
       break;
     }
   }
-  cachedScene = { leftEdge, rightEdge, bankTopY, pxPerFt, originX: leftEdge, deckY, waterY };
-  return cachedScene;
+  const scene: MeasuredScene = {
+    leftEdge,
+    rightEdge,
+    bankTopY,
+    leftTopY,
+    rightTopY,
+    pxPerFt,
+    originX: leftEdge,
+    deckY,
+    waterY,
+    span,
+    banks: BANKS_NAME[kind],
+  };
+  cachedScene[kind] = scene;
+  return scene;
 }
 
 /** First scene row in the gap's center column where the painted water is blue. Metres below the deck. */
-export function measuredWaterY(): number {
-  return measuredScene().waterY;
+export function measuredWaterY(kind: KitKind = "little"): number {
+  return measuredScene(kind).waterY;
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -403,30 +447,33 @@ function paintLine(dest: Rgba, x0: number, y0: number, x1: number, y1: number) {
   }
 }
 
-export function deckBeamBox(side: "left" | "right", typed = 4, scene = measuredScene()) {
+export function deckBeamBox(side: "left" | "right", typed?: number, scene = measuredScene()) {
+  const half = scene.span / 2;
+  const length = typed ?? half;
   const bearing = BEARING_FT * scene.pxPerFt;
-  const span = typed * scene.pxPerFt;
-  const top = scene.bankTopY - BEAM_THICK_PX;
+  const span = length * scene.pxPerFt;
+  const thick = BEAM_THICK_FT * scene.pxPerFt;
   if (side === "left") {
-    return { left: scene.leftEdge - bearing, top, width: span + bearing, height: BEAM_THICK_PX, bottom: scene.bankTopY };
+    return { left: scene.leftEdge - bearing, top: scene.leftTopY - thick, width: span + bearing, height: thick, bottom: scene.leftTopY };
   }
-  return { left: scene.leftEdge + 4 * scene.pxPerFt, top, width: span + bearing, height: BEAM_THICK_PX, bottom: scene.bankTopY };
+  return { left: scene.leftEdge + half * scene.pxPerFt, top: scene.rightTopY - thick, width: span + bearing, height: thick, bottom: scene.rightTopY };
 }
 
-export function renderGroundedScene(guides = false): Rgba {
-  const scene = measuredScene();
+export function renderGroundedScene(guides = false, kind: KitKind = "little"): Rgba {
+  const scene = measuredScene(kind);
   const dest: Rgba = { width: SCENE_WIDTH, height: SCENE_HEIGHT, data: new Uint8Array(SCENE_WIDTH * SCENE_HEIGHT * 4) };
   fill(dest, 231, 242, 250);
-  blit(dest, banksImage(), BANKS_LAYOUT.left, BANKS_LAYOUT.top, BANKS_LAYOUT.width, BANKS_LAYOUT.height);
+  blit(dest, banksImage(kind), BANKS_LAYOUT.left, BANKS_LAYOUT.top, BANKS_LAYOUT.width, BANKS_LAYOUT.height);
   const beam = decodePng(readFileSync("public/art/beam-side.png"));
   for (const side of ["left", "right"] as const) {
-    const box = deckBeamBox(side, 4, scene);
+    const box = deckBeamBox(side, scene.span / 2, scene);
     blit(dest, beam, box.left, box.top, box.width, box.height);
   }
   if (guides) {
     paintLine(dest, scene.leftEdge, 0, scene.leftEdge, SCENE_HEIGHT - 1);
     paintLine(dest, scene.rightEdge, 0, scene.rightEdge, SCENE_HEIGHT - 1);
-    paintLine(dest, 0, scene.bankTopY, SCENE_WIDTH - 1, scene.bankTopY);
+    paintLine(dest, 0, scene.leftTopY, SCENE_WIDTH - 1, scene.leftTopY);
+    paintLine(dest, 0, scene.rightTopY, SCENE_WIDTH - 1, scene.rightTopY);
   }
   return dest;
 }
@@ -435,8 +482,8 @@ export function canvasPixel(image: Rgba, x: number, y: number): Pixel {
   return imagePixel(image, x, y);
 }
 
-export function writeDebugScene(path: string): Rgba {
-  const image = renderGroundedScene(true);
+export function writeDebugScene(path: string, kind: KitKind = "little"): Rgba {
+  const image = renderGroundedScene(true, kind);
   writeFileSync(path, encodePng(image));
   return image;
 }

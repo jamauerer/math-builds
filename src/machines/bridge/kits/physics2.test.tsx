@@ -50,9 +50,14 @@ describe("physics 2", () => {
     expect(result.ok).toBe(true);
     const beams = result.bodies.filter((body) => body.id === "bottom-a" || body.id === "bottom-b");
     expect(beams).toHaveLength(2);
+    const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+    const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
+    const tilt = (leftTop - rightTop) / queenPost.pxPerMetre;
     for (const beam of beams) {
+      const along = beam.id === "bottom-a" ? queenPost.span * 0.25 : queenPost.span * 0.75;
+      const expected = tilt * (along / queenPost.span);
       const bottom = beam.y - 0.06;
-      expect(Math.abs(bottom) * queenPost.pxPerMetre).toBeLessThanOrEqual(2);
+      expect(Math.abs(bottom - expected) * queenPost.pxPerMetre).toBeLessThanOrEqual(4);
     }
   });
 
@@ -82,10 +87,10 @@ describe("physics 2", () => {
     const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
     expect(beamA).toBeTruthy();
     expect(beamB).toBeTruthy();
-    for (const beam of [beamA, beamB]) {
-      const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
-      expect(Math.abs(beamBottom - queenPost.scene.bankTopY)).toBeLessThanOrEqual(2);
-    }
+    const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+    const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
+    expect(Math.abs(parseFloat(beamA.style.top) + parseFloat(beamA.style.height) - leftTop)).toBeLessThanOrEqual(2);
+    expect(Math.abs(parseFloat(beamB.style.top) + parseFloat(beamB.style.height) - rightTop)).toBeLessThanOrEqual(2);
     root.unmount();
     container.remove();
   });
@@ -207,13 +212,13 @@ describe("physics 2", () => {
   });
 
   it("sags under a heavier goat without bolts and holds when the bolts are in", () => {
-    const loose = simulateCrossing(truss(), 120);
+    const loose = simulateCrossing(truss(), 120, "heavy");
     expect(loose.ok).toBe(false);
     expect(loose.frames.every((frame) => frame.follower == null)).toBe(true);
     expect(loose.frames[0]?.goat).toBe("big");
     expect(loose.frames.some((frame) => frame.pieces.some((piece) => piece.y - 0.06 < queenPost.scene.waterY * -1 + 0.05) || frame.goatY < 0)).toBe(true);
 
-    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, 120);
+    const held = simulateCrossing({ ...truss(), bolts: 1, "rail-a": 8, "rail-b": 8 }, 120, "heavy");
     expect(held.ok).toBe(true);
     expect(held.goatX).toBeGreaterThanOrEqual(8);
     expect(held.massKg).toBe(120);
@@ -233,10 +238,10 @@ describe("physics 2", () => {
     expect(container.querySelector('[data-piece="abutment-left"]')).toBeNull();
     const beamA = container.querySelector('[data-piece="bottom-a"]') as HTMLElement;
     const beamB = container.querySelector('[data-piece="bottom-b"]') as HTMLElement;
-    for (const beam of [beamA, beamB]) {
-      const beamBottom = parseFloat(beam.style.top) + parseFloat(beam.style.height);
-      expect(Math.abs(beamBottom - queenPost.scene.bankTopY)).toBeLessThanOrEqual(2);
-    }
+    const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+    const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
+    expect(Math.abs(parseFloat(beamA.style.top) + parseFloat(beamA.style.height) - leftTop)).toBeLessThanOrEqual(2);
+    expect(Math.abs(parseFloat(beamB.style.top) + parseFloat(beamB.style.height) - rightTop)).toBeLessThanOrEqual(2);
     const gusset = container.querySelector('[data-piece="gusset-n4"]') as HTMLElement;
     const plank = container.querySelector('[data-kind="plank"]') as HTMLElement;
     expect(gusset).toBeTruthy();

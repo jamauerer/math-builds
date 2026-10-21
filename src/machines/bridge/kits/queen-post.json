@@ -123,7 +123,7 @@
       "groups": ["bolts", "railing"],
       "runs": { "bolts": 2, "railing": 5 },
       "trial": "heavy",
-      "say": "Add a heavier goat.",
+      "say": "The goat walks. Unbolted the truss sags. Bolted it holds.",
       "coming": "",
       "marks": 6
     }

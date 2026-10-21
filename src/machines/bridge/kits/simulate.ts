@@ -4,6 +4,12 @@ import { BEARING_FT, kitNode, pieceEnd, plankCovers, plankStart, queenPost, roun
 
 const JOIN_M = 0.15;
 const BREAK_N = 1000;
+
+function bankHeight(m: number): number {
+  const leftTop = queenPost.scene.leftTopY ?? queenPost.scene.bankTopY;
+  const rightTop = queenPost.scene.rightTopY ?? queenPost.scene.bankTopY;
+  return ((leftTop - rightTop) / queenPost.pxPerMetre) * (m / Math.max(1, queenPost.span));
+}
 export const SMALL_GOAT_MASS = 40;
 export const BIG_GOAT_MASS = 120;
 export const CELEBRATE_S = 2.6;
@@ -120,13 +126,15 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
   const shift1 = slot.id === "bottom-b" ? BEARING_FT : 0;
   const ax = from.m + shift0;
   const bx = end.m + shift1;
-  const length = Math.max(0.25, Math.hypot(bx - ax, end.h - from.h));
-  const angle = Math.atan2(end.h - from.h, bx - ax);
-  const thick = slot.kind === "post" ? 0.18 : 0.12;
   const deck = slot.kind === "beam" && Math.abs(end.h - from.h) < 0.02;
+  const ay = from.h + bankHeight(ax);
+  const by = end.h + bankHeight(bx);
+  const length = Math.max(0.25, Math.hypot(bx - ax, by - ay));
+  const angle = Math.atan2(by - ay, bx - ax);
+  const thick = slot.kind === "post" ? 0.18 : 0.12;
   const lift = deck ? thick / 2 : 0;
   const body = world.createDynamicBody({
-    position: new Vec2((ax + bx) / 2, (from.h + end.h) / 2 + lift),
+    position: new Vec2((ax + bx) / 2, (ay + by) / 2 + lift),
     angle,
     linearDamping: 0.35,
     angularDamping: 0.45,
@@ -146,16 +154,16 @@ function addPiece(world: World, slot: KitSlot, typed: number): { piece: Piece; e
     length,
     kind: slot.kind,
     ax,
-    ay: from.h,
+    ay,
     bx,
-    by: end.h,
+    by,
     broken: null,
   };
   return {
     piece,
     ends: [
-      { piece, local: new Vec2(-length / 2, deck ? -thick / 2 : 0), x: ax, y: from.h, side: "left" },
-      { piece, local: new Vec2(length / 2, deck ? -thick / 2 : 0), x: bx, y: end.h, side: "right" },
+      { piece, local: new Vec2(-length / 2, deck ? -thick / 2 : 0), x: ax, y: ay, side: "left" },
+      { piece, local: new Vec2(length / 2, deck ? -thick / 2 : 0), x: bx, y: by, side: "right" },
     ],
   };
 }
@@ -283,22 +291,24 @@ function deckUnder(pieces: Piece[], x: number): { piece: Piece; y: number } | nu
   return best;
 }
 
-export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_MASS): CrossingResult {
+export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_MASS, trial = roundTrial(lengths)): CrossingResult {
+  const span = queenPost.span;
   const world = createWorld(10);
   const banks: { id: string; body: Body; x: number; y: number; side: "left" | "right" }[] = [];
   for (const bank of [
     { id: "n0", x: -1.5, side: "left" as const },
-    { id: "n8", x: 9.5, side: "right" as const },
+    { id: "far", x: span + 1.5, side: "right" as const },
   ]) {
+    const top = bankHeight(bank.side === "left" ? 0 : span);
     const body = world.createBody({ type: "static" });
-    body.setPosition(new Vec2(bank.x, -0.1));
+    body.setPosition(new Vec2(bank.x, top - 0.1));
     body.createFixture(new BoxShape(1.5, 0.1), { friction: 0.9, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
-    banks.push({ id: bank.id, body, x: bank.side === "left" ? 0 : 8, y: 0, side: bank.side });
+    banks.push({ id: bank.id, body, x: bank.side === "left" ? 0 : span, y: top, side: bank.side });
   }
 
   const waterY = waterWorld();
-  const river = world.createBody({ type: "static", position: new Vec2(4, waterY) });
-  river.createFixture(new BoxShape(6, 0.08), { isSensor: true, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
+  const river = world.createBody({ type: "static", position: new Vec2(span / 2, waterY) });
+  river.createFixture(new BoxShape(span / 2 + 2, 0.08), { isSensor: true, filterCategoryBits: 0x0001, filterMaskBits: 0x0006 });
 
   const pieces: Piece[] = [];
   const ends: EndPoint[] = [];
@@ -345,8 +355,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
     for (const bank of banks) {
-      const onBank = bank.side === "left" ? end.x <= 0.05 : end.x >= 7.95;
-      if (!onBank || Math.abs(end.y) > 0.25) {
+      const onBank = bank.side === "left" ? end.x <= 0.05 : end.x >= span - 0.05;
+      if (!onBank || Math.abs(end.y - bankHeight(end.x)) > 0.25) {
         continue;
       }
       const joint = world.createJoint(
@@ -367,10 +377,10 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   // After structural joints: planks ride beams so they draw and fold without joining the truss.
   const plankRides = addPlankBodies(world, pieces, lengths);
 
-  const trial = roundTrial(lengths);
-  const heavy = massKg >= BIG_GOAT_MASS;
+  const heavy = massKg >= BIG_GOAT_MASS || queenPost.goat === "big";
   const bolted = lengths.bolts != null;
-  const breakN = bolted ? 4000 : heavy ? 280 : BREAK_N;
+  const scale = Math.max(1, span / 8);
+  const breakN = bolted ? 4000 * scale : trial === "heavy" ? 200 : trial === "fold" ? BREAK_N : 2500 * scale;
   if (trial === "fold") {
     for (const piece of pieces) {
       piece.body.setStatic();
@@ -413,7 +423,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   let swimTime = 0;
   let glareTime = 0;
   let splashHold = 0;
-  let entryX = 4;
+  let entryX = span / 2;
   let driftLeft = 0;
   let climbing = false;
   let celebrate = 0;
@@ -459,7 +469,8 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     });
   };
 
-  for (let step = 0; step < 1400; step += 1) {
+  const maxSteps = Math.max(1400, Math.ceil(((span + 6) / walkSpeed + CELEBRATE_S + 4) / TIME_STEP));
+  for (let step = 0; step < maxSteps; step += 1) {
     const t = step * TIME_STEP;
     if (!goatDynamic && t < 0.4) {
       mode = "idle";
@@ -476,7 +487,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "walk";
         goat.setPosition(new Vec2(goatX, 0.45));
         goat.setLinearVelocity(new Vec2(walkSpeed, 0));
-      } else if (nextX < 8 && !plankCovers(lengths, nextX)) {
+      } else if (nextX < span && !plankCovers(lengths, nextX)) {
         goat.setDynamic();
         goat.setAwake(true);
         goat.setLinearVelocity(new Vec2(0, -0.2));
@@ -490,7 +501,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
           breakAt = t;
         }
       } else {
-        const support = deckUnder(pieces, Math.min(nextX, 8.2));
+        const support = deckUnder(pieces, Math.min(nextX, span + 0.2));
         if (support) {
           if (!released) {
             for (const piece of pieces) {
@@ -500,11 +511,11 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
             released = true;
           }
           goatX = nextX;
-          feetY = nextX >= 8 && support.y > -0.25 ? 0 : support.y;
+          feetY = nextX >= span && support.y > -0.25 ? 0 : support.y;
           goat.setPosition(new Vec2(goatX, feetY + 0.28));
           goat.setLinearVelocity(new Vec2(walkSpeed, 0));
-          support.piece.body.applyForce(new Vec2(0, -massKg * 10), new Vec2(Math.min(goatX, 8), feetY), true);
-          if (support.y < -0.2) {
+          support.piece.body.applyForce(new Vec2(0, -massKg * 10), new Vec2(Math.min(goatX, span), feetY), true);
+          if (support.y < bankHeight(nextX) - 0.35 * scale) {
             goat.setDynamic();
             goat.setAwake(true);
             goat.setLinearVelocity(new Vec2(walkSpeed, -0.4));
@@ -516,15 +527,15 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
             if (breakAt == null) {
               breakAt = t;
             }
-          } else if (nextX >= 8) {
+          } else if (nextX >= span) {
             mode = "arrived";
-            goatX = 8;
-            feetY = 0;
+            goatX = span;
+            feetY = bankHeight(span);
           } else {
             mode = "walk";
           }
-        } else if (nextX >= 8 && feetY > -0.25) {
-          goatX = 8;
+        } else if (nextX >= span && feetY > bankHeight(span) - 0.35 * scale) {
+          goatX = span;
           feetY = 0;
           mode = "arrived";
           goat.setPosition(new Vec2(goatX, 0.45));
@@ -622,7 +633,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
         mode = "splash";
         const spent = 0.5 - driftLeft;
         const u = Math.min(1, spent / 0.5);
-        goatX = entryX + (4 - entryX) * u;
+        goatX = entryX + (span / 2 - entryX) * u;
         driftLeft -= TIME_STEP;
         splashHold = Math.max(0, splashHold - TIME_STEP);
         feetY = waterY;
@@ -646,7 +657,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     }
     if (climbing) {
       sinceWet += TIME_STEP;
-      const bankX = wetX < 4 ? -1 : 9;
+      const bankX = wetX < span / 2 ? -1 : span + 1;
       goatX += (bankX - goatX) * 0.14;
       feetY += (0.05 - feetY) * 0.22;
       goat.setPosition(new Vec2(goatX, feetY + 0.45));
@@ -663,10 +674,10 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
       }
     }
 
-    if (mode === "arrived" && !failed && goatX >= 8) {
+    if (mode === "arrived" && !failed && goatX >= span) {
       celebrate += TIME_STEP;
       feetY = 0;
-      goat.setPosition(new Vec2(8, 0.45));
+      goat.setPosition(new Vec2(span, 0.45));
       goat.setLinearVelocity(new Vec2(0, 0));
     }
 
@@ -677,12 +688,13 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
     if (failed) {
       sinceFail += TIME_STEP;
     }
-    const arrived = mode === "arrived" && goatX >= 8 && !failed;
+    const arrived = mode === "arrived" && goatX >= span && !failed;
     if (arrived && celebrate >= CELEBRATE_S) {
       capture(t);
       break;
     }
-    if (mode === "glare" && glareTime >= 0.8) {
+    const lastSplash = splashes.reduce((latest, mark) => Math.max(latest, mark.at), 0);
+    if (mode === "glare" && glareTime >= 0.8 && t >= lastSplash + 2) {
       capture(t);
       break;
     }
@@ -711,7 +723,7 @@ export function simulateCrossing(lengths: Record<string, number>, massKg = GOAT_
   unique.sort((a, b) => b.force - a.force);
 
   const goatInWater = feetY < DECK_Y;
-  const ok = !failed && goatX >= 8 && feetY > -0.3;
+  const ok = !failed && goatX >= span && feetY > bankHeight(span) - 0.35 * scale;
   return {
     ok,
     goatX,
