@@ -1,53 +1,38 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { deflateSync, inflateSync } from "node:zlib";
+import {
+  BANKS_FILE,
+  BANKS_LAYOUT,
+  BANKS_NAME,
+  BEAM_THICK_FT,
+  BEARING_FT,
+  PLANK_THICK_FT,
+  SCENE_HEIGHT,
+  SCENE_WIDTH,
+  SPAN_FOR,
+  type KitKind,
+  type MeasuredScene,
+} from "./banks-layout";
 
-/** Matches `.gk-scene img.banks`. Scene numbers come from the picture. */
-export const BANKS_LAYOUT = {
-  left: -79,
-  top: 224,
-  width: 1158,
-  height: 386,
-};
-
-export const BEAM_THICK_FT = 22 / 50;
-export const PLANK_THICK_FT = 16 / 50;
-export const BEAM_THICK_PX = 22;
-export const PLANK_THICK_PX = 16;
-export const SPAN_FT = 8;
-export const BEARING_FT = 0.5;
-export const SCENE_WIDTH = 1000;
-export const SCENE_HEIGHT = 620;
-
-export type KitKind = "little" | "big";
-
-export const BANKS_FILE: Record<KitKind, string> = {
-  little: "public/art/banks.png",
-  big: "public/art/banks-big.png",
-};
-
-export const BANKS_NAME: Record<KitKind, string> = {
-  little: "banks.png",
-  big: "banks-big.png",
-};
-
-export const SPAN_FOR: Record<KitKind, number> = { little: 8, big: 16 };
+export {
+  BANKS_FILE,
+  BANKS_LAYOUT,
+  BANKS_NAME,
+  BEAM_THICK_FT,
+  BEAM_THICK_PX,
+  BEARING_FT,
+  PLANK_THICK_FT,
+  PLANK_THICK_PX,
+  SCENE_HEIGHT,
+  SCENE_WIDTH,
+  SPAN_FOR,
+  SPAN_FT,
+  type KitKind,
+  type MeasuredScene,
+} from "./banks-layout";
 
 export type Rgba = { width: number; height: number; data: Uint8Array };
 export type Pixel = { r: number; g: number; b: number; a: number };
-
-export type MeasuredScene = {
-  leftEdge: number;
-  rightEdge: number;
-  bankTopY: number;
-  leftTopY: number;
-  rightTopY: number;
-  pxPerFt: number;
-  originX: number;
-  deckY: number;
-  waterY: number;
-  span: number;
-  banks: string;
-};
 
 const cachedImage: Partial<Record<KitKind, Rgba>> = {};
 const cachedScene: Partial<Record<KitKind, MeasuredScene>> = {};

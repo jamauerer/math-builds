@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join, relative, resolve } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FROM = join(ROOT, "docs", "art");
@@ -39,6 +39,7 @@ export function syncArt() {
   return files.length;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+const invoked = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : "";
+if (import.meta.url === invoked) {
   console.log(`copied ${syncArt()} art files to public/art`);
 }

@@ -1,7 +1,7 @@
 import { formatLength, lengthAbbrev } from "../../../units";
 import raw from "./queen-post.json";
 import rawBig from "./queen-post-big.json";
-import { BEAM_THICK_FT, measuredScene, PLANK_THICK_FT, type KitKind } from "./water-line";
+import { BEAM_THICK_FT, PLANK_THICK_FT, type KitKind } from "./banks-layout";
 
 export type DunkTag = "general" | "short beam" | "long beam" | "missing planks" | "missing brace" | "missing post";
 
@@ -501,30 +501,8 @@ function readQueenPost(value: unknown): QueenPostKit {
   };
 }
 
-function applyMeasured(kit: QueenPostKit, kind: KitKind): QueenPostKit {
-  const found = measuredScene(kind);
-  return {
-    ...kit,
-    pxPerMetre: found.pxPerFt,
-    banks: found.banks,
-    scene: {
-      ...kit.scene,
-      width: 1000,
-      height: 620,
-      originX: found.originX,
-      deckY: found.deckY,
-      waterY: found.waterY,
-      leftEdge: found.leftEdge,
-      rightEdge: found.rightEdge,
-      bankTopY: found.bankTopY,
-      leftTopY: found.leftTopY,
-      rightTopY: found.rightTopY,
-    },
-  };
-}
-
-export const littleKit = applyMeasured(readQueenPost(raw), "little");
-export const bigKit = applyMeasured(readQueenPost(rawBig), "big");
+export const littleKit = readQueenPost(raw);
+export const bigKit = readQueenPost(rawBig);
 export let queenPost = littleKit;
 export let PX_PER_M = queenPost.pxPerMetre;
 

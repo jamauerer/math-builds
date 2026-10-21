@@ -8,7 +8,7 @@
     "art": "node scripts/sync-art.mjs",
     "build": "node scripts/sync-art.mjs && tsc --noEmit && vite build",
     "curriculum": "node scripts/build-curriculum.mjs",
-    "test": "node scripts/sync-art.mjs && vitest run",
+    "test": "node scripts/sync-art.mjs && vitest run && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {
